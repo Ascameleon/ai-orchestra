@@ -33,7 +33,6 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        # Liveness only: this does not imply the external API is reachable.
         return {"status": "ok", "provider": "configured" if not configuration_error else "not_configured"}
 
     @app.post("/v1/tasks", response_model=TaskResponse)
@@ -45,7 +44,6 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
-            # Do not return vendor exception text, which can contain sensitive context.
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
         return TaskResponse(**result.__dict__)
 
