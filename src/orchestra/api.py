@@ -1,14 +1,17 @@
-"""HTTP API. Provider errors are returned generically without leaking secrets."""
+"""HTTP API with bounded requests, generic provider errors, and safe metrics."""
+from threading import Lock
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.gemini import GeminiProvider, ProviderConfigurationError
 
 
 class TaskRequest(BaseModel):
-    prompt: str = Field(min_length=1, max_length=12000)
+    prompt: str = Field(min_length=1, max_length=100000)
 
 
 class TaskResponse(BaseModel):
@@ -22,14 +25,27 @@ class TaskResponse(BaseModel):
 
 
 def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
-    app = FastAPI(title="AI ORCHESTRA", version="0.1.0")
-    active_orchestrator = orchestrator
+    app = FastAPI(title="AI ORCHESTRA", version="0.2.0")
     configuration_error = False
-    if active_orchestrator is None:
+    config_error_message = "Provider is not configured"
+    settings = None
+    if orchestrator is None:
         try:
-            active_orchestrator = Orchestrator(GeminiProvider(load_settings()))
-        except ProviderConfigurationError:
+            settings = load_settings()
+            if not settings.gemini_api_key:
+                raise ProviderConfigurationError("GEMINI_API_KEY is missing")
+            orchestrator = Orchestrator(GeminiProvider(settings))
+        except (ProviderConfigurationError, ValueError):
             configuration_error = True
+            orchestrator = None
+
+    max_input = settings.max_input_chars if settings else 12000
+    request_limit = settings.max_requests_per_process if settings else 100
+    audit_capacity = settings.audit_capacity if settings else 1000
+    budget = CostGuard(request_limit)
+    audit = AuditTrail(audit_capacity)
+    metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
+    metrics_lock = Lock()
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -38,16 +54,69 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "provider": "configured" if not configuration_error else "not_configured",
         }
 
+    @app.get("/metrics")
+    def get_metrics() -> dict[str, int]:
+        with metrics_lock:
+            return {
+                **metrics,
+                "requests_used": budget.used,
+                "requests_limit": budget.limit,
+                "audit_events": len(audit.snapshot()),
+            }
+
+    @app.get("/audit")
+    def get_audit() -> list[dict[str, str | int | float]]:
+        # Metadata only; intentionally excludes prompts, output text and credentials.
+        return [
+            {
+                "timestamp": event.timestamp,
+                "request_id": event.request_id,
+                "provider": event.provider,
+                "model": event.model,
+                "input_chars": event.input_chars,
+                "output_chars": event.output_chars,
+                "duration_ms": event.duration_ms,
+                "outcome": event.outcome,
+            }
+            for event in audit.snapshot()
+        ]
+
     @app.post("/v1/tasks", response_model=TaskResponse)
     def run_task(request: TaskRequest) -> TaskResponse:
-        if active_orchestrator is None:
-            raise HTTPException(status_code=503, detail="Gemini provider is not configured")
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        if len(request.prompt) > max_input:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
         try:
-            result = active_orchestrator.run(request.prompt)
+            budget.reserve()
+        except BudgetExceeded:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=429, detail="Process request budget exhausted") from None
+
+        try:
+            result = orchestrator.run(request.prompt)
         except Exception as exc:
-            # Provider SDK exceptions (including ValueError) may contain request details.
-            # Do not return upstream messages to callers.
+            with metrics_lock:
+                metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
+
+        audit.record(
+            AuditEvent(
+                timestamp=AuditTrail.now(),
+                request_id=result.request_id,
+                provider=result.provider,
+                model=result.model,
+                input_chars=result.input_chars,
+                output_chars=result.output_chars,
+                duration_ms=result.duration_ms,
+                outcome="success",
+            )
+        )
+        with metrics_lock:
+            metrics["succeeded"] += 1
         return TaskResponse(**result.__dict__)
 
     return app
