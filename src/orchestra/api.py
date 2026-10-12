@@ -1,6 +1,7 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
 import os
 from hmac import compare_digest
+from uuid import uuid4
 from threading import Lock
 
 from fastapi import FastAPI, Header, HTTPException
@@ -112,6 +113,18 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         try:
             result = orchestrator.run(request.prompt)
         except Exception as exc:
+            audit.record(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="failure",
+                )
+            )
             with metrics_lock:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
