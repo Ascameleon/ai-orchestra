@@ -9,8 +9,8 @@ class Settings:
     gemini_model: str
     max_input_chars: int
     max_output_tokens: int
-    max_requests_per_process: int
-    audit_capacity: int
+    max_requests_per_process: int = 100
+    audit_capacity: int = 1000
 
 
 def load_settings() -> Settings:
