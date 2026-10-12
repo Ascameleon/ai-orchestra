@@ -33,7 +33,10 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "provider": "configured" if not configuration_error else "not_configured"}
+        return {
+            "status": "ok",
+            "provider": "configured" if not configuration_error else "not_configured",
+        }
 
     @app.post("/v1/tasks", response_model=TaskResponse)
     def run_task(request: TaskRequest) -> TaskResponse:
@@ -41,9 +44,9 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             raise HTTPException(status_code=503, detail="Gemini provider is not configured")
         try:
             result = active_orchestrator.run(request.prompt)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
+            # Provider SDK exceptions (including ValueError) may contain request details.
+            # Do not return upstream messages to callers.
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
         return TaskResponse(**result.__dict__)
 
