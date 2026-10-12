@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-orchestra"
-version = "0.1.0"
+version = "0.2.0"
 description = "Minimal, testable multi-provider AI orchestration core"
 readme = "README.md"
 requires-python = ">=3.11"
