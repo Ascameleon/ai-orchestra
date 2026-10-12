@@ -9,6 +9,8 @@ class Settings:
     gemini_model: str
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-3-5-haiku-latest"
     max_input_chars: int
     max_output_tokens: int
     provider_name: str = "gemini"
@@ -32,6 +34,10 @@ def load_settings() -> Settings:
     openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
     if not openai_model:
         raise ValueError("OPENAI_MODEL cannot be empty")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip() or None
+    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-latest").strip()
+    if not anthropic_model:
+        raise ValueError("ANTHROPIC_MODEL cannot be empty")
     provider_name = os.getenv("ORCHESTRA_PROVIDER", "gemini").strip().lower()
     if not provider_name:
         raise ValueError("ORCHESTRA_PROVIDER cannot be empty")
@@ -42,6 +48,8 @@ def load_settings() -> Settings:
         gemini_api_key=key,
         openai_api_key=openai_key,
         openai_model=openai_model,
+        anthropic_api_key=anthropic_key,
+        anthropic_model=anthropic_model,
         provider_name=provider_name,
         gemini_model=model,
         max_input_chars=positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000, 100000),
