@@ -26,9 +26,4 @@ def load_settings() -> Settings:
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     if not model:
         raise ValueError("GEMINI_MODEL cannot be empty")
-    return Settings(
-        gemini_api_key=key,
-        gemini_model=model,
-        max_input_chars=positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000),
-        max_output_tokens=positive_int("ORCHESTRA_MAX_OUTPUT_TOKENS", 1024),
-    )
+    return Settings(key, model, positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000), positive_int("ORCHESTRA_MAX_OUTPUT_TOKENS", 1024))
