@@ -34,9 +34,47 @@ def test_factory_rejects_missing_gemini_key():
         raise AssertionError("Missing Gemini key should be rejected")
 
 
+def test_factory_registers_configured_openai(monkeypatch):
+    class FakeOpenAIProvider:
+        name = "openai"
+
+        def __init__(self, settings):
+            self.settings = settings
+
+    monkeypatch.setattr(factory, "OpenAIProvider", FakeOpenAIProvider)
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        openai_api_key="test-key",
+        openai_model="test-openai",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        provider_name="openai",
+    )
+    registry = factory.build_provider_registry(configured)
+    assert registry.names() == ("openai",)
+    assert registry.get("openai").settings.openai_model == "test-openai"
+
+
+def test_factory_rejects_missing_openai_key():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        provider_name="openai",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except factory.ProviderConfigurationError as exc:
+        assert "OPENAI_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Missing OpenAI key should be rejected")
+
+
 def test_factory_rejects_unimplemented_provider():
     try:
-        factory.build_provider_registry(settings("openai"))
+        factory.build_provider_registry(settings("anthropic"))
     except factory.ProviderConfigurationError as exc:
         assert "Unsupported ORCHESTRA_PROVIDER" in str(exc)
     else:
