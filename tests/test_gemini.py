@@ -13,26 +13,55 @@ def settings(key="test-key", max_input=12):
     )
 
 
-def test_missing_api_key_fails_before_network_call():
+def test_missing_api_key_fails_before_client_creation():
     with pytest.raises(ProviderConfigurationError, match="GEMINI_API_KEY"):
         GeminiProvider(settings(key=None))
 
 
-def test_empty_prompt_is_rejected():
+def test_empty_prompt_is_rejected_before_provider_call():
     provider = GeminiProvider.__new__(GeminiProvider)
     provider._max_input_chars = 12
     with pytest.raises(ValueError, match="empty"):
         provider.generate("   ")
 
 
-def test_prompt_over_limit_is_rejected_before_network_call():
+def test_prompt_over_limit_is_rejected_before_provider_call():
     provider = GeminiProvider.__new__(GeminiProvider)
     provider._max_input_chars = 3
     with pytest.raises(ValueError, match="exceeds 3"):
         provider.generate("long prompt")
 
 
-def test_empty_provider_response_is_reported(monkeypatch):
+def test_successful_generation_uses_configured_model_and_limits():
+    calls = []
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            calls.append(kwargs)
+            return type("Response", (), {"text": "  answer  "})()
+
+    class FakeClient:
+        models = FakeModels()
+
+    provider = GeminiProvider.__new__(GeminiProvider)
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._model = "test-model"
+    provider._client = FakeClient()
+
+    result = provider.generate("hello")
+
+    assert result.provider == "gemini"
+    assert result.model == "test-model"
+    assert result.text == "  answer  "
+    assert result.input_chars == 5
+    assert result.output_chars == 9
+    assert calls[0]["model"] == "test-model"
+    assert calls[0]["contents"] == "hello"
+    assert calls[0]["config"].max_output_tokens == 32
+
+
+def test_empty_provider_response_is_reported():
     class FakeModels:
         def generate_content(self, **kwargs):
             return type("Response", (), {"text": "  "})()
