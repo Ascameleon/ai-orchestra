@@ -6,10 +6,10 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str | None
-    provider_name: str = "gemini"
     gemini_model: str
     max_input_chars: int
     max_output_tokens: int
+    provider_name: str = "gemini"
     max_requests_per_process: int = 100
     audit_capacity: int = 1000
 
