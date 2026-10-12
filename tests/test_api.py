@@ -15,6 +15,11 @@ class FailingProvider:
         raise RuntimeError("sensitive upstream detail")
 
 
+class InvalidRequestProvider:
+    def generate(self, prompt: str) -> ProviderResult:
+        raise ValueError("sensitive request payload from SDK")
+
+
 def test_health_is_liveness_only():
     client = TestClient(create_app(Orchestrator(StubProvider())))
     assert client.get("/health").json()["status"] == "ok"
@@ -40,3 +45,11 @@ def test_task_endpoint_does_not_leak_provider_exception():
     assert response.status_code == 502
     assert response.json() == {"detail": "Provider request failed"}
     assert "sensitive upstream detail" not in response.text
+
+
+def test_task_endpoint_does_not_leak_provider_value_error():
+    client = TestClient(create_app(Orchestrator(InvalidRequestProvider())))
+    response = client.post("/v1/tasks", json={"prompt": "hello"})
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Provider request failed"}
+    assert "sensitive request payload" not in response.text
