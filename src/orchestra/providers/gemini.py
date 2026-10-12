@@ -15,9 +15,7 @@ class GeminiProvider:
 
     def __init__(self, settings: Settings):
         if not settings.gemini_api_key:
-            raise ProviderConfigurationError(
-                "GEMINI_API_KEY is missing; configure it in the local environment."
-            )
+            raise ProviderConfigurationError("GEMINI_API_KEY is missing; configure it in the local environment.")
         self._model = settings.gemini_model
         self._max_output_tokens = settings.max_output_tokens
         self._max_input_chars = settings.max_input_chars
@@ -31,17 +29,9 @@ class GeminiProvider:
         response = self._client.models.generate_content(
             model=self._model,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=self._max_output_tokens,
-            ),
+            config=types.GenerateContentConfig(max_output_tokens=self._max_output_tokens),
         )
         text = response.text
         if not text or not text.strip():
             raise RuntimeError("Gemini returned an empty response")
-        return ProviderResult(
-            provider=self.name,
-            model=self._model,
-            text=text,
-            input_chars=len(prompt),
-            output_chars=len(text),
-        )
+        return ProviderResult(self.name, self._model, text, len(prompt), len(text))
