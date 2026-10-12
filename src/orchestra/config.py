@@ -1,6 +1,6 @@
 """Environment configuration with conservative request limits."""
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
