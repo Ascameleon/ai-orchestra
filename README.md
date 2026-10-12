@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-A minimal, testable foundation for provider-based AI tasks. This branch intentionally makes one provider call per task; multi-agent workflows and automatic routing are deferred until benchmarks demonstrate value.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes the Gemini adapter, a typed provider contract, request metrics, bounded metadata-only audit events, and a per-process request budget.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ python -m pip install -e ".[dev]"
 
 Set `GEMINI_API_KEY` in your shell or a local secret manager. Never commit credentials. The app does not automatically load a `.env` file.
 
-## Verify locally (no paid API calls)
+## Verify locally without provider API calls
 
 ```bash
 ruff check src tests
@@ -33,25 +33,30 @@ The automated tests stub the provider SDK; they do not contact Gemini or spend A
 
 ## Run the API
 
-After configuring a valid API key and a model enabled for your account:
+For local use, after configuring a valid API key and a model enabled for your account:
 
 ```bash
 uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 ```
 
-- `GET /health` is a liveness/configuration indicator, not a live Gemini connectivity check.
+- `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live Gemini connectivity.
 - `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one Gemini API request.
-- Provider failures are returned as a generic error; upstream exception details are not returned to clients.
+- `GET /metrics` returns process-local request counters and budget use.
+- `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
+- Provider failures return a generic error and do not expose upstream exception details.
 
-## Security and cost boundaries
+## Limits and safeguards
 
-- Keep API keys in environment variables or a secret manager; never commit secrets or log prompts, responses, or credentials.
-- This project does not configure billing, purchase credits, or enforce a monetary quota. Configure provider-side quotas and billing limits before any live use.
-- No live provider call is performed by CI.
-- The default model is not guaranteed to be available or eligible for free-tier use. Choose a model enabled for your account.
+- `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
+- `ORCHESTRA_MAX_OUTPUT_TOKENS`: output token cap (default 1024; allowed 1–8192).
+- `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process (default 100; allowed 1–100000).
+- `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
+- The request budget and audit trail are process-local and reset on restart. They are not distributed rate limiting, persistent audit storage, or a monetary quota. Configure provider-side quotas and billing limits before live use.
+- The API binds to loopback in the documented command. Do not expose it publicly without authentication, TLS, deployment hardening, and a shared rate limiter.
+- No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
 
-## Scope and verification
+## Current scope
 
-Implemented: provider contract, Gemini adapter, single-call orchestrator, FastAPI endpoints, deterministic stub-based tests, and CI packaging check.
+Implemented: typed provider contract, Gemini adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-CI passing proves only the checks shown in that run. It does not prove live Gemini authentication, model availability, free-tier eligibility, production hardening, multi-provider routing, persistent audit storage, or performance/quality gains. Live connectivity remains intentionally untested until explicitly authorized and configured.
+Not yet implemented: additional live provider adapters, automatic provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live Gemini connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
