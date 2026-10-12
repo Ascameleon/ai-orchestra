@@ -1,4 +1,4 @@
-"Provider construction and registration from validated settings."
+"""Provider construction and registration from validated settings."""
 from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
 from orchestra.providers.gemini import GeminiProvider, ProviderConfigurationError
