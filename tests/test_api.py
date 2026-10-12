@@ -68,3 +68,18 @@ def test_metrics_and_audit_expose_metadata_without_prompt_or_response():
     assert secret_prompt not in audit_response.text
     assert "safe test response" not in audit_response.text
     assert audit_response.json()[0]["outcome"] == "success"
+
+
+def test_configured_api_key_protects_tasks_and_audit(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "test-secret-key")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    denied = client.post("/v1/tasks", json={"prompt": "hello"})
+    assert denied.status_code == 401
+    assert client.get("/audit").status_code == 401
+    allowed = client.post(
+        "/v1/tasks",
+        json={"prompt": "hello"},
+        headers={"X-API-Key": "test-secret-key"},
+    )
+    assert allowed.status_code == 200
+    assert client.get("/audit", headers={"X-API-Key": "test-secret-key"}).status_code == 200
