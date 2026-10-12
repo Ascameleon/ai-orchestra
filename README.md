@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes the Gemini adapter, a typed provider contract and deterministic provider registry, request metrics, bounded metadata-only audit events, and a per-process request budget.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes the Gemini adapter, a typed provider contract, a settings-driven provider registry, request metrics, bounded metadata-only audit events, and a per-process request budget.
 
 ## Requirements
 
@@ -47,6 +47,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
+- `ORCHESTRA_PROVIDER`: provider name (default `gemini`). Only `gemini` is implemented; unsupported values fail closed during startup.
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
 - `ORCHESTRA_MAX_OUTPUT_TOKENS`: output token cap (default 1024; allowed 1–8192).
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process (default 100; allowed 1–100000).
@@ -57,6 +58,6 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Current scope
 
-Implemented: typed provider contract and registry, Gemini adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: additional live provider adapters, automatic provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live Gemini connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: OpenAI/Anthropic live provider adapters, automatic multi-provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live Gemini connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
