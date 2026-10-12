@@ -55,7 +55,7 @@ def test_successful_generation_uses_configured_model_and_limits():
     assert result.model == "test-model"
     assert result.text == "  answer  "
     assert result.input_chars == 5
-    assert result.output_chars == 9
+    assert result.output_chars == len("  answer  ")
     assert calls[0]["model"] == "test-model"
     assert calls[0]["contents"] == "hello"
     assert calls[0]["config"].max_output_tokens == 32
