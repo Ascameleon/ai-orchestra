@@ -83,3 +83,16 @@ def test_configured_api_key_protects_tasks_and_audit(monkeypatch):
     )
     assert allowed.status_code == 200
     assert client.get("/audit", headers={"X-API-Key": "test-secret-key"}).status_code == 200
+
+
+def test_failed_provider_request_is_audited_without_sensitive_details():
+    client = TestClient(create_app(Orchestrator(FailingProvider())))
+    secret_prompt = "sensitive-user-prompt"
+    response = client.post("/v1/tasks", json={"prompt": secret_prompt})
+    assert response.status_code == 502
+    audit_response = client.get("/audit")
+    assert secret_prompt not in audit_response.text
+    event = audit_response.json()[0]
+    assert event["outcome"] == "failure"
+    assert event["input_chars"] == len(secret_prompt)
+    assert event["output_chars"] == 0
