@@ -2,7 +2,7 @@ name: Python CI
 
 on:
   push:
-    branches: [main, feat/gemini-minimal-core]
+    branches: [main, "feat/**"]
   pull_request:
     branches: [main]
 
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: python-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test:
