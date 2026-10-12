@@ -7,6 +7,8 @@ from dataclasses import dataclass
 class Settings:
     gemini_api_key: str | None
     gemini_model: str
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
     max_input_chars: int
     max_output_tokens: int
     provider_name: str = "gemini"
@@ -26,6 +28,10 @@ def load_settings() -> Settings:
         return value
 
     key = os.getenv("GEMINI_API_KEY", "").strip() or None
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip() or None
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+    if not openai_model:
+        raise ValueError("OPENAI_MODEL cannot be empty")
     provider_name = os.getenv("ORCHESTRA_PROVIDER", "gemini").strip().lower()
     if not provider_name:
         raise ValueError("ORCHESTRA_PROVIDER cannot be empty")
@@ -34,6 +40,8 @@ def load_settings() -> Settings:
         raise ValueError("GEMINI_MODEL cannot be empty")
     return Settings(
         gemini_api_key=key,
+        openai_api_key=openai_key,
+        openai_model=openai_model,
         provider_name=provider_name,
         gemini_model=model,
         max_input_chars=positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000, 100000),
