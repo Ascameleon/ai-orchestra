@@ -1,0 +1,126 @@
+name: Continuous graduated engineering
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Frequent, bounded health checks; no model/API calls.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      full_audit:
+        description: "Run all quality and security gates"
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: continuous-engineering-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stage-1-lint:
+    name: "Stage 1 — Static quality"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and tools
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]" build
+      - name: Ruff lint
+        run: ruff check src tests
+
+  stage-2-tests:
+    name: "Stage 2 — Automated tests"
+    needs: stage-1-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and test tools
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - name: Test suite (no live provider calls)
+        run: pytest -q
+
+  stage-3-build:
+    name: "Stage 3 — Reproducible package"
+    needs: stage-2-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build
+      - name: Build source and wheel distributions
+        run: python -m build
+      - name: Preserve build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ai-orchestra-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  stage-4-security:
+    name: "Stage 4 — Dependency security audit"
+    needs: stage-3-build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and audit tool
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]" pip-audit
+      - name: Audit installed dependency tree
+        run: pip-audit
+
+  report-failure:
+    name: "Stage 5 — Track blockers"
+    if: always() && (needs.stage-1-lint.result == 'failure' || needs.stage-2-tests.result == 'failure' || needs.stage-3-build.result == 'failure' || needs.stage-4-security.result == 'failure')
+    needs: [stage-1-lint, stage-2-tests, stage-3-build, stage-4-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or update a deduplicated blocker issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINT_RESULT: ${{ needs.stage-1-lint.result }}
+          TEST_RESULT: ${{ needs.stage-2-tests.result }}
+          BUILD_RESULT: ${{ needs.stage-3-build.result }}
+          SECURITY_RESULT: ${{ needs.stage-4-security.result }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="[Automation] Quality gate failure"
+          existing="$(gh issue list --repo "$GH_REPO" --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          body="$(printf 'Automated engineering gates failed.\n\n- Lint: %s\n- Tests: %s\n- Build: %s\n- Dependency audit: %s\n- Commit: %s\n- Run: %s\n\nThis issue records evidence only; it does not claim an automatic code fix. Fix the underlying cause, add regression coverage, and rerun the workflow.' "$LINT_RESULT" "$TEST_RESULT" "$BUILD_RESULT" "$SECURITY_RESULT" "$SHA" "$RUN_URL")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GH_REPO" --body "$body"
+          else
+            gh issue create --repo "$GH_REPO" --title "$title" --body "$body"
+          fi
