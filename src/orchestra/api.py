@@ -1,8 +1,8 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
 import os
 from hmac import compare_digest
-from uuid import uuid4
 from threading import Lock
+from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
