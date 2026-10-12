@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
-from orchestra.providers.gemini import GeminiProvider, ProviderConfigurationError
+from orchestra.providers.factory import build_provider_registry
+from orchestra.providers.gemini import ProviderConfigurationError
 
 
 class TaskRequest(BaseModel):
@@ -35,9 +36,8 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
     if orchestrator is None:
         try:
             settings = load_settings()
-            if not settings.gemini_api_key:
-                raise ProviderConfigurationError("GEMINI_API_KEY is missing")
-            orchestrator = Orchestrator(GeminiProvider(settings))
+            registry = build_provider_registry(settings)
+            orchestrator = Orchestrator(registry.get(settings.provider_name))
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
