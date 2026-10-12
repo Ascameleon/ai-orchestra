@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes the Gemini adapter, a typed provider contract, a settings-driven provider registry, request metrics, bounded metadata-only audit events, and a per-process request budget.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini and optional OpenAI adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, and a per-process request budget.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Set `GEMINI_API_KEY` in your shell or a local secret manager. Never commit credentials. The app does not automatically load a `.env` file.
+Set `GEMINI_API_KEY` for Gemini, or install `python -m pip install -e ".[openai]"` and set `OPENAI_API_KEY` for OpenAI. Never commit credentials. The app does not automatically load a `.env` file.
 
 ## Verify locally without provider API calls
 
@@ -47,7 +47,8 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
-- `ORCHESTRA_PROVIDER`: provider name (default `gemini`). Only `gemini` is implemented; unsupported values fail closed during startup.
+- `ORCHESTRA_PROVIDER`: provider name (default `gemini`); supported values are `gemini` and `openai`. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`.
+- `OPENAI_MODEL`: OpenAI model name (default `gpt-4o-mini`).
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
 - `ORCHESTRA_MAX_OUTPUT_TOKENS`: output token cap (default 1024; allowed 1–8192).
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process (default 100; allowed 1–100000).
@@ -58,6 +59,6 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: OpenAI/Anthropic live provider adapters, automatic multi-provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live Gemini connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: Anthropic adapter, automatic multi-provider fallback/routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
