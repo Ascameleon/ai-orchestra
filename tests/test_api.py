@@ -53,3 +53,18 @@ def test_task_endpoint_does_not_leak_provider_value_error():
     assert response.status_code == 502
     assert response.json() == {"detail": "Provider request failed"}
     assert "sensitive request payload" not in response.text
+
+
+def test_metrics_and_audit_expose_metadata_without_prompt_or_response():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    secret_prompt = "prompt-that-must-not-be-audited"
+    response = client.post("/v1/tasks", json={"prompt": secret_prompt})
+    assert response.status_code == 200
+    metrics = client.get("/metrics").json()
+    assert metrics["succeeded"] == 1
+    assert metrics["requests_used"] == 1
+    audit_response = client.get("/audit")
+    assert audit_response.status_code == 200
+    assert secret_prompt not in audit_response.text
+    assert "safe test response" not in audit_response.text
+    assert audit_response.json()[0]["outcome"] == "success"
