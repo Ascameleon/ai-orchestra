@@ -74,7 +74,7 @@ def test_factory_rejects_missing_openai_key():
 
 def test_factory_rejects_unimplemented_provider():
     try:
-        factory.build_provider_registry(settings("anthropic"))
+        factory.build_provider_registry(settings("grok"))
     except factory.ProviderConfigurationError as exc:
         assert "Unsupported ORCHESTRA_PROVIDER" in str(exc)
     else:
