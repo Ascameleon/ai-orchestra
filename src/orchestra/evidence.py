@@ -3,8 +3,8 @@
 This module evaluates metadata only. It does not fetch URLs, verify publishers, or
 establish that a cited source supports a claim.
 """
+import datetime as dt
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -14,7 +14,7 @@ UNDATED = "undated"
 FUTURE_DATED = "future_dated"
 
 
-def _require_aware(value: datetime, field_name: str) -> None:
+def _require_aware(value: dt.datetime, field_name: str) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{field_name} must be timezone-aware")
 
@@ -38,8 +38,8 @@ class EvidenceRecord:
     source_name: str
     source_group: str
     url: str
-    published_at: datetime | None = None
-    retrieved_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    published_at: dt.datetime | None = None
+    retrieved_at: dt.datetime = field(default_factory=lambda: dt.datetime.now(dt.UTC))
 
     def __post_init__(self) -> None:
         for name in ("evidence_id", "source_name", "source_group"):
@@ -74,8 +74,8 @@ class EvidenceAssessment:
 def assess_evidence(
     records: list[EvidenceRecord] | tuple[EvidenceRecord, ...],
     *,
-    now: datetime | None = None,
-    max_age: timedelta = timedelta(days=30),
+    now: dt.datetime | None = None,
+    max_age: dt.timedelta = dt.timedelta(days=30),
     minimum_independent_sources: int = 2,
 ) -> EvidenceAssessment:
     """Assess evidence freshness and declared source diversity without network calls.
@@ -84,9 +84,9 @@ def assess_evidence(
     URLs are deduplicated for independence counts, while freshness counts are
     record-level. Source groups must be assigned by the caller and are not verified.
     """
-    reference_time = now or datetime.now(UTC)
+    reference_time = now or dt.datetime.now(dt.UTC)
     _require_aware(reference_time, "now")
-    if max_age < timedelta(0):
+    if max_age < dt.timedelta(0):
         raise ValueError("max_age must not be negative")
     if minimum_independent_sources < 1:
         raise ValueError("minimum_independent_sources must be at least 1")
