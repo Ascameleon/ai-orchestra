@@ -1,5 +1,6 @@
 """Provider orchestration with explicit, bounded failover."""
 from dataclasses import dataclass
+from collections.abc import Callable
 from time import perf_counter
 from uuid import uuid4
 
@@ -47,7 +48,12 @@ class Orchestrator:
     def provider_names(self) -> tuple[str, ...]:
         return tuple(self._provider_name(provider) for provider in self._providers)
 
-    def run(self, prompt: str, preferred_provider: str | None = None) -> TaskResult:
+    def run(
+        self,
+        prompt: str,
+        preferred_provider: str | None = None,
+        before_attempt: Callable[[], object] | None = None,
+    ) -> TaskResult:
         request_id = str(uuid4())
         started = perf_counter()
         providers = self._providers
@@ -59,6 +65,8 @@ class Orchestrator:
             providers = (matches[0], *(provider for provider in self._providers if provider is not matches[0]))
         last_error: Exception | None = None
         for index, provider in enumerate(providers, start=1):
+            if before_attempt is not None:
+                before_attempt()
             provider_started = perf_counter()
             provider_name = getattr(provider, "name", provider.__class__.__name__).lower()
             try:
