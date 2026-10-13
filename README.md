@@ -47,7 +47,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
-- `ORCHESTRA_PROVIDER`: provider name (default `gemini`); supported values are `gemini` and `openai`. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`.
+- `ORCHESTRA_PROVIDER`: provider name (default `gemini`); supported values are `gemini`, `openai`, and `anthropic`. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
 - `OPENAI_MODEL`: OpenAI model name (default `gpt-4o-mini`).
 - `ANTHROPIC_MODEL`: Anthropic model name (default `claude-3-5-haiku-latest`).
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
