@@ -38,5 +38,5 @@ class AnthropicProvider:
             if getattr(block, "type", None) == "text" and getattr(block, "text", "").strip()
         )
         if not text:
-            raise RuntimeError("Anthropic returned an empty response")
+            raise ProviderCallError("Anthropic returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))
