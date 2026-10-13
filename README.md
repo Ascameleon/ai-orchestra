@@ -44,6 +44,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one Gemini API request.
 - `GET /metrics` returns process-local request counters and budget use.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
+- `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
 - Provider failures return a generic error and do not expose upstream exception details.
 
 ## Limits and safeguards
@@ -62,6 +63,6 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: task-aware automatic provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: task-aware automatic provider routing, persistent audit storage or cross-process memory, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
