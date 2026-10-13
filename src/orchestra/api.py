@@ -158,6 +158,18 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
+            audit.record(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="rejected",
+                )
+            )
             with metrics_lock:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
