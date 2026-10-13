@@ -1,7 +1,6 @@
 import pytest
 
 from orchestra.config import Settings
-from orchestra.providers.gemini import ProviderConfigurationError
 from orchestra.providers.openai import OpenAIProvider
 
 
