@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Callable
+from uuid import uuid4
 
 from orchestra.core import Orchestrator
 
@@ -60,7 +61,7 @@ class ReviewWorkflow:
             before_attempt=before_attempt,
         )
         return WorkflowResult(
-            workflow_id=draft.request_id,
+            workflow_id=str(uuid4()),
             provider=final.provider,
             model=final.model,
             text=final.text,
