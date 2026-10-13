@@ -1,7 +1,7 @@
 """Opt-in, bounded multi-step workflows with no persisted task content."""
+from collections.abc import Callable
 from dataclasses import dataclass
 from time import perf_counter
-from collections.abc import Callable
 from uuid import uuid4
 
 from orchestra.core import Orchestrator
