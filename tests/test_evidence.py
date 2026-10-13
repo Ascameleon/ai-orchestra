@@ -1,3 +1,4 @@
+# isort: skip_file
 import datetime as dt
 
 import pytest
