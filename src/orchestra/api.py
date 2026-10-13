@@ -16,6 +16,7 @@ from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
+from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
 from orchestra.workflows import ReviewWorkflow
 
 
@@ -54,6 +55,22 @@ class ClaimItemRequest(BaseModel):
 class ClaimLinkAssessmentRequest(BaseModel):
     evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=100)
     claims: list[ClaimItemRequest] = Field(max_length=100)
+
+
+class SourceSnapshotRequest(BaseModel):
+    evidence_id: str = Field(min_length=1, max_length=128)
+    content: str = Field(min_length=1, max_length=20000)
+
+
+class QuoteReferenceRequest(BaseModel):
+    claim_id: str = Field(min_length=1, max_length=128)
+    evidence_id: str = Field(min_length=1, max_length=128)
+    quote: str = Field(min_length=1, max_length=2000)
+
+
+class QuoteAuditRequest(BaseModel):
+    snapshots: list[SourceSnapshotRequest] = Field(max_length=100)
+    quotes: list[QuoteReferenceRequest] = Field(max_length=100)
 
 
 class WorkflowResponse(BaseModel):
@@ -354,6 +371,36 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "claims_with_unknown_references": result.claims_with_unknown_references,
             "results": [item.__dict__ for item in result.results],
             "semantic_support_verified": False,
+        }
+
+
+    @app.post("/v1/evidence/audit-quotes")
+    def audit_evidence_quotes(
+        request: QuoteAuditRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Check literal quote presence in caller-supplied snapshots; never fetches URLs."""
+        authorize(x_api_key)
+        total_chars = sum(len(item.content) for item in request.snapshots) + sum(
+            len(item.quote) for item in request.quotes
+        )
+        if total_chars > 250000:
+            raise HTTPException(status_code=413, detail="Combined source and quote text exceeds 250000 characters")
+        try:
+            result = audit_quotes(
+                [SourceSnapshot(item.evidence_id, item.content) for item in request.snapshots],
+                [QuoteReference(item.claim_id, item.evidence_id, item.quote) for item in request.quotes],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return {
+            "total_quotes": result.total_quotes,
+            "quotes_found": result.quotes_found,
+            "quotes_missing": result.quotes_missing,
+            "unknown_evidence_references": result.unknown_evidence_references,
+            "checks": [item.__dict__ for item in result.checks],
+            "semantic_support_verified": False,
+            "publisher_authenticity_verified": False,
         }
 
     return app
