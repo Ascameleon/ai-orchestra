@@ -4,7 +4,6 @@ Conflict results are review flags based on caller-supplied topics and stances,
 not semantic inference or proof that either source is correct.
 """
 from dataclasses import dataclass
-from typing import Literal
 
 
 Stance = str
