@@ -46,6 +46,8 @@ class EvidenceRecord:
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must not be empty")
+        if not isinstance(self.url, str):
+            raise ValueError("url must be an absolute http(s) URL")
         _canonical_url(self.url)
         _require_aware(self.retrieved_at, "retrieved_at")
         if self.published_at is not None:
