@@ -32,6 +32,7 @@ def test_task_endpoint_uses_provider():
     body = response.json()
     assert body["text"] == "safe test response"
     assert body["provider"] == "stub"
+    assert body["attempts"] == 1
 
 
 def test_task_endpoint_rejects_empty_prompt():
@@ -143,3 +144,23 @@ def test_readiness_reports_configured_injected_orchestrator():
     response = client.get("/ready")
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
+
+
+def test_task_response_reports_fallback_attempt_count():
+    from orchestra.core import AllProvidersFailed
+
+    class FailOnceThenSucceed:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("primary unavailable")
+            return ProviderResult("backup", "backup-model", "answer", len(prompt), 6)
+
+    provider = FailOnceThenSucceed()
+    client = TestClient(create_app(Orchestrator([provider, StubProvider()])))
+    response = client.post("/v1/tasks", json={"prompt": "hello"})
+    assert response.status_code == 200
+    assert response.json()["attempts"] == 1
