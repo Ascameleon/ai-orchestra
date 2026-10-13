@@ -31,7 +31,7 @@ class AnthropicProvider:
                 max_tokens=self._max_output_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+        except Exception as exc:
             raise ProviderCallError("Anthropic request failed") from exc
         text = "\n".join(
             block.text for block in response.content
