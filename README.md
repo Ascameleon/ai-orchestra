@@ -45,6 +45,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `GET /metrics` returns process-local request counters and budget use.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
 - `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
+- `POST /v1/workflows/review` runs an opt-in three-stage draft → independent critique → final revision workflow. It returns only the final answer, not intermediate drafts or critique. Each provider attempt consumes the process call budget; if the budget runs out mid-workflow, no partial result is returned, although earlier provider calls may already have incurred charges.
 - Provider failures return a generic error and do not expose upstream exception details.
 
 ## Limits and safeguards
@@ -65,4 +66,4 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: task-aware automatic provider routing, persistent audit storage or cross-process memory, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: task-aware automatic provider routing, persistent audit storage or cross-process memory, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
