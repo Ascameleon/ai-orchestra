@@ -14,6 +14,7 @@ class Settings:
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-5-haiku-latest"
     provider_name: str = "gemini"
+    provider_fallbacks: tuple[str, ...] = ()
     max_requests_per_process: int = 100
     audit_capacity: int = 1000
 
@@ -41,6 +42,17 @@ def load_settings() -> Settings:
     provider_name = os.getenv("ORCHESTRA_PROVIDER", "gemini").strip().lower()
     if not provider_name:
         raise ValueError("ORCHESTRA_PROVIDER cannot be empty")
+    fallback_raw = os.getenv("ORCHESTRA_PROVIDER_FALLBACKS", "")
+    provider_fallbacks = tuple(
+        item.strip().lower() for item in fallback_raw.split(",") if item.strip()
+    )
+    supported_providers = {"gemini", "openai", "anthropic"}
+    if provider_name not in supported_providers:
+        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, or anthropic")
+    if any(item not in supported_providers for item in provider_fallbacks):
+        raise ValueError("ORCHESTRA_PROVIDER_FALLBACKS contains an unsupported provider")
+    if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
+        raise ValueError("Provider fallback list must be unique and exclude the primary provider")
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     if not model:
         raise ValueError("GEMINI_MODEL cannot be empty")
@@ -51,6 +63,7 @@ def load_settings() -> Settings:
         anthropic_api_key=anthropic_key,
         anthropic_model=anthropic_model,
         provider_name=provider_name,
+        provider_fallbacks=provider_fallbacks,
         gemini_model=model,
         max_input_chars=positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000, 100000),
         max_output_tokens=positive_int("ORCHESTRA_MAX_OUTPUT_TOKENS", 1024, 8192),
