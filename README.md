@@ -47,6 +47,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
 - `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
 - `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
+- `POST /v1/claims/verify-links` checks whether each claim references known evidence IDs, flags unlinked claims and unknown references, and returns `semantic_support_verified: false`. It does not determine whether the cited sources actually support or contradict a claim.
 - `POST /v1/workflows/review` runs an opt-in three-stage draft → independent critique → final revision workflow. It returns only the final answer, not intermediate drafts or critique. Each provider attempt consumes the process call budget; if the budget runs out mid-workflow, no partial result is returned, although earlier provider calls may already have incurred charges.
 - Provider failures return a generic error and do not expose upstream exception details.
 
