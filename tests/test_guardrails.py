@@ -38,3 +38,22 @@ def test_invalid_limits_are_rejected():
         CostGuard(0)
     with pytest.raises(ValueError):
         AuditTrail(0)
+
+
+def test_cost_guard_is_thread_safe_under_concurrent_reservations():
+    from concurrent.futures import ThreadPoolExecutor
+
+    guard = CostGuard(10)
+
+    def reserve():
+        try:
+            return guard.reserve()
+        except BudgetExceeded:
+            return None
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        results = list(pool.map(lambda _: reserve(), range(100)))
+
+    accepted = [value for value in results if value is not None]
+    assert sorted(accepted) == list(range(1, 11))
+    assert guard.used == 10
