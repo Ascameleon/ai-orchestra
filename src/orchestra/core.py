@@ -60,7 +60,7 @@ class Orchestrator:
         request_id = str(uuid4())
         started = perf_counter()
         providers = self._providers
-        if task_type not in {"general", "code", "research", "writing", "analysis", "review"}:
+        if task_type not in {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}:
             raise ValueError("unsupported task type")
         routed_provider = preferred_provider or self._task_routes.get(task_type)
         if routed_provider is not None:
