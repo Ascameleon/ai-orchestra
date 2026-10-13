@@ -1,6 +1,6 @@
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers import factory
+from orchestra.providers.base import ProviderConfigurationError
 
 
 def settings(provider_name: str, api_key: str | None = "test-key") -> Settings:
