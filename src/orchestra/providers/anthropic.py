@@ -1,6 +1,6 @@
 """Optional Anthropic adapter with deferred SDK import and bounded input/output."""
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderConfigurationError, ProviderResult
+from orchestra.providers.base import ProviderCallError, ProviderConfigurationError, ProviderResult
 
 
 class AnthropicProvider:
@@ -25,11 +25,14 @@ class AnthropicProvider:
             raise ValueError("prompt must not be empty")
         if len(prompt) > self._max_input_chars:
             raise ValueError(f"prompt exceeds {self._max_input_chars} characters")
-        response = self._client.messages.create(
-            model=self._model,
-            max_tokens=self._max_output_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = self._client.messages.create(
+                model=self._model,
+                max_tokens=self._max_output_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+            raise ProviderCallError("Anthropic request failed") from exc
         text = "\n".join(
             block.text for block in response.content
             if getattr(block, "type", None) == "text" and getattr(block, "text", "").strip()
