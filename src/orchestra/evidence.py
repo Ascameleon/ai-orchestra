@@ -42,7 +42,7 @@ class EvidenceRecord:
     retrieved_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
-        for name in ("evidence_id", "source_name", "source_group", "url"):
+        for name in ("evidence_id", "source_name", "source_group"):
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must not be empty")
