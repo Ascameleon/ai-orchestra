@@ -1,7 +1,6 @@
 """Optional OpenAI adapter. SDK import and network calls are deferred until configured use."""
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderResult
-from orchestra.providers.gemini import ProviderConfigurationError
+from orchestra.providers.base import ProviderConfigurationError, ProviderResult
 
 
 class OpenAIProvider:
