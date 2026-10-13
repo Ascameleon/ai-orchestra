@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from orchestra.api import create_app
 from orchestra.core import Orchestrator
-from orchestra.providers.base import ProviderResult
+from orchestra.providers.base import ProviderCallError, ProviderResult
 
 
 class StubProvider:
@@ -16,7 +16,7 @@ class FailingProvider:
     name = "failing"
 
     def generate(self, prompt: str) -> ProviderResult:
-        raise RuntimeError("sensitive upstream detail")
+        raise ProviderCallError("sensitive upstream detail")
 
 
 class InvalidRequestProvider:
@@ -158,7 +158,7 @@ def test_task_response_reports_fallback_attempt_count():
         def generate(self, prompt: str) -> ProviderResult:
             self.calls += 1
             if self.calls == 1:
-                raise RuntimeError("primary unavailable")
+                raise ProviderCallError("primary unavailable")
             return ProviderResult("backup", "backup-model", "answer", len(prompt), 6)
 
     provider = FailOnceThenSucceed()
