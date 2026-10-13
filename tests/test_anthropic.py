@@ -45,6 +45,22 @@ def test_anthropic_generation_uses_configured_model_and_limits():
     assert calls[0]["messages"] == [{"role": "user", "content": "hello"}]
 
 
+def test_anthropic_sdk_failure_is_normalized_for_failover():
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            raise LookupError("secret upstream error")
+
+    provider = AnthropicProvider.__new__(AnthropicProvider)
+    provider._model = "test-model"
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._client = type("Client", (), {"messages": FakeMessages()})()
+    with pytest.raises(ProviderCallError, match="Anthropic request failed"):
+        provider.generate("hello")
+
+
 def test_anthropic_rejects_invalid_prompt_without_network():
     provider = AnthropicProvider.__new__(AnthropicProvider)
     provider._max_input_chars = 3
