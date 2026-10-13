@@ -3,7 +3,7 @@ from google import genai
 from google.genai import types
 
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderConfigurationError, ProviderResult
+from orchestra.providers.base import ProviderCallError, ProviderConfigurationError, ProviderResult
 
 
 class GeminiProvider:
@@ -22,11 +22,14 @@ class GeminiProvider:
             raise ValueError("prompt must not be empty")
         if len(prompt) > self._max_input_chars:
             raise ValueError(f"prompt exceeds {self._max_input_chars} characters")
-        response = self._client.models.generate_content(
-            model=self._model,
-            contents=prompt,
-            config=types.GenerateContentConfig(max_output_tokens=self._max_output_tokens),
-        )
+        try:
+            response = self._client.models.generate_content(
+                model=self._model,
+                contents=prompt,
+                config=types.GenerateContentConfig(max_output_tokens=self._max_output_tokens),
+            )
+        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+            raise ProviderCallError("Gemini request failed") from exc
         text = response.text
         if not text or not text.strip():
             raise RuntimeError("Gemini returned an empty response")
