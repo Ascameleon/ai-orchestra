@@ -1,4 +1,6 @@
-from orchestra.core import Orchestrator
+import pytest
+
+from orchestra.core import AllProvidersFailed, Orchestrator
 from orchestra.providers.base import ProviderResult
 
 
@@ -21,11 +23,6 @@ def test_orchestrator_returns_result_and_metrics():
 def test_each_task_gets_a_distinct_request_id():
     orchestrator = Orchestrator(StubProvider())
     assert orchestrator.run("a").request_id != orchestrator.run("b").request_id
-
-
-import pytest
-
-from orchestra.core import AllProvidersFailed
 
 
 class FailingProvider:
