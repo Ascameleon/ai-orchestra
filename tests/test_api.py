@@ -147,8 +147,6 @@ def test_readiness_reports_configured_injected_orchestrator():
 
 
 def test_task_response_reports_fallback_attempt_count():
-    from orchestra.core import AllProvidersFailed
-
     class FailOnceThenSucceed:
         def __init__(self):
             self.calls = 0
@@ -163,4 +161,5 @@ def test_task_response_reports_fallback_attempt_count():
     client = TestClient(create_app(Orchestrator([provider, StubProvider()])))
     response = client.post("/v1/tasks", json={"prompt": "hello"})
     assert response.status_code == 200
-    assert response.json()["attempts"] == 1
+    assert response.json()["provider"] == "stub"
+    assert response.json()["attempts"] == 2
