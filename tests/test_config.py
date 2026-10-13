@@ -49,3 +49,23 @@ def test_empty_provider_selection_is_rejected(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", " ")
     with pytest.raises(ValueError, match="ORCHESTRA_PROVIDER"):
         load_settings()
+
+
+def test_provider_fallbacks_are_normalized_and_ordered(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", " GEMINI ")
+    monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", " OPENAI, anthropic ")
+    settings = load_settings()
+    assert settings.provider_name == "gemini"
+    assert settings.provider_fallbacks == ("openai", "anthropic")
+
+
+@pytest.mark.parametrize("fallbacks", [
+    "gemini",
+    "openai,OPENAI",
+    "grok",
+])
+def test_provider_fallbacks_reject_primary_duplicates_or_unknown_names(monkeypatch, fallbacks):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", fallbacks)
+    with pytest.raises(ValueError, match="fallback|unsupported"):
+        load_settings()
