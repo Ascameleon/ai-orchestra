@@ -1,0 +1,51 @@
+import pytest
+
+from orchestra.config import load_settings
+
+
+def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
+    for name in (
+        "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+        "ORCHESTRA_PROVIDER", "GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL",
+        "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
+        "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    settings = load_settings()
+    assert settings.provider_name == "gemini"
+    assert settings.gemini_api_key is None
+    assert settings.openai_api_key is None
+    assert settings.anthropic_api_key is None
+    assert settings.max_requests_per_process == 100
+
+
+@pytest.mark.parametrize("name,value", [
+    ("ORCHESTRA_MAX_INPUT_CHARS", "0"),
+    ("ORCHESTRA_MAX_OUTPUT_TOKENS", "not-a-number"),
+    ("ORCHESTRA_MAX_REQUESTS", "-1"),
+    ("ORCHESTRA_AUDIT_CAPACITY", "10001"),
+])
+def test_load_settings_rejects_invalid_limits(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=name):
+        load_settings()
+
+
+@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL"])
+def test_load_settings_rejects_empty_model_names(monkeypatch, name):
+    monkeypatch.setenv(name, "   ")
+    with pytest.raises(ValueError, match="cannot be empty"):
+        load_settings()
+
+
+def test_provider_selection_is_normalized(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", " OPENAI ")
+    settings = load_settings()
+    assert settings.provider_name == "openai"
+
+
+def test_empty_provider_selection_is_rejected(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", " ")
+    with pytest.raises(ValueError, match="ORCHESTRA_PROVIDER"):
+        load_settings()
