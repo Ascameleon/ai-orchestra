@@ -63,8 +63,22 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
 - No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
 
+## Container deployment
+
+For a local, loopback-only deployment, create the environment file and set credentials before starting:
+
+```bash
+cp .env.example .env
+# Edit .env and set the selected provider key and a long random ORCHESTRA_API_KEY.
+docker compose up --build -d
+docker compose ps
+curl -H "X-API-Key: $ORCHESTRA_API_KEY" http://127.0.0.1:8000/ready
+```
+
+The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, drops Linux capabilities, uses a read-only root filesystem, and has readiness/health checks. Do not publish this port to the internet as-is; public deployment still requires TLS termination, managed secrets, shared rate limiting, and provider-side billing quotas. The Docker image build is validated in CI; no live model call is part of the build.
+
 ## Current scope
 
 Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware provider routing, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: semantic/benchmark-driven provider routing, persistent audit storage or cross-process memory, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: semantic/benchmark-driven provider routing, persistent audit storage or cross-process memory, production identity management, distributed quotas, TLS/public ingress, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
