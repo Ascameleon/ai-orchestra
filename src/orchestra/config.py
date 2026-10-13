@@ -7,12 +7,12 @@ from dataclasses import dataclass
 class Settings:
     gemini_api_key: str | None
     gemini_model: str
+    max_input_chars: int
+    max_output_tokens: int
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-5-haiku-latest"
-    max_input_chars: int
-    max_output_tokens: int
     provider_name: str = "gemini"
     max_requests_per_process: int = 100
     audit_capacity: int = 1000
