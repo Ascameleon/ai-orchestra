@@ -2,7 +2,6 @@ import pytest
 
 from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
-from orchestra.providers.gemini import ProviderConfigurationError
 
 
 def make_settings(key="test-key", max_input=12):
