@@ -32,5 +32,5 @@ class GeminiProvider:
             raise ProviderCallError("Gemini request failed") from exc
         text = response.text
         if not text or not text.strip():
-            raise RuntimeError("Gemini returned an empty response")
+            raise ProviderCallError("Gemini returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))
