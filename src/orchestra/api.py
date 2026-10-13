@@ -8,7 +8,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from orchestra.config import load_settings
-from orchestra.core import Orchestrator
+from orchestra.core import Orchestrator, UnknownProviderRequested
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
@@ -16,6 +16,7 @@ from orchestra.providers.factory import build_provider_registry
 
 class TaskRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
+    provider: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class TaskResponse(BaseModel):
@@ -128,6 +129,8 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             with metrics_lock:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
+        if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested provider is not configured")
         try:
             budget.reserve()
         except BudgetExceeded:
@@ -136,7 +139,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             raise HTTPException(status_code=429, detail="Process request budget exhausted") from None
 
         try:
-            result = orchestrator.run(request.prompt)
+            result = orchestrator.run(request.prompt, preferred_provider=request.provider)
         except Exception as exc:
             audit.record(
                 AuditEvent(
