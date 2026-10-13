@@ -119,7 +119,7 @@ def test_request_budget_returns_429_after_limit(monkeypatch):
     assert second.status_code == 429
     assert second.json() == {"detail": "Process provider-call budget exhausted"}
     assert client.get("/metrics").json()["rejected"] == 1
-    rejected_audit = client.get("/audit").json()[0]
+    rejected_audit = client.get("/audit").json()[-1]
     assert rejected_audit["outcome"] == "rejected"
     assert rejected_audit["input_chars"] == len("second")
     assert "second" not in client.get("/audit").text
