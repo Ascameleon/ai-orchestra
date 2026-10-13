@@ -16,8 +16,8 @@ concurrency:
 jobs:
   audit:
     name: Audit main branch
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout current main branch
         uses: actions/checkout@v5
@@ -31,7 +31,9 @@ jobs:
           cache: pip
 
       - name: Install project and verification tools
-        run: python -m pip install --upgrade pip && pip install -e ".[dev]" build
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" build
 
       - name: Lint
         run: ruff check src tests
@@ -44,3 +46,38 @@ jobs:
 
       - name: Verify package metadata
         run: python -c "from importlib.metadata import version; assert version('ai-orchestra') == '0.2.0'; print('Package metadata OK:', version('ai-orchestra'))"
+
+      - name: Build container image
+        run: docker build --tag ai-orchestra:nightly-audit .
+
+      - name: Smoke-test container without provider credentials
+        run: |
+          set -euo pipefail
+          docker run -d --name ai-orchestra-nightly -p 127.0.0.1:8766:8000 -e ORCHESTRA_PROVIDER=gemini ai-orchestra:nightly-audit
+          trap 'docker logs ai-orchestra-nightly || true; docker rm -f ai-orchestra-nightly || true' EXIT
+          python - <<'PY'
+          import time
+          import urllib.error
+          import urllib.request
+
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8766/health", timeout=2) as response:
+                      assert response.status == 200
+                      break
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          else:
+              raise SystemExit("container did not become live")
+          try:
+              urllib.request.urlopen("http://127.0.0.1:8766/ready", timeout=2)
+          except urllib.error.HTTPError as error:
+              assert error.code == 503
+          else:
+              raise SystemExit("readiness should fail closed without provider credentials")
+          PY
+
+      - name: Audit installed dependencies
+        run: |
+          python -m pip install pip-audit
+          pip-audit
