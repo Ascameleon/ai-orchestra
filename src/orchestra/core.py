@@ -76,7 +76,7 @@ class Orchestrator:
                     output_chars=result.output_chars,
                     attempts=index,
                 )
-            except (ProviderCallError, RuntimeError, TimeoutError, OSError) as exc:
+            except (ProviderCallError, TimeoutError, OSError) as exc:
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
                 self.memory.record(provider_name, succeeded=False, duration_ms=provider_duration)
                 last_error = exc
