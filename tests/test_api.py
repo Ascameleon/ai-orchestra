@@ -491,3 +491,76 @@ def test_quote_audit_endpoint_rejects_excessive_combined_text():
         },
     )
     assert response.status_code == 413
+
+
+def test_conflict_screen_endpoint_reports_potential_conflicts_without_provider_calls():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/check-conflicts",
+        json={
+            "assertions": [
+                {"assertion_id": "a1", "evidence_id": "e1", "topic": "inflation rate", "stance": "supports"},
+                {"assertion_id": "a2", "evidence_id": "e2", "topic": " Inflation   Rate ", "stance": "opposes"},
+                {"assertion_id": "a3", "evidence_id": "e3", "topic": "employment", "stance": "opposes"},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["potential_conflict_count"] == 1
+    assert body["potential_conflicts"][0]["evidence_a"] == "e1"
+    assert body["potential_conflicts"][0]["evidence_b"] == "e2"
+    assert body["semantic_conflict_verified"] is False
+    assert body["source_truth_verified"] is False
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_conclusion_trace_endpoint_maps_claims_to_evidence_and_reports_missing_links():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/conclusions/trace",
+        json={
+            "claims": [
+                {"claim_id": "c1", "text": "Claim one", "evidence_ids": ["e1", "e2"]},
+                {"claim_id": "c2", "text": "Claim two", "evidence_ids": ["e2"]},
+            ],
+            "conclusions": [
+                {"conclusion_id": "d1", "text": "Conclusion with references", "claim_ids": ["c1", "c2"]},
+                {"conclusion_id": "d2", "text": "Conclusion with a gap", "claim_ids": ["c1", "unknown"]},
+                {"conclusion_id": "d3", "text": "Conclusion without references", "claim_ids": []},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["fully_traceable"] == 1
+    assert body["partially_traceable"] == 1
+    assert body["untraceable"] == 1
+    assert body["results"][0]["evidence_ids"] == ["e1", "e2"]
+    assert body["results"][1]["missing_claim_ids"] == ["unknown"]
+    assert body["semantic_support_verified"] is False
+    assert body["source_truth_verified"] is False
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_conflict_screen_endpoint_rejects_duplicate_assertion_ids():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/claims/check-conflicts",
+        json={
+            "assertions": [
+                {"assertion_id": "a1", "evidence_id": "e1", "topic": "topic", "stance": "supports"},
+                {"assertion_id": "a1", "evidence_id": "e2", "topic": "topic", "stance": "opposes"},
+            ]
+        },
+    )
+    assert response.status_code == 422
