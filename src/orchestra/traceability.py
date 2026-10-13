@@ -19,10 +19,10 @@ class PotentialConflict:
     topic: str
     assertion_a: str
     evidence_a: str
-    stance_a: Stance
+    stance_a: str
     assertion_b: str
     evidence_b: str
-    stance_b: Stance
+    stance_b: str
     status: str = "potential_conflict"
 
 
