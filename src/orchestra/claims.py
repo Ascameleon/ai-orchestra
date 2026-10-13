@@ -48,7 +48,9 @@ def assess_claim_links(
         if claim.claim_id in seen_claim_ids:
             raise ValueError(f"duplicate claim_id: {claim.claim_id}")
         seen_claim_ids.add(claim.claim_id)
-        references = tuple(dict.fromkeys(claim.evidence_ids))
+        if any(not item.strip() for item in claim.evidence_ids):
+            raise ValueError(f"claim {claim.claim_id} contains an empty evidence reference")
+        references = tuple(dict.fromkeys(item.strip() for item in claim.evidence_ids))
         linked = tuple(item for item in references if item in evidence_ids)
         unknown = tuple(item for item in references if item not in evidence_ids)
         results.append(
