@@ -15,7 +15,10 @@ class GeminiProvider:
         self._model = settings.gemini_model
         self._max_output_tokens = settings.max_output_tokens
         self._max_input_chars = settings.max_input_chars
-        self._client = genai.Client(api_key=settings.gemini_api_key)
+        self._client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(timeout=30000),
+        )
 
     def generate(self, prompt: str) -> ProviderResult:
         if not prompt or not prompt.strip():
