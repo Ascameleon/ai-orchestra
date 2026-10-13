@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from orchestra.evidence import EvidenceRecord, assess_evidence
 
 
-NOW = datetime(2026, 10, 13, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 13, 12, 0, tzinfo=UTC)
 
 
 def item(evidence_id, source_group, url, published_at=None):
