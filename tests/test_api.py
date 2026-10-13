@@ -401,3 +401,47 @@ def test_evidence_assessment_endpoint_limits_payload_and_honors_api_key(monkeypa
     oversized = {"evidence": [{}] * 101}
     response = client.post("/v1/evidence/assess", json=oversized, headers=headers)
     assert response.status_code == 422
+
+
+
+def test_claim_link_endpoint_flags_missing_and_unknown_evidence_without_provider_calls():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/verify-links",
+        json={
+            "evidence_ids": ["e1", "e2"],
+            "claims": [
+                {"claim_id": "c1", "text": "Cited claim", "evidence_ids": ["e1"]},
+                {"claim_id": "c2", "text": "No citation", "evidence_ids": []},
+                {"claim_id": "c3", "text": "Broken citation", "evidence_ids": ["unknown"]},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_claims"] == 3
+    assert body["linked_claims"] == 1
+    assert body["unlinked_claims"] == 2
+    assert body["claims_with_unknown_references"] == 1
+    assert body["semantic_support_verified"] is False
+    assert body["results"][2]["unknown_evidence_ids"] == ["unknown"]
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_claim_link_endpoint_rejects_duplicate_evidence_ids():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/claims/verify-links",
+        json={"evidence_ids": ["e1", "e1"], "claims": []},
+    )
+    assert response.status_code == 422

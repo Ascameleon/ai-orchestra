@@ -3,12 +3,13 @@ import os
 from datetime import datetime, timedelta
 from hmac import compare_digest
 from threading import Lock
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
@@ -42,6 +43,17 @@ class EvidenceAssessmentRequest(BaseModel):
     evidence: list[EvidenceItemRequest] = Field(max_length=100)
     max_age_days: int = Field(default=30, ge=0, le=3650)
     minimum_independent_sources: int = Field(default=2, ge=1, le=100)
+
+
+class ClaimItemRequest(BaseModel):
+    claim_id: str = Field(min_length=1, max_length=128)
+    text: str = Field(min_length=1, max_length=10000)
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(default_factory=list, max_length=100)
+
+
+class ClaimLinkAssessmentRequest(BaseModel):
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=100)
+    claims: list[ClaimItemRequest] = Field(max_length=100)
 
 
 class WorkflowResponse(BaseModel):
@@ -309,6 +321,40 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
         return result.__dict__
+
+
+    @app.post("/v1/claims/verify-links")
+    def verify_claim_links(
+        request: ClaimLinkAssessmentRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Validate claim-to-evidence IDs only; no semantic or source verification."""
+        authorize(x_api_key)
+        evidence_ids = [item.strip() for item in request.evidence_ids]
+        if any(not item for item in evidence_ids):
+            raise HTTPException(status_code=422, detail="evidence_ids must not contain empty values")
+        if len(set(evidence_ids)) != len(evidence_ids):
+            raise HTTPException(status_code=422, detail="evidence_ids must be unique")
+        try:
+            claims = [
+                ClaimRecord(
+                    claim_id=item.claim_id,
+                    text=item.text,
+                    evidence_ids=tuple(reference.strip() for reference in item.evidence_ids),
+                )
+                for item in request.claims
+            ]
+            result = assess_claim_links(claims, set(evidence_ids))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return {
+            "total_claims": result.total_claims,
+            "linked_claims": result.linked_claims,
+            "unlinked_claims": result.unlinked_claims,
+            "claims_with_unknown_references": result.claims_with_unknown_references,
+            "results": [item.__dict__ for item in result.results],
+            "semantic_support_verified": False,
+        }
 
     return app
 
