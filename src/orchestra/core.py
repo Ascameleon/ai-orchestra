@@ -33,12 +33,14 @@ class Orchestrator:
         self,
         provider: Provider | tuple[Provider, ...] | list[Provider],
         memory: ProviderMemory | None = None,
+        routes: tuple[tuple[str, str], ...] = (),
     ):
         providers = (provider,) if not isinstance(provider, (tuple, list)) else tuple(provider)
         if not providers:
             raise ValueError("at least one provider must be configured")
         self._providers = providers
         self.memory = memory or ProviderMemory()
+        self._task_routes = dict(routes)
 
     @staticmethod
     def _provider_name(provider: Provider) -> str:
@@ -52,13 +54,17 @@ class Orchestrator:
         self,
         prompt: str,
         preferred_provider: str | None = None,
+        task_type: str = "general",
         before_attempt: Callable[[], object] | None = None,
     ) -> TaskResult:
         request_id = str(uuid4())
         started = perf_counter()
         providers = self._providers
-        if preferred_provider is not None:
-            preferred = preferred_provider.strip().lower()
+        if task_type not in {"general", "code", "research", "writing", "analysis", "review"}:
+            raise ValueError("unsupported task type")
+        routed_provider = preferred_provider or self._task_routes.get(task_type)
+        if routed_provider is not None:
+            preferred = routed_provider.strip().lower()
             matches = [provider for provider in self._providers if self._provider_name(provider) == preferred]
             if not matches:
                 raise UnknownProviderRequested(f"provider is not configured: {preferred}")
