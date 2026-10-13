@@ -14,10 +14,10 @@ from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
-from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.traceability import (
     ClaimTrace,
     SourceAssertion,
