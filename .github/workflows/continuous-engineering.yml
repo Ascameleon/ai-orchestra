@@ -23,7 +23,7 @@ permissions:
 
 concurrency:
   group: continuous-engineering-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   stage-1-lint:
