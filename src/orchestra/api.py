@@ -132,14 +132,26 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
             raise HTTPException(status_code=400, detail="Requested provider is not configured")
         try:
-            budget.reserve()
+            result = orchestrator.run(
+                request.prompt,
+                preferred_provider=request.provider,
+                before_attempt=budget.reserve,
+            )
         except BudgetExceeded:
             with metrics_lock:
                 metrics["rejected"] += 1
-            raise HTTPException(status_code=429, detail="Process request budget exhausted") from None
+            raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
 
         try:
-            result = orchestrator.run(request.prompt, preferred_provider=request.provider)
+            result = orchestrator.run(
+                request.prompt,
+                preferred_provider=request.provider,
+                before_attempt=budget.reserve,
+            )
+        except BudgetExceeded:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
             audit.record(
                 AuditEvent(
