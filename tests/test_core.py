@@ -89,3 +89,21 @@ def test_orchestrator_memory_records_success_and_failed_attempts_without_content
     assert outcomes["backup"].successes == 1
     assert outcomes["backup"].failures == 0
     assert all(not hasattr(item, "prompt") and not hasattr(item, "text") for item in outcomes.values())
+
+
+def test_explicit_provider_preference_moves_requested_provider_first():
+    primary = NamedProvider("primary", "primary answer")
+    backup = NamedProvider("backup", "backup answer")
+    result = Orchestrator([primary, backup]).run("hello", preferred_provider=" BACKUP ")
+    assert result.provider == "backup"
+    assert result.text == "backup answer"
+    assert result.attempts == 1
+    assert primary.calls == 0
+    assert backup.calls == 1
+
+
+def test_unknown_explicit_provider_is_rejected_without_calling_providers():
+    primary = NamedProvider("primary", "answer")
+    with pytest.raises(ValueError, match="provider is not configured"):
+        Orchestrator(primary).run("hello", preferred_provider="missing")
+    assert primary.calls == 0
