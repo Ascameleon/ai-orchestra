@@ -19,6 +19,10 @@ class TaskResult:
     attempts: int = 1
 
 
+class UnknownProviderRequested(ValueError):
+    """Raised when a task explicitly requests an unconfigured provider."""
+
+
 class AllProvidersFailed(RuntimeError):
     """Raised when every configured provider fails for a task."""
 
@@ -35,11 +39,26 @@ class Orchestrator:
         self._providers = providers
         self.memory = memory or ProviderMemory()
 
-    def run(self, prompt: str) -> TaskResult:
+    @staticmethod
+    def _provider_name(provider: Provider) -> str:
+        return str(getattr(provider, "name", provider.__class__.__name__)).strip().lower()
+
+    @property
+    def provider_names(self) -> tuple[str, ...]:
+        return tuple(self._provider_name(provider) for provider in self._providers)
+
+    def run(self, prompt: str, preferred_provider: str | None = None) -> TaskResult:
         request_id = str(uuid4())
         started = perf_counter()
+        providers = self._providers
+        if preferred_provider is not None:
+            preferred = preferred_provider.strip().lower()
+            matches = [provider for provider in self._providers if self._provider_name(provider) == preferred]
+            if not matches:
+                raise UnknownProviderRequested(f"provider is not configured: {preferred}")
+            providers = (matches[0], *(provider for provider in self._providers if provider is not matches[0]))
         last_error: Exception | None = None
-        for index, provider in enumerate(self._providers, start=1):
+        for index, provider in enumerate(providers, start=1):
             provider_started = perf_counter()
             provider_name = getattr(provider, "name", provider.__class__.__name__).lower()
             try:
