@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
 
-from orchestra.providers.base import Provider, ProviderResult
+from orchestra.providers.base import Provider, ProviderCallError, ProviderResult
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,6 @@ class Orchestrator:
                     output_chars=result.output_chars,
                     attempts=index,
                 )
-            except (RuntimeError, ValueError, TimeoutError, OSError) as exc:
+            except (ProviderCallError, RuntimeError, TimeoutError, OSError) as exc:
                 last_error = exc
         raise AllProvidersFailed("all configured providers failed") from last_error
