@@ -71,6 +71,32 @@ jobs:
         run: python -m build
       - name: Build deployable container image
         run: docker build --tag ai-orchestra:ci .
+      - name: Smoke-test container without provider credentials
+        run: |
+          set -euo pipefail
+          docker run -d --name ai-orchestra-smoke -p 127.0.0.1:8765:8000 -e ORCHESTRA_PROVIDER=gemini ai-orchestra:ci
+          trap 'docker logs ai-orchestra-smoke || true; docker rm -f ai-orchestra-smoke || true' EXIT
+          python - <<'PY'
+          import time
+          import urllib.error
+          import urllib.request
+
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8765/health", timeout=2) as response:
+                      assert response.status == 200
+                      break
+              except (OSError, urllib.error.URLError):
+                  time.sleep(1)
+          else:
+              raise SystemExit("container did not become live")
+          try:
+              urllib.request.urlopen("http://127.0.0.1:8765/ready", timeout=2)
+          except urllib.error.HTTPError as error:
+              assert error.code == 503
+          else:
+              raise SystemExit("readiness should fail closed without provider credentials")
+          PY
       - name: Preserve build artifacts
         uses: actions/upload-artifact@v6
         with:
