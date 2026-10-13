@@ -256,3 +256,19 @@ def test_review_workflow_endpoint_returns_final_revision_only():
     audit = client.get("/audit").json()[0]
     assert audit["outcome"] == "success"
     assert audit["output_chars"] == len("final revision")
+
+
+def test_task_endpoint_applies_configured_task_route():
+    primary = StubProvider()
+
+    class BackupProvider:
+        name = "backup"
+
+        def generate(self, prompt: str) -> ProviderResult:
+            return ProviderResult("backup", "backup-model", "routed answer", len(prompt), 13)
+
+    client = TestClient(create_app(Orchestrator([primary, BackupProvider()], routes=(("code", "backup"),))))
+    response = client.post("/v1/tasks", json={"prompt": "write a function", "task_type": "code"})
+    assert response.status_code == 200
+    assert response.json()["provider"] == "backup"
+    assert response.json()["text"] == "routed answer"
