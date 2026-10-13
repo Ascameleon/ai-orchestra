@@ -17,6 +17,7 @@ from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGua
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
+from orchestra.traceability import ClaimTrace, SourceAssertion, screen_potential_conflicts, trace_conclusions
 from orchestra.workflows import ReviewWorkflow
 
 
@@ -71,6 +72,28 @@ class QuoteReferenceRequest(BaseModel):
 class QuoteAuditRequest(BaseModel):
     snapshots: list[SourceSnapshotRequest] = Field(max_length=100)
     quotes: list[QuoteReferenceRequest] = Field(max_length=100)
+
+
+class SourceAssertionRequest(BaseModel):
+    assertion_id: str = Field(min_length=1, max_length=128)
+    evidence_id: str = Field(min_length=1, max_length=128)
+    topic: str = Field(min_length=1, max_length=500)
+    stance: Literal["supports", "opposes", "neutral"]
+
+
+class ConflictScreenRequest(BaseModel):
+    assertions: list[SourceAssertionRequest] = Field(max_length=100)
+
+
+class ConclusionItemRequest(BaseModel):
+    conclusion_id: str = Field(min_length=1, max_length=128)
+    text: str = Field(min_length=1, max_length=10000)
+    claim_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(default_factory=list, max_length=100)
+
+
+class ConclusionTraceabilityRequest(BaseModel):
+    claims: list[ClaimItemRequest] = Field(max_length=100)
+    conclusions: list[ConclusionItemRequest] = Field(max_length=100)
 
 
 class WorkflowResponse(BaseModel):
@@ -401,6 +424,60 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "checks": [item.__dict__ for item in result.checks],
             "semantic_support_verified": False,
             "publisher_authenticity_verified": False,
+        }
+
+    @app.post("/v1/claims/check-conflicts")
+    def check_claim_conflicts(
+        request: ConflictScreenRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Flag opposite explicit stances on the same supplied topic; not semantic proof."""
+        authorize(x_api_key)
+        try:
+            result = screen_potential_conflicts(
+                [
+                    SourceAssertion(item.assertion_id, item.evidence_id, item.topic, item.stance)
+                    for item in request.assertions
+                ]
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return {
+            "assertions_checked": result.assertions_checked,
+            "potential_conflict_count": len(result.potential_conflicts),
+            "potential_conflicts": [item.__dict__ for item in result.potential_conflicts],
+            "semantic_conflict_verified": False,
+            "source_truth_verified": False,
+        }
+
+    @app.post("/v1/conclusions/trace")
+    def trace_conclusion_evidence(
+        request: ConclusionTraceabilityRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Resolve conclusion -> claim -> evidence links without judging truth or entailment."""
+        authorize(x_api_key)
+        try:
+            result = trace_conclusions(
+                [
+                    (item.conclusion_id, item.text, tuple(item.claim_ids))
+                    for item in request.conclusions
+                ],
+                [
+                    ClaimTrace(item.claim_id, tuple(reference.strip() for reference in item.evidence_ids))
+                    for item in request.claims
+                ],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return {
+            "conclusions_checked": result.conclusions_checked,
+            "fully_traceable": result.fully_traceable,
+            "partially_traceable": result.partially_traceable,
+            "untraceable": result.untraceable,
+            "results": [item.__dict__ for item in result.results],
+            "semantic_support_verified": False,
+            "source_truth_verified": False,
         }
 
     return app
