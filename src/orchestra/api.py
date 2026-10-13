@@ -14,6 +14,7 @@ from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
@@ -88,6 +89,20 @@ class SourceAssertionRequest(BaseModel):
 
 class ConflictScreenRequest(BaseModel):
     assertions: list[SourceAssertionRequest] = Field(max_length=100)
+
+
+class NumericAssertionRequest(BaseModel):
+    assertion_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=128)
+    evidence_id: str = Field(min_length=1, max_length=128)
+    metric: str = Field(min_length=1, max_length=500)
+    value: str = Field(min_length=1, max_length=100)
+    unit: str = Field(min_length=1, max_length=100)
+    period: str = Field(min_length=1, max_length=200)
+
+
+class NumericConsistencyRequest(BaseModel):
+    assertions: list[NumericAssertionRequest] = Field(max_length=100)
 
 
 class ConclusionItemRequest(BaseModel):
@@ -454,6 +469,27 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "potential_conflicts": [item.__dict__ for item in result.potential_conflicts],
             "semantic_conflict_verified": False,
             "source_truth_verified": False,
+        }
+
+    @app.post("/v1/claims/check-numeric-consistency")
+    def check_numeric_consistency(
+        request: NumericConsistencyRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Flag unequal supplied numeric values for the same metric, unit, and period."""
+        authorize(x_api_key)
+        try:
+            result = screen_numeric_consistency(
+                [NumericAssertion(**item.model_dump()) for item in request.assertions]
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return {
+            "assertions_checked": result.assertions_checked,
+            "potential_disagreement_count": result.potential_disagreement_count,
+            "potential_disagreements": [item.__dict__ for item in result.potential_disagreements],
+            "source_truth_verified": False,
+            "semantic_conflict_verified": False,
         }
 
     @app.post("/v1/conclusions/trace")

@@ -597,3 +597,42 @@ def test_conclusion_trace_endpoint_rejects_duplicate_evidence_registry_ids():
         json={"evidence_ids": ["e1", "e1"], "claims": [], "conclusions": []},
     )
     assert response.status_code == 422
+
+
+def test_numeric_consistency_endpoint_flags_disagreement_without_provider_calls():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/check-numeric-consistency",
+        json={
+            "assertions": [
+                {"assertion_id": "a1", "claim_id": "c1", "evidence_id": "e1", "metric": "GDP growth", "value": "2.5", "unit": "%", "period": "2025"},
+                {"assertion_id": "a2", "claim_id": "c2", "evidence_id": "e2", "metric": " gdp growth ", "value": "3", "unit": "%", "period": "2025"},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["potential_disagreement_count"] == 1
+    assert body["potential_disagreements"][0]["value_a"] == "2.5"
+    assert body["potential_disagreements"][0]["value_b"] == "3"
+    assert body["source_truth_verified"] is False
+    assert body["semantic_conflict_verified"] is False
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_numeric_consistency_endpoint_rejects_invalid_numbers():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/claims/check-numeric-consistency",
+        json={"assertions": [{"assertion_id": "a1", "claim_id": "c1", "evidence_id": "e1", "metric": "rate", "value": "NaN", "unit": "%", "period": "2025"}]},
+    )
+    assert response.status_code == 422
