@@ -15,6 +15,7 @@ class Settings:
     anthropic_model: str = "claude-3-5-haiku-latest"
     provider_name: str = "gemini"
     provider_fallbacks: tuple[str, ...] = ()
+    task_routes: tuple[tuple[str, str], ...] = ()
     max_requests_per_process: int = 100
     audit_capacity: int = 1000
 
@@ -53,6 +54,22 @@ def load_settings() -> Settings:
         raise ValueError("ORCHESTRA_PROVIDER_FALLBACKS contains an unsupported provider")
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
         raise ValueError("Provider fallback list must be unique and exclude the primary provider")
+    configured_providers = {provider_name, *provider_fallbacks}
+    allowed_tasks = {"general", "code", "research", "writing", "analysis", "review"}
+    task_routes = []
+    for entry in os.getenv("ORCHESTRA_TASK_ROUTES", "").split(","):
+        if not entry.strip():
+            continue
+        if "=" not in entry:
+            raise ValueError("ORCHESTRA_TASK_ROUTES entries must use task=provider")
+        task, provider = (part.strip().lower() for part in entry.split("=", 1))
+        if task not in allowed_tasks:
+            raise ValueError("ORCHESTRA_TASK_ROUTES contains an unsupported task")
+        if provider not in configured_providers:
+            raise ValueError("ORCHESTRA_TASK_ROUTES may only use configured providers")
+        if any(existing_task == task for existing_task, _ in task_routes):
+            raise ValueError("ORCHESTRA_TASK_ROUTES tasks must be unique")
+        task_routes.append((task, provider))
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     if not model:
         raise ValueError("GEMINI_MODEL cannot be empty")
@@ -64,6 +81,7 @@ def load_settings() -> Settings:
         anthropic_model=anthropic_model,
         provider_name=provider_name,
         provider_fallbacks=provider_fallbacks,
+        task_routes=tuple(task_routes),
         gemini_model=model,
         max_input_chars=positive_int("ORCHESTRA_MAX_INPUT_CHARS", 12000, 100000),
         max_output_tokens=positive_int("ORCHESTRA_MAX_OUTPUT_TOKENS", 1024, 8192),
