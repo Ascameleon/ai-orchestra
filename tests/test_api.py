@@ -117,7 +117,7 @@ def test_request_budget_returns_429_after_limit(monkeypatch):
     assert client.post("/v1/tasks", json={"prompt": "first"}).status_code == 200
     second = client.post("/v1/tasks", json={"prompt": "second"})
     assert second.status_code == 429
-    assert second.json() == {"detail": "Process request budget exhausted"}
+    assert second.json() == {"detail": "Process provider-call budget exhausted"}
     assert client.get("/metrics").json()["rejected"] == 1
 
 
