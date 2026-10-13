@@ -1,6 +1,6 @@
 """Provider orchestration with explicit, bounded failover."""
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
 
