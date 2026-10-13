@@ -99,6 +99,7 @@ class ConclusionItemRequest(BaseModel):
 class ConclusionTraceabilityRequest(BaseModel):
     claims: list[ClaimItemRequest] = Field(max_length=100)
     conclusions: list[ConclusionItemRequest] = Field(max_length=100)
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] | None = Field(default=None, max_length=100)
 
 
 class WorkflowResponse(BaseModel):
@@ -472,6 +473,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                     ClaimTrace(item.claim_id, tuple(reference.strip() for reference in item.evidence_ids))
                     for item in request.claims
                 ],
+                known_evidence_ids=request.evidence_ids,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from None
