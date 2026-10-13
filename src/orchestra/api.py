@@ -17,7 +17,12 @@ from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGua
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
-from orchestra.traceability import (\n    ClaimTrace,\n    SourceAssertion,\n    screen_potential_conflicts,\n    trace_conclusions,\n)
+from orchestra.traceability import (
+    ClaimTrace,
+    SourceAssertion,
+    screen_potential_conflicts,
+    trace_conclusions,
+)
 from orchestra.workflows import ReviewWorkflow
 
 
