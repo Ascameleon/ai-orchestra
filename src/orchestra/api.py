@@ -81,6 +81,23 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 "audit_events": len(audit.snapshot()),
             }
 
+    @app.get("/providers/health")
+    def get_provider_health(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, str | int]]:
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            {
+                "provider": outcome.provider,
+                "successes": outcome.successes,
+                "failures": outcome.failures,
+                "total_duration_ms": outcome.total_duration_ms,
+            }
+            for outcome in orchestrator.memory.snapshot()
+        ]
+
     @app.get("/audit")
     def get_audit(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> list[dict[str, str | int | float]]:
         authorize(x_api_key)
