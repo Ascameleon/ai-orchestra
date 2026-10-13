@@ -52,7 +52,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 - `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, and `anthropic`.
 - `ORCHESTRA_PROVIDER_FALLBACKS`: optional comma-separated ordered fallback providers, for example `openai,anthropic`. Each listed provider needs its own API key and optional SDK extra. The primary cannot be repeated; duplicates and unknown names are rejected. Each task tries providers in order and stops at the first success. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
-- `ORCHESTRA_TASK_ROUTES`: optional deterministic task routing, e.g. `code=openai,research=gemini,writing=anthropic`. Supported task types are `general`, `code`, `research`, `writing`, `analysis`, and `review`; each target must already be configured as the primary or a fallback. A per-request `provider` overrides this policy.
+- `ORCHESTRA_TASK_ROUTES`: optional deterministic task routing, e.g. `code=openai,research=gemini,writing=anthropic`. Supported task types are `general`, `code`, `research`, `writing`, `analysis`, `review`, `planner`, `reviewer`, and `writer`; each target must already be configured as the primary or a fallback. A per-request `provider` overrides this policy.
 - `OPENAI_MODEL`: OpenAI model name (default `gpt-4o-mini`).
 - `ANTHROPIC_MODEL`: Anthropic model name (default `claude-3-5-haiku-latest`).
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
@@ -60,7 +60,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process, including fallbacks (default 100; allowed 1–100000).
 - `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
 - Provider calls have a 30-second timeout; OpenAI and Anthropic SDK automatic retries are disabled to avoid hidden repeat charges. The request budget and audit trail are process-local and reset on restart. They are not distributed rate limiting, persistent audit storage, or a monetary quota. Configure provider-side quotas and billing limits before live use.
-- Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
+- Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, workflow, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
 - No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
 
 ## Container deployment
@@ -79,6 +79,6 @@ The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, dr
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware provider routing, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware and agent-role routing, opt-in draft-review-revision workflow, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
 Not yet implemented: semantic/benchmark-driven provider routing, persistent audit storage or cross-process memory, production identity management, distributed quotas, TLS/public ingress, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
