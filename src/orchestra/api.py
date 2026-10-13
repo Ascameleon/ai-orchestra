@@ -1,6 +1,7 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
 import os
 from hmac import compare_digest
+from typing import Literal
 from threading import Lock
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from orchestra.workflows import ReviewWorkflow
 class TaskRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
+    task_type: Literal["general", "code", "research", "writing", "analysis", "review"] = "general"
 
 
 class WorkflowRequest(BaseModel):
@@ -57,7 +59,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             settings = load_settings()
             registry = build_provider_registry(settings)
             providers = tuple(registry.get(name) for name in (settings.provider_name, *settings.provider_fallbacks))
-            orchestrator = Orchestrator(providers)
+            orchestrator = Orchestrator(providers, routes=settings.task_routes)
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
@@ -152,6 +154,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             result = orchestrator.run(
                 request.prompt,
                 preferred_provider=request.provider,
+                task_type=request.task_type,
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
