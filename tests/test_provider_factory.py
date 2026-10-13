@@ -79,3 +79,41 @@ def test_factory_rejects_unimplemented_provider():
         assert "Unsupported ORCHESTRA_PROVIDER" in str(exc)
     else:
         raise AssertionError("Unsupported provider should be rejected")
+
+
+def test_factory_registers_configured_anthropic(monkeypatch):
+    class FakeAnthropicProvider:
+        name = "anthropic"
+
+        def __init__(self, settings):
+            self.settings = settings
+
+    monkeypatch.setattr(factory, "AnthropicProvider", FakeAnthropicProvider)
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        anthropic_api_key="test-key",
+        anthropic_model="test-anthropic",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        provider_name="anthropic",
+    )
+    registry = factory.build_provider_registry(configured)
+    assert registry.names() == ("anthropic",)
+    assert registry.get("anthropic").settings.anthropic_model == "test-anthropic"
+
+
+def test_factory_rejects_missing_anthropic_key():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        provider_name="anthropic",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "ANTHROPIC_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Missing Anthropic key should be rejected")
