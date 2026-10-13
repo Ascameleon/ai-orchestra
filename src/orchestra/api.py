@@ -12,11 +12,28 @@ from orchestra.core import Orchestrator
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
+from orchestra.workflows import ReviewWorkflow
 
 
 class TaskRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class WorkflowRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=100000)
+    provider: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class WorkflowResponse(BaseModel):
+    workflow_id: str
+    provider: str
+    model: str
+    text: str
+    duration_ms: int
+    input_chars: int
+    output_chars: int
+    provider_calls: int
 
 
 class TaskResponse(BaseModel):
@@ -173,6 +190,64 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         with metrics_lock:
             metrics["succeeded"] += 1
         return TaskResponse(**result.__dict__)
+
+
+    @app.post("/v1/workflows/review", response_model=WorkflowResponse)
+    def run_review_workflow(
+        request: WorkflowRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> WorkflowResponse:
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        if len(request.prompt) > max_input:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
+        if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested provider is not configured")
+        try:
+            result = ReviewWorkflow(orchestrator).run(
+                request.prompt,
+                preferred_provider=request.provider,
+                before_attempt=budget.reserve,
+            )
+        except BudgetExceeded:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
+        except Exception as exc:
+            audit.record(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="failure",
+                )
+            )
+            with metrics_lock:
+                metrics["failed"] += 1
+            raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
+
+        audit.record(
+            AuditEvent(
+                timestamp=AuditTrail.now(),
+                request_id=result.workflow_id,
+                provider=result.provider,
+                model=result.model,
+                input_chars=result.input_chars,
+                output_chars=result.output_chars,
+                duration_ms=result.duration_ms,
+                outcome="success",
+            )
+        )
+        with metrics_lock:
+            metrics["succeeded"] += 1
+        return WorkflowResponse(**result.__dict__)
 
     return app
 
