@@ -44,3 +44,29 @@ def test_review_workflow_stops_without_partial_result_when_budget_runs_out():
 
     assert len(provider.prompts) == 2
     assert guard.used == 2
+
+
+def test_review_workflow_can_route_each_agent_to_a_different_provider():
+    class RoleProvider:
+        def __init__(self, name, answer):
+            self.name = name
+            self.answer = answer
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(self.name, "test-model", self.answer, len(prompt), len(self.answer))
+
+    planner = RoleProvider("planner", "draft")
+    reviewer = RoleProvider("reviewer", "corrections")
+    writer = RoleProvider("writer", "final answer")
+    orchestrator = Orchestrator(
+        [planner, reviewer, writer],
+        routes=(("planner", "planner"), ("reviewer", "reviewer"), ("writer", "writer")),
+    )
+    result = ReviewWorkflow(orchestrator).run("task")
+
+    assert result.provider == "writer"
+    assert result.text == "final answer"
+    assert result.provider_calls == 3
+    assert (planner.calls, reviewer.calls, writer.calls) == (1, 1, 1)
