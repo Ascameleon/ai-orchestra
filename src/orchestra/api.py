@@ -11,7 +11,7 @@ from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.factory import build_provider_registry
-from orchestra.providers.gemini import ProviderConfigurationError
+from orchestra.providers.base import ProviderConfigurationError
 
 
 class TaskRequest(BaseModel):
