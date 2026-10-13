@@ -564,3 +564,36 @@ def test_conflict_screen_endpoint_rejects_duplicate_assertion_ids():
         },
     )
     assert response.status_code == 422
+
+
+def test_conclusion_trace_endpoint_flags_unknown_evidence_and_empty_claim_citations():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/conclusions/trace",
+        json={
+            "evidence_ids": ["e1", "e2"],
+            "claims": [
+                {"claim_id": "c1", "text": "Known citation", "evidence_ids": ["e1", "missing-evidence"]},
+                {"claim_id": "c2", "text": "No citation", "evidence_ids": []},
+            ],
+            "conclusions": [
+                {"conclusion_id": "d1", "text": "Conclusion", "claim_ids": ["c1", "c2"]}
+            ],
+        },
+    )
+    assert response.status_code == 200
+    item = response.json()["results"][0]
+    assert item["traceability_status"] == "partially_traceable"
+    assert item["unknown_evidence_ids"] == ["missing-evidence"]
+    assert item["claims_without_evidence"] == ["c2"]
+    assert response.json()["semantic_support_verified"] is False
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_conclusion_trace_endpoint_rejects_duplicate_evidence_registry_ids():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/conclusions/trace",
+        json={"evidence_ids": ["e1", "e1"], "claims": [], "conclusions": []},
+    )
+    assert response.status_code == 422
