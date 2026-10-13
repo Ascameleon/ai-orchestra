@@ -1,6 +1,6 @@
 """Optional OpenAI adapter. SDK import and network calls are deferred until configured use."""
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderConfigurationError, ProviderResult
+from orchestra.providers.base import ProviderCallError, ProviderConfigurationError, ProviderResult
 
 
 class OpenAIProvider:
@@ -25,11 +25,14 @@ class OpenAIProvider:
             raise ValueError("prompt must not be empty")
         if len(prompt) > self._max_input_chars:
             raise ValueError(f"prompt exceeds {self._max_input_chars} characters")
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=self._max_output_tokens,
-        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=self._max_output_tokens,
+            )
+        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+            raise ProviderCallError("OpenAI request failed") from exc
         text = response.choices[0].message.content
         if not text or not text.strip():
             raise RuntimeError("OpenAI returned an empty response")
