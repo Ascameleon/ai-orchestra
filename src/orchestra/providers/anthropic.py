@@ -1,7 +1,6 @@
 """Optional Anthropic adapter with deferred SDK import and bounded input/output."""
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderResult
-from orchestra.providers.gemini import ProviderConfigurationError
+from orchestra.providers.base import ProviderConfigurationError, ProviderResult
 
 
 class AnthropicProvider:
