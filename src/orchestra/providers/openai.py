@@ -33,7 +33,11 @@ class OpenAIProvider:
             )
         except Exception as exc:
             raise ProviderCallError("OpenAI request failed") from exc
-        text = response.choices[0].message.content
-        if not text or not text.strip():
+        try:
+            choices = response.choices
+            text = choices[0].message.content if choices else None
+        except Exception as exc:
+            raise ProviderCallError("OpenAI returned an invalid response") from exc
+        if not isinstance(text, str) or not text.strip():
             raise ProviderCallError("OpenAI returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))
