@@ -15,14 +15,14 @@ concurrency:
 
 jobs:
   audit:
-    name: Audit feature branch
+    name: Audit main branch
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout current development branch
+      - name: Checkout current main branch
         uses: actions/checkout@v5
         with:
-          ref: feat/gemini-minimal-core
+          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@v6
