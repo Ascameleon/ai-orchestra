@@ -33,7 +33,10 @@ class GeminiProvider:
             )
         except Exception as exc:
             raise ProviderCallError("Gemini request failed") from exc
-        text = response.text
-        if not text or not text.strip():
+        try:
+            text = response.text
+        except Exception as exc:
+            raise ProviderCallError("Gemini returned an invalid response") from exc
+        if not isinstance(text, str) or not text.strip():
             raise ProviderCallError("Gemini returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))

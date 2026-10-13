@@ -76,3 +76,28 @@ def test_openai_rejects_empty_or_oversized_prompt_before_network():
         provider.generate("  ")
     with pytest.raises(ValueError, match="exceeds 3"):
         provider.generate("long")
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        type("Response", (), {"choices": []})(),
+        type("Response", (), {"choices": [type("Choice", (), {"message": type("Message", (), {"content": None})()})()]})(),
+    ],
+)
+def test_openai_malformed_or_empty_response_is_normalized(response):
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            return response
+
+    provider = OpenAIProvider.__new__(OpenAIProvider)
+    provider._model = "test-model"
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._client = type(
+        "Client", (), {"chat": type("Chat", (), {"completions": FakeCompletions()})()}
+    )()
+    with pytest.raises(ProviderCallError):
+        provider.generate("hello")

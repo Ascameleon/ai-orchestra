@@ -68,3 +68,19 @@ def test_anthropic_rejects_invalid_prompt_without_network():
         provider.generate(" ")
     with pytest.raises(ValueError, match="exceeds 3"):
         provider.generate("long")
+
+
+def test_anthropic_malformed_response_is_normalized():
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            return type("Response", (), {"content": None})()
+
+    provider = AnthropicProvider.__new__(AnthropicProvider)
+    provider._model = "test-model"
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._client = type("Client", (), {"messages": FakeMessages()})()
+    with pytest.raises(ProviderCallError, match="invalid response"):
+        provider.generate("hello")
