@@ -1,7 +1,8 @@
 """Provider construction and registration from validated settings."""
 from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
-from orchestra.providers.gemini import GeminiProvider, ProviderConfigurationError
+from orchestra.providers.base import ProviderConfigurationError
+from orchestra.providers.gemini import GeminiProvider
 from orchestra.providers.openai import OpenAIProvider
 from orchestra.registry import ProviderRegistry
 
