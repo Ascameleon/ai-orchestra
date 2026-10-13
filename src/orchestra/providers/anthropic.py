@@ -33,10 +33,16 @@ class AnthropicProvider:
             )
         except Exception as exc:
             raise ProviderCallError("Anthropic request failed") from exc
-        text = "\n".join(
-            block.text for block in response.content
-            if getattr(block, "type", None) == "text" and getattr(block, "text", "").strip()
-        )
+        try:
+            blocks = response.content
+            text = "\n".join(
+                block.text for block in blocks
+                if getattr(block, "type", None) == "text"
+                and isinstance(getattr(block, "text", None), str)
+                and block.text.strip()
+            )
+        except Exception as exc:
+            raise ProviderCallError("Anthropic returned an invalid response") from exc
         if not text:
             raise ProviderCallError("Anthropic returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))
