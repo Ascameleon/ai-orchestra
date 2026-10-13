@@ -1,7 +1,7 @@
 import pytest
 
 from orchestra.core import AllProvidersFailed, Orchestrator
-from orchestra.providers.base import ProviderResult
+from orchestra.providers.base import ProviderCallError, ProviderResult
 
 
 class StubProvider:
@@ -32,7 +32,7 @@ class FailingProvider:
 
     def generate(self, prompt: str) -> ProviderResult:
         self.calls += 1
-        raise RuntimeError(f"{self.name} unavailable")
+        raise ProviderCallError(f"{self.name} unavailable")
 
 
 class NamedProvider:
