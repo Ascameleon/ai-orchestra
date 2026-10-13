@@ -1,0 +1,39 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" build
+      - name: Lint
+        run: ruff check src tests
+      - name: Test
+        run: pytest
+      - name: Build distributable package
+        run: python -m build
+      - name: Dependency security audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit
