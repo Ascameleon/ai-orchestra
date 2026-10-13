@@ -3,6 +3,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
+class ProviderCallError(RuntimeError):
+    """Raised when a provider SDK call fails and ordered failover may continue."""
+
+
 class ProviderConfigurationError(RuntimeError):
     """Raised when a provider cannot be constructed from available configuration."""
 
