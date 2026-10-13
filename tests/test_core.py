@@ -77,3 +77,15 @@ def test_orchestrator_fails_closed_when_all_providers_fail():
 def test_orchestrator_requires_at_least_one_provider():
     with pytest.raises(ValueError, match="at least one provider"):
         Orchestrator([])
+
+
+def test_orchestrator_memory_records_success_and_failed_attempts_without_content():
+    primary = FailingProvider()
+    backup = NamedProvider("backup", "private answer")
+    orchestrator = Orchestrator([primary, backup])
+    orchestrator.run("private prompt")
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["failing"].failures == 1
+    assert outcomes["backup"].successes == 1
+    assert outcomes["backup"].failures == 0
+    assert all(not hasattr(item, "prompt") and not hasattr(item, "text") for item in outcomes.values())
