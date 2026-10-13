@@ -3,11 +3,7 @@ from google import genai
 from google.genai import types
 
 from orchestra.config import Settings
-from orchestra.providers.base import ProviderResult
-
-
-class ProviderConfigurationError(RuntimeError):
-    """Raised when required provider configuration is absent."""
+from orchestra.providers.base import ProviderConfigurationError, ProviderResult
 
 
 class GeminiProvider:
