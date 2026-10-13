@@ -39,6 +39,7 @@ class ReviewWorkflow:
             "Act as a precise planner. Create a concise, structured first draft for this task. "
             "Do not claim facts you cannot support.\n\nTASK:\n" + prompt,
             preferred_provider=preferred_provider,
+            task_type="review",
             before_attempt=before_attempt,
         )
         critique = self._orchestrator.run(
