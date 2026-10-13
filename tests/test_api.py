@@ -232,3 +232,27 @@ def test_provider_call_budget_counts_failover_attempts(monkeypatch):
     assert response.json() == {"detail": "Process provider-call budget exhausted"}
     assert backup.calls == 0
     assert client.get("/metrics").json()["requests_used"] == 1
+
+
+def test_review_workflow_endpoint_returns_final_revision_only():
+    class WorkflowProvider:
+        name = "workflow"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            text = ("draft", "review correction", "final revision")[self.calls - 1]
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    provider = WorkflowProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post("/v1/workflows/review", json={"prompt": "Write a plan"})
+    assert response.status_code == 200
+    assert response.json()["text"] == "final revision"
+    assert response.json()["provider_calls"] == 3
+    assert provider.calls == 3
+    audit = client.get("/audit").json()[0]
+    assert audit["outcome"] == "success"
+    assert audit["output_chars"] == len("final revision")
