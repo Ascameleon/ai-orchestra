@@ -180,3 +180,26 @@ def test_provider_health_endpoint_reports_metadata_only(monkeypatch):
     assert records["stub"]["successes"] == 1
     assert "private prompt" not in health.text
     assert "safe test response" not in health.text
+
+
+def test_task_endpoint_allows_explicit_selection_of_configured_provider():
+    class BackupProvider:
+        name = "backup"
+
+        def generate(self, prompt: str) -> ProviderResult:
+            return ProviderResult("backup", "backup-model", "backup answer", len(prompt), 13)
+
+    client = TestClient(create_app(Orchestrator([StubProvider(), BackupProvider()])))
+    response = client.post("/v1/tasks", json={"prompt": "hello", "provider": "backup"})
+    assert response.status_code == 200
+    assert response.json()["provider"] == "backup"
+    assert response.json()["text"] == "backup answer"
+    assert response.json()["attempts"] == 1
+
+
+def test_task_endpoint_rejects_unconfigured_provider_before_budget_reservation():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post("/v1/tasks", json={"prompt": "hello", "provider": "missing"})
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Requested provider is not configured"}
+    assert client.get("/metrics").json()["requests_used"] == 0
