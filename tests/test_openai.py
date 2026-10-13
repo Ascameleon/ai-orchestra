@@ -51,6 +51,24 @@ def test_openai_generation_uses_limits_and_configured_model():
     assert calls[0]["max_tokens"] == 32
 
 
+def test_openai_sdk_failure_is_normalized_for_failover():
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            raise LookupError("secret upstream error")
+
+    provider = OpenAIProvider.__new__(OpenAIProvider)
+    provider._model = "test-model"
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._client = type(
+        "Client", (), {"chat": type("Chat", (), {"completions": FakeCompletions()})()}
+    )()
+    with pytest.raises(ProviderCallError, match="OpenAI request failed"):
+        provider.generate("hello")
+
+
 def test_openai_rejects_empty_or_oversized_prompt_before_network():
     provider = OpenAIProvider.__new__(OpenAIProvider)
     provider._max_input_chars = 3
