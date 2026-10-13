@@ -4,7 +4,7 @@ This module evaluates metadata only. It does not fetch URLs, verify publishers, 
 establish that a cited source supports a claim.
 """
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit, urlunsplit
 
 
