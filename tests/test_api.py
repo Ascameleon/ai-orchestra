@@ -272,3 +272,42 @@ def test_task_endpoint_applies_configured_task_route():
     assert response.status_code == 200
     assert response.json()["provider"] == "backup"
     assert response.json()["text"] == "routed answer"
+
+
+def test_review_workflow_failure_never_returns_intermediate_drafts():
+    from orchestra.providers.base import ProviderCallError
+
+    class FailsOnFinalStep:
+        name = "workflow"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            if self.calls == 3:
+                raise ProviderCallError("hidden final-stage failure")
+            text = ("private draft", "private critique")[self.calls - 1]
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    provider = FailsOnFinalStep()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post("/v1/workflows/review", json={"prompt": "private task"})
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Workflow failed; no partial result returned"}
+    assert "private draft" not in response.text
+    assert "private critique" not in response.text
+    assert provider.calls == 3
+
+
+def test_api_key_protects_review_workflow(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "workflow-secret")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    denied = client.post("/v1/workflows/review", json={"prompt": "task"})
+    assert denied.status_code == 401
+    allowed = client.post(
+        "/v1/workflows/review",
+        json={"prompt": "task"},
+        headers={"X-API-Key": "workflow-secret"},
+    )
+    assert allowed.status_code == 200
