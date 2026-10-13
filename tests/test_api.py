@@ -6,6 +6,8 @@ from orchestra.providers.base import ProviderResult
 
 
 class StubProvider:
+    name = "stub"
+
     def generate(self, prompt: str) -> ProviderResult:
         return ProviderResult("stub", "test-model", "safe test response", len(prompt), 18)
 
