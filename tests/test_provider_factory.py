@@ -29,7 +29,7 @@ def test_factory_registers_configured_gemini_without_live_calls(monkeypatch):
 def test_factory_rejects_missing_gemini_key():
     try:
         factory.build_provider_registry(settings("gemini", api_key=None))
-    except factory.ProviderConfigurationError as exc:
+    except ProviderConfigurationError as exc:
         assert "GEMINI_API_KEY" in str(exc)
     else:
         raise AssertionError("Missing Gemini key should be rejected")
