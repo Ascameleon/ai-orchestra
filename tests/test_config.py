@@ -74,8 +74,8 @@ def test_provider_fallbacks_reject_primary_duplicates_or_unknown_names(monkeypat
 def test_task_routes_are_validated_and_ordered(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
     monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", "openai,anthropic")
-    monkeypatch.setenv("ORCHESTRA_TASK_ROUTES", "code=openai,writing=anthropic")
-    assert load_settings().task_routes == (("code", "openai"), ("writing", "anthropic"))
+    monkeypatch.setenv("ORCHESTRA_TASK_ROUTES", "code=openai,writing=anthropic,planner=gemini,reviewer=openai,writer=anthropic")
+    assert load_settings().task_routes == (("code", "openai"), ("writing", "anthropic"), ("planner", "gemini"), ("reviewer", "openai"), ("writer", "anthropic"))
 
 
 @pytest.mark.parametrize("routes", ["code=grok", "unknown=openai", "code", "code=openai,code=anthropic"])
