@@ -35,5 +35,5 @@ class OpenAIProvider:
             raise ProviderCallError("OpenAI request failed") from exc
         text = response.choices[0].message.content
         if not text or not text.strip():
-            raise RuntimeError("OpenAI returned an empty response")
+            raise ProviderCallError("OpenAI returned an empty response")
         return ProviderResult(self.name, self._model, text, len(prompt), len(text))
