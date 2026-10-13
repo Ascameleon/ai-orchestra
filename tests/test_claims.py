@@ -37,3 +37,9 @@ def test_duplicate_claim_ids_are_rejected():
 def test_blank_claim_fields_are_rejected():
     with pytest.raises(ValueError, match="must not be empty"):
         assess_claim_links([ClaimRecord("c1", " ", ("e1",))], {"e1"})
+
+
+
+def test_empty_evidence_reference_is_rejected():
+    with pytest.raises(ValueError, match="empty evidence reference"):
+        assess_claim_links([ClaimRecord("c1", "Claim", (" ",))], {"e1"})
