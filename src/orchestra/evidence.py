@@ -4,7 +4,7 @@ This module evaluates metadata only. It does not fetch URLs, verify publishers, 
 establish that a cited source supports a claim.
 """
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -39,7 +39,7 @@ class EvidenceRecord:
     source_group: str
     url: str
     published_at: datetime | None = None
-    retrieved_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    retrieved_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
         for name in ("evidence_id", "source_name", "source_group", "url"):
