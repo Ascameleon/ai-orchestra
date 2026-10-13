@@ -19,7 +19,7 @@ from orchestra.workflows import ReviewWorkflow
 class TaskRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
-    task_type: Literal["general", "code", "research", "writing", "analysis", "review"] = "general"
+    task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
 
 
 class WorkflowRequest(BaseModel):
