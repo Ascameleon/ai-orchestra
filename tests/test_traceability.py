@@ -65,3 +65,24 @@ def test_traceability_rejects_duplicate_claim_and_conclusion_ids():
         trace_conclusions([], [ClaimTrace("c1", ()), ClaimTrace("c1", ())])
     with pytest.raises(ValueError, match="duplicate conclusion_id"):
         trace_conclusions([("d1", "first", ()), ("d1", "second", ())], [])
+
+
+def test_traceability_flags_unknown_evidence_and_claims_without_evidence():
+    result = trace_conclusions(
+        [("d1", "Conclusion", ("c1", "c2"))],
+        [ClaimTrace("c1", ("e1", "unknown")), ClaimTrace("c2", ())],
+        known_evidence_ids=["e1", "e2"],
+    )
+    item = result.results[0]
+    assert item.traceability_status == "partially_traceable"
+    assert item.evidence_ids == ("e1", "unknown")
+    assert item.unknown_evidence_ids == ("unknown",)
+    assert item.claims_without_evidence == ("c2",)
+    assert result.partially_traceable == 1
+
+
+def test_traceability_validates_evidence_registry():
+    with pytest.raises(ValueError, match="must be unique"):
+        trace_conclusions([], [], known_evidence_ids=["e1", "e1"])
+    with pytest.raises(ValueError, match="must not contain empty"):
+        trace_conclusions([], [], known_evidence_ids=[" "])
