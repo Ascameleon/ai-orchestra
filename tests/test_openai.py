@@ -1,3 +1,4 @@
+from orchestra.providers.base import ProviderConfigurationError
 import pytest
 
 from orchestra.config import Settings
