@@ -18,7 +18,7 @@ class AnthropicProvider:
         self._model = settings.anthropic_model
         self._max_input_chars = settings.max_input_chars
         self._max_output_tokens = settings.max_output_tokens
-        self._client = Anthropic(api_key=settings.anthropic_api_key)
+        self._client = Anthropic(api_key=settings.anthropic_api_key, timeout=30.0, max_retries=0)
 
     def generate(self, prompt: str) -> ProviderResult:
         if not prompt or not prompt.strip():
