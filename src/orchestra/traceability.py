@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-Stance = Literal["supports", "opposes", "neutral"]
+Stance = str
 
 
 @dataclass(frozen=True)
