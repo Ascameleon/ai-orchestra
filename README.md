@@ -41,7 +41,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 - `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live provider connectivity.
 - `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`.
-- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one Gemini API request.
+- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"` or `"provider":"anthropic"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and budget use.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
 - `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
