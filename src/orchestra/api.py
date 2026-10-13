@@ -1,5 +1,6 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
 import os
+from datetime import datetime, timedelta
 from hmac import compare_digest
 from threading import Lock
 from typing import Literal
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
+from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
@@ -25,6 +27,21 @@ class TaskRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class EvidenceItemRequest(BaseModel):
+    evidence_id: str = Field(min_length=1, max_length=128)
+    source_name: str = Field(min_length=1, max_length=256)
+    source_group: str = Field(min_length=1, max_length=128)
+    url: str = Field(min_length=1, max_length=2048)
+    published_at: datetime | None = None
+    retrieved_at: datetime | None = None
+
+
+class EvidenceAssessmentRequest(BaseModel):
+    evidence: list[EvidenceItemRequest] = Field(max_length=100)
+    max_age_days: int = Field(default=30, ge=0, le=3650)
+    minimum_independent_sources: int = Field(default=2, ge=1, le=100)
 
 
 class WorkflowResponse(BaseModel):
@@ -263,6 +280,35 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         with metrics_lock:
             metrics["succeeded"] += 1
         return WorkflowResponse(**result.__dict__)
+
+    @app.post("/v1/evidence/assess")
+    def assess_evidence_endpoint(
+        request: EvidenceAssessmentRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Assess supplied evidence metadata; never fetches URLs or calls an LLM."""
+        authorize(x_api_key)
+        records = []
+        try:
+            for item in request.evidence:
+                fields = {
+                    "evidence_id": item.evidence_id,
+                    "source_name": item.source_name,
+                    "source_group": item.source_group,
+                    "url": item.url,
+                    "published_at": item.published_at,
+                }
+                if item.retrieved_at is not None:
+                    fields["retrieved_at"] = item.retrieved_at
+                records.append(EvidenceRecord(**fields))
+            result = assess_evidence(
+                records,
+                max_age=timedelta(days=request.max_age_days),
+                minimum_independent_sources=request.minimum_independent_sources,
+            )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        return result.__dict__
 
     return app
 
