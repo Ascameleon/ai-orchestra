@@ -110,7 +110,7 @@ def assess_evidence(
             status = UNDATED
         else:
             age = reference_time - record.published_at
-            if age < timedelta(0):
+            if age < dt.timedelta(0):
                 future_count += 1
                 status = FUTURE_DATED
             elif age <= max_age:
