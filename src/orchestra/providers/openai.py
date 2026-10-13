@@ -31,7 +31,7 @@ class OpenAIProvider:
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=self._max_output_tokens,
             )
-        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+        except Exception as exc:
             raise ProviderCallError("OpenAI request failed") from exc
         text = response.choices[0].message.content
         if not text or not text.strip():
