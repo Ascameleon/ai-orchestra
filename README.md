@@ -47,7 +47,8 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
-- `ORCHESTRA_PROVIDER`: provider name (default `gemini`); supported values are `gemini`, `openai`, and `anthropic`. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
+- `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, and `anthropic`.
+- `ORCHESTRA_PROVIDER_FALLBACKS`: optional comma-separated ordered fallback providers, for example `openai,anthropic`. Each listed provider needs its own API key and optional SDK extra. The primary cannot be repeated; duplicates and unknown names are rejected. Each task tries providers in order and stops at the first success. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
 - `OPENAI_MODEL`: OpenAI model name (default `gpt-4o-mini`).
 - `ANTHROPIC_MODEL`: Anthropic model name (default `claude-3-5-haiku-latest`).
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
@@ -60,6 +61,6 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, single-call orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: automatic multi-provider fallback/routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: task-aware automatic provider routing, persistent audit storage, multi-agent workflows, production authentication, distributed quotas, or evidence of live provider connectivity. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
