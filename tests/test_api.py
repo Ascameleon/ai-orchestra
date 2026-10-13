@@ -315,3 +315,89 @@ def test_api_key_protects_review_workflow(monkeypatch):
         headers={"X-API-Key": "workflow-secret"},
     )
     assert allowed.status_code == 200
+
+
+def test_evidence_assessment_endpoint_reports_freshness_and_source_diversity():
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    payload = {
+        "evidence": [
+            {
+                "evidence_id": "e1",
+                "source_name": "Publisher One",
+                "source_group": "publisher-one",
+                "url": "https://one.example/report",
+                "published_at": (now - timedelta(days=1)).isoformat(),
+            },
+            {
+                "evidence_id": "e2",
+                "source_name": "Publisher Two",
+                "source_group": "publisher-two",
+                "url": "https://two.example/report",
+                "published_at": now.isoformat(),
+            },
+        ],
+        "minimum_independent_sources": 2,
+    }
+
+    response = client.post("/v1/evidence/assess", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_records"] == 2
+    assert body["fresh_records"] == 2
+    assert body["fresh_independent_source_groups"] == ["publisher-one", "publisher-two"]
+    assert body["has_enough_fresh_independent_sources"] is True
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_evidence_assessment_endpoint_rejects_invalid_urls_and_naive_timestamps():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    invalid_url = {
+        "evidence": [
+            {
+                "evidence_id": "e1",
+                "source_name": "Publisher One",
+                "source_group": "publisher-one",
+                "url": "javascript:alert(1)",
+            }
+        ]
+    }
+    response = client.post("/v1/evidence/assess", json=invalid_url)
+    assert response.status_code == 422
+
+    naive_date = {
+        "evidence": [
+            {
+                "evidence_id": "e1",
+                "source_name": "Publisher One",
+                "source_group": "publisher-one",
+                "url": "https://one.example/report",
+                "published_at": "2026-10-12T10:00:00",
+            }
+        ]
+    }
+    response = client.post("/v1/evidence/assess", json=naive_date)
+    assert response.status_code == 422
+    assert "timezone-aware" in response.text
+
+
+def test_evidence_assessment_endpoint_limits_payload_and_honors_api_key(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "evidence-secret")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    assert client.post("/v1/evidence/assess", json={"evidence": []}).status_code == 401
+    headers = {"X-API-Key": "evidence-secret"}
+    oversized = {"evidence": [{}] * 101}
+    response = client.post("/v1/evidence/assess", json=oversized, headers=headers)
+    assert response.status_code == 422
