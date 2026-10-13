@@ -61,6 +61,25 @@ def test_successful_generation_uses_configured_model_and_limits():
     assert calls[0]["config"].max_output_tokens == 32
 
 
+def test_sdk_failure_is_normalized_for_failover():
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            raise LookupError("secret upstream error")
+
+    class FakeClient:
+        models = FakeModels()
+
+    provider = GeminiProvider.__new__(GeminiProvider)
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._model = "test-model"
+    provider._client = FakeClient()
+    with pytest.raises(ProviderCallError, match="Gemini request failed"):
+        provider.generate("hello")
+
+
 def test_empty_provider_response_is_reported():
     class FakeModels:
         def generate_content(self, **kwargs):
