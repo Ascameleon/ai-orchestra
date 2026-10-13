@@ -3,6 +3,7 @@
 This module evaluates metadata only. It does not fetch URLs, verify publishers, or
 establish that a cited source supports a claim.
 """
+# isort: skip_file
 import datetime as dt
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit, urlunsplit
