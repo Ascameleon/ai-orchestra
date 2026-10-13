@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta
 from hmac import compare_digest
 from threading import Lock
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
@@ -48,11 +48,11 @@ class EvidenceAssessmentRequest(BaseModel):
 class ClaimItemRequest(BaseModel):
     claim_id: str = Field(min_length=1, max_length=128)
     text: str = Field(min_length=1, max_length=10000)
-    evidence_ids: list[str] = Field(default_factory=list, max_length=100)
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(default_factory=list, max_length=100)
 
 
 class ClaimLinkAssessmentRequest(BaseModel):
-    evidence_ids: list[str] = Field(max_length=100)
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=100)
     claims: list[ClaimItemRequest] = Field(max_length=100)
 
 
@@ -340,7 +340,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 ClaimRecord(
                     claim_id=item.claim_id,
                     text=item.text,
-                    evidence_ids=tuple(item.evidence_ids),
+                    evidence_ids=tuple(reference.strip() for reference in item.evidence_ids),
                 )
                 for item in request.claims
             ]
