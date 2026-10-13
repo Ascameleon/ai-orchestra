@@ -1,3 +1,4 @@
+from orchestra.providers.base import ProviderConfigurationError
 from orchestra.config import Settings
 from orchestra.providers import factory
 
