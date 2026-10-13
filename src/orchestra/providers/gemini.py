@@ -28,7 +28,7 @@ class GeminiProvider:
                 contents=prompt,
                 config=types.GenerateContentConfig(max_output_tokens=self._max_output_tokens),
             )
-        except Exception as exc:  # noqa: BLE001 - normalize third-party SDK errors for failover
+        except Exception as exc:
             raise ProviderCallError("Gemini request failed") from exc
         text = response.text
         if not text or not text.strip():
