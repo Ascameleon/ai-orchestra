@@ -95,3 +95,27 @@ def test_empty_provider_response_is_reported():
     provider._client = FakeClient()
     with pytest.raises(RuntimeError, match="empty response"):
         provider.generate("hello")
+
+
+def test_malformed_sdk_response_is_normalized_for_failover():
+    from orchestra.providers.base import ProviderCallError
+
+    class FakeResponse:
+        @property
+        def text(self):
+            raise ValueError("response has no readable candidate")
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            return FakeResponse()
+
+    class FakeClient:
+        models = FakeModels()
+
+    provider = GeminiProvider.__new__(GeminiProvider)
+    provider._max_input_chars = 12
+    provider._max_output_tokens = 32
+    provider._model = "test-model"
+    provider._client = FakeClient()
+    with pytest.raises(ProviderCallError, match="invalid response"):
+        provider.generate("hello")
