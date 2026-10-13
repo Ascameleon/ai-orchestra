@@ -29,7 +29,7 @@ def test_review_workflow_runs_draft_review_and_revision():
     assert result.input_chars == len("Build a safe API")
     assert "initial draft" in provider.prompts[1]
     assert "fix the missing constraints" in provider.prompts[2]
-    assert "review notes" in provider.prompts[2]
+    assert "REVIEW CORRECTIONS" in provider.prompts[2]
 
 
 def test_review_workflow_stops_without_partial_result_when_budget_runs_out():
@@ -70,3 +70,31 @@ def test_review_workflow_can_route_each_agent_to_a_different_provider():
     assert result.text == "final answer"
     assert result.provider_calls == 3
     assert (planner.calls, reviewer.calls, writer.calls) == (1, 1, 1)
+
+
+def test_review_workflow_bounds_every_stage_even_with_large_outputs():
+    class LargeOutputProvider:
+        name = "large"
+
+        def __init__(self):
+            self.prompts = []
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.prompts.append(prompt)
+            self.calls += 1
+            text = "x" * 500
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    provider = LargeOutputProvider()
+    result = ReviewWorkflow(Orchestrator(provider), max_input_chars=400).run("task " * 50)
+
+    assert result.text == "x" * 500
+    assert len(provider.prompts) == 3
+    assert all(len(prompt) <= 400 for prompt in provider.prompts)
+    assert "truncated" in provider.prompts[1] or "truncated" in provider.prompts[2]
+
+
+def test_review_workflow_rejects_nonpositive_input_limit():
+    with pytest.raises(ValueError, match="max_input_chars"):
+        ReviewWorkflow(Orchestrator(SequencedProvider()), max_input_chars=0)

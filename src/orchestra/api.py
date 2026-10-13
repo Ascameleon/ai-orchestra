@@ -222,7 +222,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
             raise HTTPException(status_code=400, detail="Requested provider is not configured")
         try:
-            result = ReviewWorkflow(orchestrator).run(
+            result = ReviewWorkflow(orchestrator, max_input_chars=max_input).run(
                 request.prompt,
                 preferred_provider=request.provider,
                 before_attempt=budget.reserve,
