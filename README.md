@@ -44,7 +44,9 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"` or `"provider":"anthropic"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and budget use.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
-- `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.\n- `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
+- `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
+- `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
+- `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
 - `POST /v1/workflows/review` runs an opt-in three-stage draft → independent critique → final revision workflow. It returns only the final answer, not intermediate drafts or critique. Each provider attempt consumes the process call budget; if the budget runs out mid-workflow, no partial result is returned, although earlier provider calls may already have incurred charges.
 - Provider failures return a generic error and do not expose upstream exception details.
 
