@@ -55,7 +55,7 @@ def load_settings() -> Settings:
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
         raise ValueError("Provider fallback list must be unique and exclude the primary provider")
     configured_providers = {provider_name, *provider_fallbacks}
-    allowed_tasks = {"general", "code", "research", "writing", "analysis", "review"}
+    allowed_tasks = {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}
     task_routes = []
     for entry in os.getenv("ORCHESTRA_TASK_ROUTES", "").split(","):
         if not entry.strip():
