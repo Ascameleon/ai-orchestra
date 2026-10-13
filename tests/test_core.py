@@ -107,3 +107,13 @@ def test_unknown_explicit_provider_is_rejected_without_calling_providers():
     with pytest.raises(ValueError, match="provider is not configured"):
         Orchestrator(primary).run("hello", preferred_provider="missing")
     assert primary.calls == 0
+
+
+def test_configured_task_route_selects_provider_and_explicit_choice_overrides_it():
+    primary = NamedProvider("primary", "primary answer")
+    backup = NamedProvider("backup", "backup answer")
+    orchestrator = Orchestrator([primary, backup], routes=(("code", "backup"),))
+    routed = orchestrator.run("write code", task_type="code")
+    assert routed.provider == "backup"
+    explicit = orchestrator.run("general task", preferred_provider="primary", task_type="code")
+    assert explicit.provider == "primary"
