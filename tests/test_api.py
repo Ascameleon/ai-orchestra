@@ -11,6 +11,8 @@ class StubProvider:
 
 
 class FailingProvider:
+    name = "failing"
+
     def generate(self, prompt: str) -> ProviderResult:
         raise RuntimeError("sensitive upstream detail")
 
