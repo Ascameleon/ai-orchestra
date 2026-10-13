@@ -4,10 +4,6 @@ from orchestra.config import Settings
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.openai import OpenAIProvider
 
-from orchestra.providers.base import ProviderConfigurationError
-from orchestra.config import Settings
-from orchestra.providers.openai import OpenAIProvider
-
 
 def make_settings(key="test-key", max_input=12):
     return Settings(
