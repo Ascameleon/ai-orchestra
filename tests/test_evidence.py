@@ -1,11 +1,11 @@
-from datetime import UTC, datetime, timedelta
+import datetime as dt
 
 import pytest
 
 from orchestra.evidence import EvidenceRecord, assess_evidence
 
 
-NOW = datetime(2026, 10, 13, 12, 0, tzinfo=UTC)
+NOW = dt.datetime(2026, 10, 13, 12, 0, tzinfo=dt.UTC)
 
 
 def item(evidence_id, source_group, url, published_at=None):
@@ -21,7 +21,7 @@ def item(evidence_id, source_group, url, published_at=None):
 
 def test_freshness_distinguishes_fresh_stale_undated_and_future():
     records = [
-        item("fresh", "alpha", "https://alpha.example/report", NOW - timedelta(days=2)),
+        item("fresh", "alpha", "https://alpha.example/report", NOW - dt.timedelta(days=2)),
         item("stale", "beta", "https://beta.example/report", NOW - timedelta(days=31)),
         item("undated", "gamma", "https://gamma.example/report"),
         item("future", "delta", "https://delta.example/report", NOW + timedelta(days=1)),
@@ -71,7 +71,7 @@ def test_invalid_urls_are_rejected(url):
 
 def test_naive_datetimes_are_rejected():
     with pytest.raises(ValueError, match="timezone-aware"):
-        item("naive", "alpha", "https://a.example", datetime(2026, 10, 13))
+        item("naive", "alpha", "https://a.example", dt.datetime(2026, 10, 13))
 
 
 @pytest.mark.parametrize(
