@@ -5,7 +5,6 @@ confirm that the snapshot came from the claimed publisher or that the quote
 semantically supports a claim.
 """
 import hashlib
-import re
 from dataclasses import dataclass
 
 
