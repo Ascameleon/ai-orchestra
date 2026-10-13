@@ -96,3 +96,31 @@ def test_failed_provider_request_is_audited_without_sensitive_details():
     assert event["outcome"] == "failure"
     assert event["input_chars"] == len(secret_prompt)
     assert event["output_chars"] == 0
+
+
+def test_request_budget_returns_429_after_limit(monkeypatch):
+    import orchestra.api as api_module
+
+    real_guard = api_module.CostGuard
+
+    class OneRequestGuard(real_guard):
+        def __init__(self, max_requests):
+            super().__init__(1)
+
+    monkeypatch.setattr(api_module, "CostGuard", OneRequestGuard)
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    assert client.post("/v1/tasks", json={"prompt": "first"}).status_code == 200
+    second = client.post("/v1/tasks", json={"prompt": "second"})
+    assert second.status_code == 429
+    assert second.json() == {"detail": "Process request budget exhausted"}
+    assert client.get("/metrics").json()["rejected"] == 1
+
+
+def test_configured_api_key_protects_metrics_too(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "another-test-key")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    assert client.get("/metrics").status_code == 401
+    assert client.get("/audit").status_code == 401
+    headers = {"X-API-Key": "another-test-key"}
+    assert client.get("/metrics", headers=headers).status_code == 200
+    assert client.get("/audit", headers=headers).status_code == 200
