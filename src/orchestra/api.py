@@ -37,7 +37,8 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         try:
             settings = load_settings()
             registry = build_provider_registry(settings)
-            orchestrator = Orchestrator(registry.get(settings.provider_name))
+            providers = tuple(registry.get(name) for name in (settings.provider_name, *settings.provider_fallbacks))
+            orchestrator = Orchestrator(providers)
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
