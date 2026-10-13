@@ -203,3 +203,32 @@ def test_task_endpoint_rejects_unconfigured_provider_before_budget_reservation()
     assert response.status_code == 400
     assert response.json() == {"detail": "Requested provider is not configured"}
     assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_provider_call_budget_counts_failover_attempts(monkeypatch):
+    import orchestra.api as api_module
+
+    real_guard = api_module.CostGuard
+
+    class OneProviderCallGuard(real_guard):
+        def __init__(self, max_requests):
+            super().__init__(1)
+
+    class BackupProvider:
+        name = "backup"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult("backup", "test-model", "answer", len(prompt), 6)
+
+    monkeypatch.setattr(api_module, "CostGuard", OneProviderCallGuard)
+    backup = BackupProvider()
+    client = TestClient(create_app(Orchestrator([FailingProvider(), backup])))
+    response = client.post("/v1/tasks", json={"prompt": "hello"})
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Process provider-call budget exhausted"}
+    assert backup.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 1
