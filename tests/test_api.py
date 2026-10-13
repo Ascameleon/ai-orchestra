@@ -445,3 +445,49 @@ def test_claim_link_endpoint_rejects_duplicate_evidence_ids():
         json={"evidence_ids": ["e1", "e1"], "claims": []},
     )
     assert response.status_code == 422
+
+
+
+def test_quote_audit_endpoint_checks_snapshot_without_provider_calls():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/evidence/audit-quotes",
+        json={
+            "snapshots": [{"evidence_id": "e1", "content": "Official report states: growth reached 12 percent."}],
+            "quotes": [
+                {"claim_id": "c1", "evidence_id": "e1", "quote": "GROWTH reached 12   percent."},
+                {"claim_id": "c2", "evidence_id": "e1", "quote": "growth reached 21 percent"},
+                {"claim_id": "c3", "evidence_id": "missing", "quote": "any quote"},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["quotes_found"] == 1
+    assert body["quotes_missing"] == 2
+    assert body["unknown_evidence_references"] == 1
+    assert body["checks"][0]["source_sha256"]
+    assert body["semantic_support_verified"] is False
+    assert body["publisher_authenticity_verified"] is False
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_quote_audit_endpoint_rejects_excessive_combined_text():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.post(
+        "/v1/evidence/audit-quotes",
+        json={
+            "snapshots": [{"evidence_id": "e1", "content": "x" * 20000}] * 13,
+            "quotes": [],
+        },
+    )
+    assert response.status_code == 413
