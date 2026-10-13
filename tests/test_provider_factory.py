@@ -1,6 +1,6 @@
 from orchestra.config import Settings
 from orchestra.providers import factory
-from orchestra.providers.base import ProviderConfigurationError
+from orchestra.providers.base import ProviderCallError, ProviderConfigurationError
 
 
 def settings(provider_name: str, api_key: str | None = "test-key") -> Settings:
@@ -118,3 +118,8 @@ def test_factory_rejects_missing_anthropic_key():
         assert "ANTHROPIC_API_KEY" in str(exc)
     else:
         raise AssertionError("Missing Anthropic key should be rejected")
+
+
+def test_provider_call_error_is_shared_contract():
+    error = ProviderCallError("provider unavailable")
+    assert str(error) == "provider unavailable"
