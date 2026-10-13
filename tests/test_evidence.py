@@ -22,12 +22,12 @@ def item(evidence_id, source_group, url, published_at=None):
 def test_freshness_distinguishes_fresh_stale_undated_and_future():
     records = [
         item("fresh", "alpha", "https://alpha.example/report", NOW - dt.timedelta(days=2)),
-        item("stale", "beta", "https://beta.example/report", NOW - timedelta(days=31)),
+        item("stale", "beta", "https://beta.example/report", NOW - dt.timedelta(days=31)),
         item("undated", "gamma", "https://gamma.example/report"),
-        item("future", "delta", "https://delta.example/report", NOW + timedelta(days=1)),
+        item("future", "delta", "https://delta.example/report", NOW + dt.timedelta(days=1)),
     ]
 
-    result = assess_evidence(records, now=NOW, max_age=timedelta(days=30))
+    result = assess_evidence(records, now=NOW, max_age=dt.timedelta(days=30))
 
     assert result.total_records == 4
     assert result.fresh_records == 1
@@ -42,7 +42,7 @@ def test_independence_counts_distinct_declared_groups_and_deduplicates_urls():
         item("one", "wire-service", "https://news.example/story/", NOW),
         item("duplicate-url", "another-label", "https://NEWS.example/story#section", NOW),
         item("two", "independent-paper", "https://paper.example/report", NOW),
-        item("three", "stale-source", "https://old.example/report", NOW - timedelta(days=90)),
+        item("three", "stale-source", "https://old.example/report", NOW - dt.timedelta(days=90)),
     ]
 
     result = assess_evidence(records, now=NOW)
@@ -77,7 +77,7 @@ def test_naive_datetimes_are_rejected():
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        ({"max_age": timedelta(seconds=-1)}, "max_age"),
+        ({"max_age": dt.timedelta(seconds=-1)}, "max_age"),
         ({"minimum_independent_sources": 0}, "minimum_independent_sources"),
     ],
 )
