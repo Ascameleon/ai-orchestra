@@ -59,6 +59,12 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "provider": "configured" if not configuration_error else "not_configured",
         }
 
+    @app.get("/ready")
+    def readiness() -> dict[str, str]:
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return {"status": "ready", "provider": "configured"}
+
     def authorize(provided_key: str | None) -> None:
         if api_key and (not provided_key or not compare_digest(provided_key, api_key)):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
