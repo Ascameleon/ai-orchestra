@@ -4,7 +4,7 @@ This module evaluates metadata only. It does not fetch URLs, verify publishers, 
 establish that a cited source supports a claim.
 """
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -47,7 +47,7 @@ class EvidenceRecord:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must not be empty")
         if not isinstance(self.url, str):
-            raise ValueError("url must be an absolute http(s) URL")
+            raise TypeError("url must be a string")
         _canonical_url(self.url)
         _require_aware(self.retrieved_at, "retrieved_at")
         if self.published_at is not None:
@@ -84,7 +84,7 @@ def assess_evidence(
     URLs are deduplicated for independence counts, while freshness counts are
     record-level. Source groups must be assigned by the caller and are not verified.
     """
-    reference_time = now or datetime.now(timezone.utc)
+    reference_time = now or datetime.now(UTC)
     _require_aware(reference_time, "now")
     if max_age < timedelta(0):
         raise ValueError("max_age must not be negative")
