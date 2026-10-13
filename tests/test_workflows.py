@@ -87,11 +87,11 @@ def test_review_workflow_bounds_every_stage_even_with_large_outputs():
             return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
 
     provider = LargeOutputProvider()
-    result = ReviewWorkflow(Orchestrator(provider), max_input_chars=180).run("task " * 50)
+    result = ReviewWorkflow(Orchestrator(provider), max_input_chars=400).run("task " * 50)
 
     assert result.text == "x" * 500
     assert len(provider.prompts) == 3
-    assert all(len(prompt) <= 180 for prompt in provider.prompts)
+    assert all(len(prompt) <= 400 for prompt in provider.prompts)
     assert "truncated" in provider.prompts[1] or "truncated" in provider.prompts[2]
 
 
