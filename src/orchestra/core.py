@@ -47,6 +47,6 @@ class Orchestrator:
                     output_chars=result.output_chars,
                     attempts=index,
                 )
-            except Exception as exc:
+            except (RuntimeError, ValueError, TimeoutError, OSError) as exc:
                 last_error = exc
         raise AllProvidersFailed("all configured providers failed") from last_error
