@@ -44,6 +44,8 @@ class ConclusionTrace:
     linked_claim_ids: tuple[str, ...]
     missing_claim_ids: tuple[str, ...]
     evidence_ids: tuple[str, ...]
+    unknown_evidence_ids: tuple[str, ...]
+    claims_without_evidence: tuple[str, ...]
     traceability_status: str
 
 
@@ -97,12 +99,22 @@ def screen_potential_conflicts(
 def trace_conclusions(
     conclusions: list[tuple[str, str, tuple[str, ...]]] | tuple[tuple[str, str, tuple[str, ...]], ...],
     claims: list[ClaimTrace] | tuple[ClaimTrace, ...],
+    known_evidence_ids: list[str] | tuple[str, ...] | set[str] | None = None,
 ) -> TraceabilityReport:
     """Resolve conclusion -> claim -> evidence links without judging truth or entailment.
 
     Each conclusion tuple is (conclusion_id, text, claim_ids). Duplicate IDs and
     blank fields are rejected. Evidence IDs are deduplicated in first-seen order.
     """
+    known_evidence: set[str] | None = None
+    if known_evidence_ids is not None:
+        normalized_evidence = [item.strip() for item in known_evidence_ids]
+        if any(not item for item in normalized_evidence):
+            raise ValueError("known_evidence_ids must not contain empty values")
+        if len(set(normalized_evidence)) != len(normalized_evidence):
+            raise ValueError("known_evidence_ids must be unique")
+        known_evidence = set(normalized_evidence)
+
     claim_by_id: dict[str, ClaimTrace] = {}
     for claim in claims:
         if not claim.claim_id.strip():
@@ -128,14 +140,22 @@ def trace_conclusions(
         missing = tuple(claim_id for claim_id in unique_claim_ids if claim_id not in claim_by_id)
         evidence_ids = tuple(
             dict.fromkeys(
-                evidence_id
+                evidence_id.strip()
                 for claim_id in linked
                 for evidence_id in claim_by_id[claim_id].evidence_ids
             )
         )
+        unknown_evidence = (
+            tuple(item for item in evidence_ids if item not in known_evidence)
+            if known_evidence is not None
+            else ()
+        )
+        claims_without_evidence = tuple(
+            claim_id for claim_id in linked if not claim_by_id[claim_id].evidence_ids
+        )
         if not unique_claim_ids or not linked:
             status = "untraceable"
-        elif missing:
+        elif missing or unknown_evidence or claims_without_evidence:
             status = "partially_traceable"
         else:
             status = "fully_traceable"
@@ -145,6 +165,8 @@ def trace_conclusions(
                 linked_claim_ids=linked,
                 missing_claim_ids=missing,
                 evidence_ids=evidence_ids,
+                unknown_evidence_ids=unknown_evidence,
+                claims_without_evidence=claims_without_evidence,
                 traceability_status=status,
             )
         )
