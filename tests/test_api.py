@@ -163,3 +163,16 @@ def test_task_response_reports_fallback_attempt_count():
     assert response.status_code == 200
     assert response.json()["provider"] == "stub"
     assert response.json()["attempts"] == 2
+
+
+def test_provider_health_endpoint_reports_metadata_only(monkeypatch):
+    client = TestClient(create_app(Orchestrator([FailingProvider(), StubProvider()])))
+    response = client.post("/v1/tasks", json={"prompt": "private prompt"})
+    assert response.status_code == 200
+    health = client.get("/providers/health")
+    assert health.status_code == 200
+    records = {item["provider"]: item for item in health.json()}
+    assert records["failing"]["failures"] == 1
+    assert records["stub"]["successes"] == 1
+    assert "private prompt" not in health.text
+    assert "safe test response" not in health.text
