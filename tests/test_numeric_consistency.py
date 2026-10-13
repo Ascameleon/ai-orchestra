@@ -11,7 +11,7 @@ def test_flags_different_values_for_same_metric_unit_and_period():
         NumericAssertion("a4", "c4", "e4", "GDP growth", "2.500", "%", "2025"),
     ])
     assert result.assertions_checked == 4
-    assert result.potential_disagreement_count == 1
+    assert result.potential_disagreement_count == 2
     item = result.potential_disagreements[0]
     assert item.assertion_a == "a1"
     assert item.assertion_b == "a2"
