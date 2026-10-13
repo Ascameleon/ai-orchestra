@@ -124,3 +124,22 @@ def test_configured_api_key_protects_metrics_too(monkeypatch):
     headers = {"X-API-Key": "another-test-key"}
     assert client.get("/metrics", headers=headers).status_code == 200
     assert client.get("/audit", headers=headers).status_code == 200
+
+
+def test_readiness_distinguishes_missing_provider_configuration(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ORCHESTRA_PROVIDER_FALLBACKS", raising=False)
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    import orchestra.api as api_module
+
+    app = api_module.create_app()
+    client = TestClient(app)
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+
+
+def test_readiness_reports_configured_injected_orchestrator():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.get("/ready")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
