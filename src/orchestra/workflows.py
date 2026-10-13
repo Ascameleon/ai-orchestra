@@ -47,6 +47,7 @@ class ReviewWorkflow:
             "assumptions, and missing requirements in the draft. Give actionable corrections. "
             "Do not rewrite the full answer.\n\nTASK:\n" + prompt + "\n\nDRAFT:\n" + draft.text,
             preferred_provider=preferred_provider,
+            task_type="review",
             before_attempt=before_attempt,
         )
         final = self._orchestrator.run(
@@ -55,6 +56,7 @@ class ReviewWorkflow:
             "review notes. If information is uncertain, state that clearly.\n\nTASK:\n"
             + prompt + "\n\nDRAFT:\n" + draft.text + "\n\nREVIEW CORRECTIONS:\n" + critique.text,
             preferred_provider=preferred_provider,
+            task_type="review",
             before_attempt=before_attempt,
         )
         return WorkflowResult(
