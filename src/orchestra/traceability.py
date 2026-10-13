@@ -6,15 +6,12 @@ not semantic inference or proof that either source is correct.
 from dataclasses import dataclass
 
 
-Stance = str
-
-
 @dataclass(frozen=True)
 class SourceAssertion:
     assertion_id: str
     evidence_id: str
     topic: str
-    stance: Stance
+    stance: str
 
 
 @dataclass(frozen=True)
