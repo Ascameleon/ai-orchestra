@@ -1,6 +1,10 @@
-"""Provider contract shared by interchangeable LLM adapters."""
+"""Provider contracts and shared adapter errors."""
 from dataclasses import dataclass
 from typing import Protocol
+
+
+class ProviderConfigurationError(RuntimeError):
+    """Raised when a provider cannot be constructed from available configuration."""
 
 
 @dataclass(frozen=True)
