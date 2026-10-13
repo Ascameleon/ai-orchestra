@@ -26,6 +26,7 @@ class TaskResponse(BaseModel):
     duration_ms: int
     input_chars: int
     output_chars: int
+    attempts: int = 1
 
 
 def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
