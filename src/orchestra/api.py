@@ -1,8 +1,8 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
 import os
 from hmac import compare_digest
-from typing import Literal
 from threading import Lock
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
