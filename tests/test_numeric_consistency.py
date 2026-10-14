@@ -42,7 +42,6 @@ def test_same_value_different_format_is_not_a_disagreement():
     assert result.potential_disagreement_count == 0
 
 
-
 def test_numeric_consistency_rejects_malformed_collection_and_fields():
     with pytest.raises(TypeError, match="assertions must be a list or tuple"):
         screen_numeric_consistency("not-assertions")
@@ -50,3 +49,19 @@ def test_numeric_consistency_rejects_malformed_collection_and_fields():
         screen_numeric_consistency([object()])
     with pytest.raises(TypeError, match="assertion fields must be strings"):
         screen_numeric_consistency([NumericAssertion("a1", "c1", "e1", "metric", 1, "kg", "2025")])
+
+
+def test_numeric_consistency_normalizes_identifiers_and_rejects_collisions():
+    result = screen_numeric_consistency([
+        NumericAssertion(" a1 ", " c1 ", " e1 ", "metric", "1", "kg", "2025"),
+        NumericAssertion("a2", "c2", "e2", "metric", "2", "kg", "2025"),
+    ])
+    assert result.potential_disagreements[0].assertion_a == "a1"
+    assert result.potential_disagreements[0].claim_a == "c1"
+    assert result.potential_disagreements[0].evidence_a == "e1"
+
+    with pytest.raises(ValueError, match="after whitespace normalization"):
+        screen_numeric_consistency([
+            NumericAssertion("a1", "c1", "e1", "metric", "1", "kg", "2025"),
+            NumericAssertion(" a1 ", "c2", "e2", "metric", "2", "kg", "2025"),
+        ])
