@@ -224,7 +224,7 @@ def test_fetch_bounds_body_when_content_length_is_missing(monkeypatch):
     )
 
     with pytest.raises(EvidenceFetchUnavailable, match="size limit"):
-        fetcher.fetch_many(["https://example.com/"])
+        fetcher.fetch_many(["http://example.com/"])
 
     assert response.read_called
     assert response.closed
