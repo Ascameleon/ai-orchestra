@@ -39,6 +39,21 @@ def test_normalizes_claim_and_evidence_ids():
     assert report.assessments[0].evidence_ids == ("e1",)
 
 
+def test_rationale_length_limit_applies_after_trimming():
+    response = json.dumps({
+        "assessments": [{
+            "claim_id": "c1",
+            "status": "supported",
+            "evidence_ids": ["e1"],
+            "rationale": f"{'x' * 300}   ",
+        }]
+    })
+
+    report = parse_support_assessment(response, {"c1"}, {"e1"})
+
+    assert report.assessments[0].rationale == "x" * 300
+
+
 @pytest.mark.parametrize("response", [
     "not json",
     '{"wrong":[]}',
@@ -75,6 +90,8 @@ def test_rejects_duplicate_json_object_keys(response):
     ("{}", {"c1"}, {"e1", 1}),
     ("{}", {""}, {"e1"}),
     ("{}", {"c1"}, {" "}),
+    ("{}", {"c1", " c1 "}, {"e1"}),
+    ("{}", {"c1"}, {"e1", " e1 "}),
 ])
 def test_rejects_invalid_parser_inputs(response, claims, evidence):
     with pytest.raises((TypeError, ValueError)):
