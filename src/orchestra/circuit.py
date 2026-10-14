@@ -245,7 +245,7 @@ class SQLiteProviderCircuitBreaker:
             now = self._clock()
             result = []
             for name in names:
-                failures, opened_at, probe = states[name]
+                failures, opened_at, _probe = states[name]
                 remaining = 0.0 if opened_at is None else max(
                     0.0, self.reset_timeout_seconds - (now - opened_at)
                 )
