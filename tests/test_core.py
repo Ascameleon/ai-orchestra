@@ -245,3 +245,33 @@ def test_memory_write_failure_does_not_interrupt_provider_failover():
     assert result.text == "backup answer"
     assert result.attempts == 2
     assert primary.calls == backup.calls == 1
+
+
+@pytest.mark.parametrize("prompt", [None, 1, "", "   "])
+def test_orchestrator_rejects_invalid_prompt_before_provider_attempt(prompt):
+    provider = NamedProvider("primary", "answer")
+
+    with pytest.raises(ValueError, match="prompt must be a non-empty string"):
+        Orchestrator(provider).run(prompt)
+
+    assert provider.calls == 0
+
+
+@pytest.mark.parametrize("task_type", [None, [], 1, "unknown"])
+def test_orchestrator_rejects_invalid_task_type_without_provider_attempt(task_type):
+    provider = NamedProvider("primary", "answer")
+
+    with pytest.raises(ValueError, match="unsupported task type"):
+        Orchestrator(provider).run("hello", task_type=task_type)
+
+    assert provider.calls == 0
+
+
+@pytest.mark.parametrize("preferred_provider", ["", "   ", 1, []])
+def test_orchestrator_rejects_invalid_provider_preference(preferred_provider):
+    provider = NamedProvider("primary", "answer")
+
+    with pytest.raises(ValueError, match="preferred_provider must be a non-empty string"):
+        Orchestrator(provider).run("hello", preferred_provider=preferred_provider)
+
+    assert provider.calls == 0
