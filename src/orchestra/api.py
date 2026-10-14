@@ -13,6 +13,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from orchestra.agents import UnknownAgentRequested
+from orchestra.citation_audit import audit_citation_coverage
 from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
@@ -666,6 +667,7 @@ def create_app(
         )
         citation_tokens = re.findall(r"\[(ev_[^\]\s]{1,120})\]", result.text)
         cited_ids = list(dict.fromkeys(citation_tokens))
+        citation_coverage = audit_citation_coverage(result.text, source_ids)
         return {
             "request_id": result.request_id,
             "provider": result.provider,
@@ -686,6 +688,14 @@ def create_app(
             ],
             "cited_evidence_ids": cited_ids,
             "citation_ids_valid": bool(cited_ids) and set(cited_ids).issubset(source_ids),
+            "citation_coverage": {
+                "method": "heuristic_sentence_citation_presence",
+                "sentence_count": citation_coverage.sentence_count,
+                "sentences_with_valid_citations": citation_coverage.sentences_with_valid_citations,
+                "uncited_sentence_count": citation_coverage.uncited_sentence_count,
+                "coverage_ratio": citation_coverage.coverage_ratio,
+                "invalid_citation_ids": list(citation_coverage.invalid_citation_ids),
+            },
             "source_authenticity_verified": False,
             "semantic_support_verified": False,
         }
