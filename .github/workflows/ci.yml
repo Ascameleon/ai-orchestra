@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]" build
       - name: Lint
-        run: ruff check src tests
+        run: ruff check src tests scripts
       - name: Test
         run: pytest
       - name: Build distributable package
