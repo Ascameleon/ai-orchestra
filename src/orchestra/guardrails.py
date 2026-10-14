@@ -52,6 +52,91 @@ class CostGuard:
         return self._limit
 
 
+class SQLiteCostGuard:
+    """Atomic shared provider-call budget backed by a SQLite database.
+
+    Reservations are shared by all application workers that use the same database.
+    Calls are counted in a rolling time window; a reservation is never refunded
+    after a provider attempt begins, because that attempt may already be billable.
+    """
+
+    def __init__(self, max_requests: int, database_path: str, window_seconds: int = 86400):
+        import sqlite3
+
+        if max_requests < 1:
+            raise ValueError("max_requests must be greater than zero")
+        if not isinstance(database_path, str) or not database_path.strip():
+            raise ValueError("database_path must be a non-empty path")
+        if window_seconds < 1:
+            raise ValueError("window_seconds must be greater than zero")
+        self._limit = max_requests
+        self._window_seconds = window_seconds
+        self._lock = Lock()
+        self._connection = sqlite3.connect(database_path, check_same_thread=False, timeout=10)
+        with self._lock:
+            self._connection.execute("PRAGMA busy_timeout = 10000")
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS provider_call_reservations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reserved_at REAL NOT NULL
+                )
+                """
+            )
+            self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_provider_call_reservations_time "
+                "ON provider_call_reservations(reserved_at)"
+            )
+            self._connection.commit()
+
+    def reserve(self) -> int:
+        """Atomically reserve one call, or raise when the shared window is full."""
+        now = time()
+        cutoff = now - self._window_seconds
+        with self._lock:
+            self._connection.execute("BEGIN IMMEDIATE")
+            try:
+                self._connection.execute(
+                    "DELETE FROM provider_call_reservations WHERE reserved_at <= ?", (cutoff,)
+                )
+                used = int(self._connection.execute(
+                    "SELECT COUNT(*) FROM provider_call_reservations WHERE reserved_at > ?",
+                    (cutoff,),
+                ).fetchone()[0])
+                if used >= self._limit:
+                    self._connection.rollback()
+                    raise BudgetExceeded("Shared provider-call budget exhausted")
+                self._connection.execute(
+                    "INSERT INTO provider_call_reservations(reserved_at) VALUES (?)", (now,)
+                )
+                self._connection.commit()
+                return used + 1
+            except Exception:
+                if self._connection.in_transaction:
+                    self._connection.rollback()
+                raise
+
+    @property
+    def used(self) -> int:
+        cutoff = time() - self._window_seconds
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT COUNT(*) FROM provider_call_reservations WHERE reserved_at > ?",
+                (cutoff,),
+            ).fetchone()
+        return int(row[0])
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    def close(self) -> None:
+        """Close this worker's connection after request handling has stopped."""
+        with self._lock:
+            self._connection.close()
+
+
 class AuditTrail:
     """Keep bounded metadata; never store prompts, completions, or API keys."""
 
