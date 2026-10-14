@@ -154,10 +154,8 @@ class EvidenceFetcher:
         raw_query = parts.query
         if any(char.isspace() for char in raw_path + raw_query):
             raise EvidenceFetchRequestError("URL path contains invalid whitespace")
-        path = quote(raw_path, safe="/%:@!        path = quote(raw_path, safe="/%:@!        path = quote(raw_path, safe="/")
-        query = quote(raw_query, safe="=&")'()*+,;=-._~")
-        query = quote(raw_query, safe="=&%/?@:!'()*+,;=-._~")
-        query = quote(raw_query, safe="=&%/?@:!
+        path = quote(raw_path, safe="/%:@!$&'()*+,;=-._~")
+        query = quote(raw_query, safe="=&%/?@:!$'()*+,;~-._")
         canonical_url = urlunsplit((scheme, host, path, query, ""))
         return canonical_url, host, port, scheme, path, query
 
