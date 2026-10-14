@@ -160,3 +160,38 @@ def test_default_ports_are_normalized_for_url_deduplication():
 
     assert result.unique_urls == 2
     assert result.duplicate_url_records == 2
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("evidence_id", 7),
+        ("source_name", None),
+        ("source_group", ["group"]),
+    ],
+)
+def test_evidence_record_rejects_non_string_identity_fields(field, value):
+    kwargs = {
+        "evidence_id": "e1",
+        "source_name": "Publisher",
+        "source_group": "group",
+        "url": "https://example.com",
+        "retrieved_at": NOW,
+    }
+    kwargs[field] = value
+    with pytest.raises(TypeError, match=f"{field} must be a string"):
+        EvidenceRecord(**kwargs)
+
+
+def test_evidence_record_rejects_blank_identity_fields():
+    for field in ("evidence_id", "source_name", "source_group"):
+        kwargs = {
+            "evidence_id": "e1",
+            "source_name": "Publisher",
+            "source_group": "group",
+            "url": "https://example.com",
+            "retrieved_at": NOW,
+        }
+        kwargs[field] = "  "
+        with pytest.raises(ValueError, match=f"{field} must not be empty"):
+            EvidenceRecord(**kwargs)
