@@ -51,13 +51,16 @@ class Orchestrator:
         return tuple(self._provider_name(provider) for provider in self._providers)
 
     @staticmethod
-    def _validate_result(result: object, prompt: str) -> ProviderResult:
-        """Reject malformed adapter results before treating an attempt as successful."""
+    def _validate_result(
+        result: object, prompt: str, expected_provider: str | None = None
+    ) -> ProviderResult:
+        """Reject malformed or misattributed adapter results before accepting success."""
         if not isinstance(result, ProviderResult):
             raise ProviderCallError("Provider returned an invalid result")
         if (
             not isinstance(result.provider, str)
             or not result.provider.strip()
+            or (expected_provider is not None and result.provider.strip().lower() != expected_provider)
             or not isinstance(result.model, str)
             or not result.model.strip()
             or not isinstance(result.text, str)
@@ -97,9 +100,14 @@ class Orchestrator:
             if before_attempt is not None:
                 before_attempt()
             provider_started = perf_counter()
-            provider_name = getattr(provider, "name", provider.__class__.__name__).lower()
+            provider_name = self._provider_name(provider)
+            expected_provider = (
+                provider_name if isinstance(getattr(provider, "name", None), str) else None
+            )
             try:
-                result = self._validate_result(provider.generate(prompt), prompt)
+                result = self._validate_result(
+                    provider.generate(prompt), prompt, expected_provider=expected_provider
+                )
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
                 self.memory.record(provider_name, succeeded=True, duration_ms=provider_duration)
                 duration_ms = max(0, int((perf_counter() - started) * 1000))
@@ -113,7 +121,7 @@ class Orchestrator:
                     output_chars=result.output_chars,
                     attempts=index,
                 )
-            except (ProviderCallError, TimeoutError, OSError) as exc:
+            except Exception as exc:
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
                 self.memory.record(provider_name, succeeded=False, duration_ms=provider_duration)
                 last_error = exc
