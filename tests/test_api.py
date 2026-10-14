@@ -796,3 +796,32 @@ def test_model_assisted_claim_support_fails_closed_on_unknown_evidence_id():
         "detail": "Provider returned an invalid claim-support assessment; no partial result returned"
     }
 
+
+
+def test_production_mode_fails_closed_when_api_key_is_missing(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_ENV", "production")
+    monkeypatch.delenv("ORCHESTRA_API_KEY", raising=False)
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+    task = client.post("/v1/tasks", json={"prompt": "hello"})
+    assert task.status_code == 503
+    assert task.json() == {"detail": "API authentication is not configured"}
+    assert client.get("/audit").status_code == 503
+
+
+def test_production_mode_requires_configured_key_but_accepts_matching_header(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_ENV", "production")
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "production-test-key")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/ready").status_code == 200
+    assert client.post("/v1/tasks", json={"prompt": "hello"}).status_code == 401
+    response = client.post(
+        "/v1/tasks",
+        json={"prompt": "hello"},
+        headers={"X-API-Key": "production-test-key"},
+    )
+    assert response.status_code == 200
+
