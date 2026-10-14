@@ -840,3 +840,33 @@ def test_production_mode_fails_closed_without_shared_budget_store(monkeypatch):
     )
     assert response.status_code == 503
     assert response.json() == {"detail": "Shared provider-call budget is not configured"}
+
+
+def test_agent_and_skill_instructions_use_real_newlines():
+    class CapturingProvider:
+        name = "capture"
+
+        def __init__(self):
+            self.prompts = []
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.prompts.append(prompt)
+            return ProviderResult(self.name, "test-model", "ok", len(prompt), 2)
+
+    provider = CapturingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+
+    agent_response = client.post(
+        "/v1/tasks", json={"prompt": "agent task", "agent": "coder"}
+    )
+    skill_response = client.post(
+        "/v1/tasks", json={"prompt": "skill task", "skill": "write_code"}
+    )
+
+    assert agent_response.status_code == 200
+    assert skill_response.status_code == 200
+    assert len(provider.prompts) == 2
+    for prompt in provider.prompts:
+        assert "\\n" not in prompt
+        assert "\n\n" in prompt
+        assert "Task text supplied by the user:" in prompt
