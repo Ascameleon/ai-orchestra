@@ -155,7 +155,7 @@ class SQLiteProviderCircuitBreaker:
                     )
                     self._connection.commit()
                     return True
-                failures, opened_at, probe = row
+                _failures, opened_at, probe = row
                 if opened_at is None:
                     self._connection.commit()
                     return True
