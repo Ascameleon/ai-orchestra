@@ -732,3 +732,67 @@ def test_api_can_restore_persistent_audit_events_after_app_recreation(monkeypatc
     assert events[0]["outcome"] == "success"
     assert "private prompt" not in str(events)
     second_client.close()
+
+
+def test_model_assisted_claim_support_endpoint_returns_caveated_assessment():
+    import json
+
+    assessment = {
+        "assessments": [{
+            "claim_id": "c1",
+            "status": "supported",
+            "evidence_ids": ["e1"],
+            "rationale": "The supplied source explicitly states the claim.",
+        }]
+    }
+
+    class AssessmentProvider:
+        name = "assessment"
+
+        def generate(self, prompt: str) -> ProviderResult:
+            assert "UNTRUSTED_CLAIMS_AND_SOURCE_SNAPSHOTS_JSON" in prompt
+            output = json.dumps(assessment)
+            return ProviderResult("assessment", "test-model", output, len(prompt), len(output))
+
+    client = TestClient(create_app(Orchestrator(AssessmentProvider())))
+    response = client.post("/v1/claims/assess-support", json={
+        "claims": [{"claim_id": "c1", "text": "The sky is blue."}],
+        "sources": [{"evidence_id": "e1", "content": "The sky is blue."}],
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["assessments"][0]["model_assessed_status"] == "supported"
+    assert body["semantic_support_verified"] is False
+    assert body["source_authenticity_verified"] is False
+    assert body["human_review_recommended"] is True
+
+
+def test_model_assisted_claim_support_fails_closed_on_unknown_evidence_id():
+    import json
+
+    class HallucinatingProvider:
+        name = "hallucinating"
+
+        def generate(self, prompt: str) -> ProviderResult:
+            output = json.dumps({
+                "assessments": [{
+                    "claim_id": "c1",
+                    "status": "supported",
+                    "evidence_ids": ["invented-source"],
+                    "rationale": "This source does not exist in the input.",
+                }]
+            })
+            return ProviderResult("hallucinating", "test-model", output, len(prompt), len(output))
+
+    client = TestClient(create_app(Orchestrator(HallucinatingProvider())))
+    response = client.post("/v1/claims/assess-support", json={
+        "claims": [{"claim_id": "c1", "text": "A claim."}],
+        "sources": [{"evidence_id": "e1", "content": "Evidence text."}],
+    })
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "Provider returned an invalid claim-support assessment; no partial result returned"
+    }
+
