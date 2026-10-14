@@ -3,8 +3,9 @@
 This is a structured model judgment, not proof of entailment, source authenticity,
 or factual truth. Unknown IDs and malformed results fail closed.
 """
-from dataclasses import dataclass
 import json
+
+from dataclasses import dataclass
 
 
 _ALLOWED_STATUSES = frozenset({"supported", "contradicted", "insufficient"})
