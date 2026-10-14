@@ -5,6 +5,8 @@ from orchestra.providers.base import ProviderCallError, ProviderResult
 
 
 class StubProvider:
+    name = "stub"
+
     def generate(self, prompt: str) -> ProviderResult:
         return ProviderResult("stub", "test-model", f"answer:{prompt}", len(prompt), len(prompt) + 7)
 
@@ -169,3 +171,44 @@ def test_malformed_provider_results_never_count_as_success(invalid_result):
     assert outcomes[0].provider == "malformed"
     assert outcomes[0].failures == 1
     assert outcomes[0].successes == 0
+
+
+class UnexpectedFailureProvider:
+    name = "unexpected"
+
+    def generate(self, prompt: str) -> ProviderResult:
+        raise ValueError("internal provider detail")
+
+
+def test_unexpected_provider_exception_triggers_failover_without_leaking_details():
+    primary = UnexpectedFailureProvider()
+    backup = NamedProvider("backup", "recovered answer")
+    orchestrator = Orchestrator([primary, backup])
+
+    result = orchestrator.run("hello")
+
+    assert result.provider == "backup"
+    assert result.text == "recovered answer"
+    assert result.attempts == 2
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["unexpected"].failures == 1
+    assert outcomes["backup"].successes == 1
+
+
+def test_provider_result_cannot_claim_a_different_adapter_identity():
+    primary = MalformedProvider(
+        ProviderResult("backup", "test-model", "forged attribution", 5, 18),
+        name="primary",
+    )
+    backup = NamedProvider("backup", "correctly attributed answer")
+
+    orchestrator = Orchestrator([primary, backup])
+    result = orchestrator.run("hello")
+
+    assert result.provider == "backup"
+    assert result.text == "correctly attributed answer"
+    assert result.attempts == 2
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["primary"].failures == 1
+    assert outcomes["primary"].successes == 0
+    assert outcomes["backup"].successes == 1
