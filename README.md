@@ -43,7 +43,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`.
 - `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"` or `"provider":"anthropic"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and budget use.
-- `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
+- `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded. Set `ORCHESTRA_AUDIT_DB` to a local SQLite file to retain the bounded audit window across restarts; unset it to keep audit events in process memory.
 - `GET /providers/health` returns provider success/failure counts and accumulated latency; by default they are process-local. Set `ORCHESTRA_MEMORY_DB` to a local SQLite file to persist these aggregates across restarts. Only provider names, counts, and latency are stored—never prompts, completions, or credentials.
 - `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
 - `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
@@ -68,6 +68,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process, including fallbacks (default 100; allowed 1–100000).
 - `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
 - `ORCHESTRA_MEMORY_DB`: optional SQLite path for durable aggregate provider outcomes. Leave unset for process-local memory. For Docker Compose, use `/data/provider-memory.sqlite3`; `/data` is a named volume. The database stores provider names, counts, and latency only—never prompts, completions, or credentials.
+- `ORCHESTRA_AUDIT_DB`: optional SQLite path for a bounded persistent audit window. For Docker Compose, use `/data/audit.sqlite3`. It stores timestamps, request IDs, provider/model names, character counts, duration, and outcome only; it never stores prompts, completions, or credentials. The audit retention capacity is controlled by `ORCHESTRA_AUDIT_CAPACITY`.
 - Provider calls have a 30-second timeout; OpenAI and Anthropic SDK automatic retries are disabled to avoid hidden repeat charges. The request budget and audit trail are process-local and reset on restart. They are not distributed rate limiting, persistent audit storage, or a monetary quota. Configure provider-side quotas and billing limits before live use.
 - Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, workflow, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
 - No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
@@ -79,13 +80,13 @@ For a local, loopback-only deployment, create the environment file and set crede
 ```bash
 cp .env.example .env
 # Edit .env and set the selected provider key and a long random ORCHESTRA_API_KEY.
-# Optional persistence: set ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3 in .env.
+# Optional persistence: set ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3 and/or ORCHESTRA_AUDIT_DB=/data/audit.sqlite3 in .env.
 docker compose up --build -d
 docker compose ps
 curl -H "X-API-Key: $ORCHESTRA_API_KEY" http://127.0.0.1:8000/ready
 ```
 
-The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, drops Linux capabilities, uses a read-only root filesystem, and has readiness/health checks. It mounts a named volume at `/data`; set `ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3` to enable provider outcome persistence across container restarts. Persistence is opt-in and never stores task text. Do not publish this port to the internet as-is; public deployment still requires TLS termination, managed secrets, shared rate limiting, and provider-side billing quotas. The Docker image build is validated in CI; no live model call is part of the build.
+The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, drops Linux capabilities, uses a read-only root filesystem, and has readiness/health checks. It mounts a named volume at `/data`; set `ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3` to enable provider outcome persistence and/or `ORCHESTRA_AUDIT_DB=/data/audit.sqlite3` to enable bounded audit persistence across container restarts. Persistence is opt-in and never stores task text. Do not publish this port to the internet as-is; public deployment still requires TLS termination, managed secrets, shared rate limiting, and provider-side billing quotas. The Docker image build is validated in CI; no live model call is part of the build.
 
 ## Current scope
 
