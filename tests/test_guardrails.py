@@ -140,3 +140,19 @@ def test_sqlite_cost_guard_rejects_invalid_configuration(tmp_path):
         SQLiteCostGuard(0, str(tmp_path / "budget.sqlite3"))
     with pytest.raises(ValueError, match="window_seconds"):
         SQLiteCostGuard(1, str(tmp_path / "budget.sqlite3"), window_seconds=0)
+
+
+def test_sqlite_cost_guard_expires_reservations_outside_rolling_window(monkeypatch, tmp_path):
+    import orchestra.guardrails as guardrails
+
+    clock = [1000.0]
+    monkeypatch.setattr(guardrails, "time", lambda: clock[0])
+    guard = SQLiteCostGuard(1, str(tmp_path / "rolling-budget.sqlite3"), window_seconds=60)
+    assert guard.reserve() == 1
+    with pytest.raises(BudgetExceeded):
+        guard.reserve()
+
+    clock[0] += 61
+    assert guard.used == 0
+    assert guard.reserve() == 1
+    guard.close()
