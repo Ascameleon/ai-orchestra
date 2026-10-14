@@ -9,6 +9,7 @@ from orchestra.evidence_fetcher import (
     EvidenceFetchingDisabled,
     EvidenceFetchRequestError,
     EvidenceFetchUnavailable,
+    _VisibleTextParser,
 )
 
 
@@ -54,6 +55,13 @@ class FakeResponse:
 
 def public_resolver(host, port, type):
     return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port))]
+
+
+def test_visible_text_parser_does_not_unhide_content_on_mismatched_closing_tag():
+    parser = _VisibleTextParser()
+    parser.feed("<template>hidden</script>still hidden</template> visible")
+
+    assert " ".join(parser.parts).strip() == "visible"
 
 
 def test_fetch_pins_checked_public_ip_and_extracts_visible_text(monkeypatch):
