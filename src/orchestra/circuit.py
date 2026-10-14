@@ -1,1 +1,1 @@
-"""Provider circuit breaker module."""
+"""Thread-safe per-provider circuit breaker."""
