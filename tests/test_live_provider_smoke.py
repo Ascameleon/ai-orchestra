@@ -1,7 +1,16 @@
+import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 
 from orchestra.providers.base import ProviderResult
-from scripts import live_provider_smoke
+
+_MODULE_SPEC = importlib.util.spec_from_file_location(
+    "live_provider_smoke",
+    Path(__file__).resolve().parents[1] / "scripts" / "live_provider_smoke.py",
+)
+assert _MODULE_SPEC is not None and _MODULE_SPEC.loader is not None
+live_provider_smoke = importlib.util.module_from_spec(_MODULE_SPEC)
+_MODULE_SPEC.loader.exec_module(live_provider_smoke)
 
 
 class StubProvider:
