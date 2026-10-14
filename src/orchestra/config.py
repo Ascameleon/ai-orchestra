@@ -19,6 +19,8 @@ class Settings:
     max_requests_per_process: int = 100
     audit_capacity: int = 1000
     memory_db_path: str | None = None
+    circuit_failure_threshold: int = 3
+    circuit_reset_seconds: int = 30
 
 
 def load_settings() -> Settings:
@@ -89,4 +91,6 @@ def load_settings() -> Settings:
         max_requests_per_process=positive_int("ORCHESTRA_MAX_REQUESTS", 100, 100000),
         audit_capacity=positive_int("ORCHESTRA_AUDIT_CAPACITY", 1000, 10000),
         memory_db_path=os.getenv("ORCHESTRA_MEMORY_DB", "").strip() or None,
+        circuit_failure_threshold=positive_int("ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD", 3, 20),
+        circuit_reset_seconds=positive_int("ORCHESTRA_CIRCUIT_RESET_SECONDS", 30, 3600),
     )
