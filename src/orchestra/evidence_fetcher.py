@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
+from itertools import islice
 from urllib.parse import quote, urlsplit, urlunsplit
 
 _HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
@@ -184,7 +185,12 @@ class EvidenceFetcher:
     def fetch_many(self, urls: Iterable[str]) -> tuple[FetchedEvidence, ...]:
         if not self.enabled:
             raise EvidenceFetchingDisabled("Set ORCHESTRA_EVIDENCE_ALLOWED_HOSTS to enable source fetching")
-        requested = tuple(urls)
+        try:
+            # Read at most six items so oversized or unbounded iterables cannot
+            # bypass the URL-count limit by consuming unbounded memory/time.
+            requested = tuple(islice(iter(urls), 6))
+        except TypeError:
+            raise EvidenceFetchRequestError("Source URLs must be an iterable of URLs") from None
         if not 1 <= len(requested) <= 5:
             raise EvidenceFetchRequestError("Between 1 and 5 source URLs are required")
         validated = tuple(self._validate_url(url) for url in requested)
