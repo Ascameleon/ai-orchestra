@@ -44,3 +44,26 @@ def test_citation_coverage_empty_answer_has_zero_ratio():
 def test_citation_coverage_rejects_empty_known_ids():
     with pytest.raises(ValueError, match="non-empty strings"):
         audit_citation_coverage("Answer.", {""})
+
+
+@pytest.mark.parametrize("known_ids", [None, [VALID], "not-an-id-set"])
+def test_citation_coverage_rejects_invalid_registry_types(known_ids):
+    with pytest.raises(TypeError, match="set or frozenset"):
+        audit_citation_coverage("Answer.", known_ids)
+
+
+def test_citation_coverage_rejects_non_string_registry_ids():
+    with pytest.raises(TypeError, match="must be strings"):
+        audit_citation_coverage("Answer.", {VALID, 1})
+
+
+def test_citation_coverage_rejects_normalized_registry_collisions():
+    with pytest.raises(ValueError, match="collide"):
+        audit_citation_coverage("Answer.", {VALID, f" {VALID} "})
+
+
+def test_citation_coverage_normalizes_registry_whitespace():
+    result = audit_citation_coverage(f"Fact [{VALID}].", {f" {VALID} "})
+
+    assert result.sentences_with_valid_citations == 1
+    assert result.invalid_citation_ids == ()
