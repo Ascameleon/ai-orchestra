@@ -66,7 +66,9 @@ class EvidenceRecord:
     def __post_init__(self) -> None:
         for name in ("evidence_id", "source_name", "source_group"):
             value = getattr(self, name)
-            if not isinstance(value, str) or not value.strip():
+            if not isinstance(value, str):
+                raise TypeError(f"{name} must be a string")
+            if not value.strip():
                 raise ValueError(f"{name} must not be empty")
         if not isinstance(self.url, str):
             raise TypeError("url must be a string")
