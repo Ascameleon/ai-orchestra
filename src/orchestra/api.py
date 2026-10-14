@@ -263,6 +263,12 @@ def create_app(
             raise HTTPException(status_code=503, detail="API authentication is not configured")
         if budget_configuration_error:
             raise HTTPException(status_code=503, detail="Shared provider-call budget is not configured")
+        try:
+            budget.used
+        except Exception:  # noqa: BLE001 - readiness must fail closed without leaking storage details
+            if budget_db_path:
+                raise HTTPException(status_code=503, detail="Shared provider-call budget is unavailable") from None
+            raise
         if orchestrator is None:
             raise HTTPException(status_code=503, detail=config_error_message)
         return {"status": "ready", "provider": "configured"}
