@@ -636,3 +636,65 @@ def test_numeric_consistency_endpoint_rejects_invalid_numbers():
         json={"assertions": [{"assertion_id": "a1", "claim_id": "c1", "evidence_id": "e1", "metric": "rate", "value": "NaN", "unit": "%", "period": "2025"}]},
     )
     assert response.status_code == 422
+
+
+def test_plan_execute_workflow_endpoint_returns_final_synthesis_only():
+    class FourStageProvider:
+        name = "four-stage"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            text = ("plan", "execution draft", "review corrections", "final deliverable")[self.calls - 1]
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    provider = FourStageProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/workflows/plan-execute",
+        json={"prompt": "Build and test an API", "task_type": "code"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["text"] == "final deliverable"
+    assert response.json()["provider_calls"] == 4
+    assert provider.calls == 4
+    audit = client.get("/audit").json()[0]
+    assert audit["outcome"] == "success"
+    assert audit["output_chars"] == len("final deliverable")
+    assert "execution draft" not in client.get("/audit").text
+
+
+def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(monkeypatch):
+    import orchestra.api as api_module
+    from orchestra.guardrails import BudgetExceeded
+
+    real_guard = api_module.CostGuard
+
+    class ThreeCallGuard(real_guard):
+        def __init__(self, max_requests):
+            super().__init__(3)
+
+    class FourStageProvider:
+        name = "four-stage"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(self.name, "test-model", f"stage {self.calls}", len(prompt), len(f"stage {self.calls}"))
+
+    monkeypatch.setattr(api_module, "CostGuard", ThreeCallGuard)
+    provider = FourStageProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+
+    response = client.post("/v1/workflows/plan-execute", json={"prompt": "do the work"})
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Process provider-call budget exhausted"}
+    assert provider.calls == 3
+    assert client.get("/metrics").json()["rejected"] == 1
+    assert client.get("/audit").json()[-1]["outcome"] == "rejected"
