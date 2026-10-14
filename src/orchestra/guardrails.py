@@ -72,3 +72,76 @@ class AuditTrail:
     @staticmethod
     def now() -> float:
         return time()
+
+
+class SQLiteAuditTrail:
+    """Persist a bounded audit trail containing operational metadata only."""
+
+    def __init__(self, database_path: str, capacity: int = 1000) -> None:
+        import sqlite3
+
+        if not isinstance(database_path, str) or not database_path.strip():
+            raise ValueError("database_path must be a non-empty path")
+        if capacity < 1:
+            raise ValueError("capacity must be greater than zero")
+        self._capacity = capacity
+        self._lock = Lock()
+        self._connection = sqlite3.connect(database_path, check_same_thread=False, timeout=5)
+        with self._lock:
+            self._connection.execute("PRAGMA busy_timeout = 5000")
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL NOT NULL,
+                    request_id TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    input_chars INTEGER NOT NULL CHECK (input_chars >= 0),
+                    output_chars INTEGER NOT NULL CHECK (output_chars >= 0),
+                    duration_ms INTEGER NOT NULL CHECK (duration_ms >= 0),
+                    outcome TEXT NOT NULL
+                )
+                """
+            )
+            self._connection.commit()
+
+    def record(self, event: AuditEvent) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT INTO audit_events
+                    (timestamp, request_id, provider, model, input_chars,
+                     output_chars, duration_ms, outcome)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (event.timestamp, event.request_id, event.provider, event.model,
+                 max(0, event.input_chars), max(0, event.output_chars),
+                 max(0, event.duration_ms), event.outcome),
+            )
+            self._connection.execute(
+                """
+                DELETE FROM audit_events
+                WHERE id NOT IN (
+                    SELECT id FROM audit_events ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (self._capacity,),
+            )
+            self._connection.commit()
+
+    def snapshot(self) -> tuple[AuditEvent, ...]:
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT timestamp, request_id, provider, model, input_chars,
+                       output_chars, duration_ms, outcome
+                FROM audit_events ORDER BY id ASC
+                """
+            ).fetchall()
+        return tuple(AuditEvent(*row) for row in rows)
+
+    def close(self) -> None:
+        """Close the database connection after the application stops using this trail."""
+        with self._lock:
+            self._connection.close()
