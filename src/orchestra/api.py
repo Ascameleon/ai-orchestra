@@ -13,6 +13,12 @@ from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
+from orchestra.evidence_fetcher import (
+    EvidenceFetcher,
+    EvidenceFetchRequestError,
+    EvidenceFetchUnavailable,
+    EvidenceFetchingDisabled,
+)
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
@@ -55,6 +61,10 @@ class EvidenceAssessmentRequest(BaseModel):
     evidence: list[EvidenceItemRequest] = Field(max_length=100)
     max_age_days: int = Field(default=30, ge=0, le=3650)
     minimum_independent_sources: int = Field(default=2, ge=1, le=100)
+
+
+class EvidenceFetchRequest(BaseModel):
+    urls: list[Annotated[str, Field(min_length=1, max_length=2048)]] = Field(min_length=1, max_length=5)
 
 
 class ClaimItemRequest(BaseModel):
@@ -143,8 +153,12 @@ class TaskResponse(BaseModel):
     attempts: int = 1
 
 
-def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
+def create_app(
+    orchestrator: Orchestrator | None = None,
+    evidence_fetcher: EvidenceFetcher | None = None,
+) -> FastAPI:
     app = FastAPI(title="AI ORCHESTRA", version="0.2.0")
+    source_fetcher = evidence_fetcher or EvidenceFetcher.from_env()
     configuration_error = False
     config_error_message = "Provider is not configured"
     settings = None
@@ -447,6 +461,35 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         with metrics_lock:
             metrics["succeeded"] += 1
         return WorkflowResponse(**result.__dict__)
+
+    @app.post("/v1/evidence/fetch")
+    def fetch_evidence_endpoint(
+        request: EvidenceFetchRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Fetch bounded visible-text snapshots from explicitly allowlisted public hosts."""
+        authorize(x_api_key)
+        if not source_fetcher.enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Evidence fetching is disabled; configure ORCHESTRA_EVIDENCE_ALLOWED_HOSTS",
+            )
+        try:
+            sources = source_fetcher.fetch_many(request.urls)
+        except EvidenceFetchRequestError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        except EvidenceFetchingDisabled:
+            raise HTTPException(status_code=503, detail="Evidence fetching is disabled") from None
+        except EvidenceFetchUnavailable:
+            raise HTTPException(
+                status_code=502,
+                detail="One or more sources could not be fetched safely; no partial result returned",
+            ) from None
+        return {
+            "sources": [source.__dict__ for source in sources],
+            "source_authenticity_verified": False,
+            "semantic_support_verified": False,
+        }
 
     @app.post("/v1/evidence/assess")
     def assess_evidence_endpoint(
