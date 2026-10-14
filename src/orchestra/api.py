@@ -238,7 +238,7 @@ def create_app(
     runtime_environment = os.getenv("ORCHESTRA_ENV", "development").strip().lower()
     auth_configuration_error = runtime_environment in {"production", "prod"} and not api_key
     budget_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
-    budget_configuration_error = runtime_environment in {"production", "prod"} and not budget_db_path
+    budget_configuration_error = runtime_environment in {"production", "prod"} and (not budget_db_path or budget_db_path == ":memory:")
     budget = SQLiteCostGuard(request_limit, budget_db_path) if budget_db_path else CostGuard(request_limit)
     audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
     audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
