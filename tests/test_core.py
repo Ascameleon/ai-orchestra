@@ -202,10 +202,13 @@ def test_provider_result_cannot_claim_a_different_adapter_identity():
     )
     backup = NamedProvider("backup", "correctly attributed answer")
 
-    result = Orchestrator([primary, backup]).run("hello")
+    orchestrator = Orchestrator([primary, backup])
+    result = orchestrator.run("hello")
 
     assert result.provider == "backup"
     assert result.text == "correctly attributed answer"
     assert result.attempts == 2
-    outcomes = {item.provider: item for item in Orchestrator([NamedProvider("primary", "x")]).memory.snapshot()}
-    assert outcomes == {}
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["primary"].failures == 1
+    assert outcomes["primary"].successes == 0
+    assert outcomes["backup"].successes == 1
