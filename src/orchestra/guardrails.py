@@ -92,11 +92,13 @@ class SQLiteCostGuard:
 
     def reserve(self) -> int:
         """Atomically reserve one call, or raise when the shared window is full."""
-        now = time()
-        cutoff = now - self._window_seconds
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
+                # Timestamp only after acquiring SQLite's cross-process write lock.
+                # Otherwise lock contention can make a fresh reservation appear expired.
+                now = time()
+                cutoff = now - self._window_seconds
                 self._connection.execute(
                     "DELETE FROM provider_call_reservations WHERE reserved_at <= ?", (cutoff,)
                 )
