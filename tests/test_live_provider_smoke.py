@@ -14,7 +14,7 @@ class StubProvider:
         self.calls += 1
         if self.fail:
             raise RuntimeError("private upstream error and secret")
-        return ProviderResult(self.name, "test-model", "PRIVATE GENERATED OUTPUT", len(prompt), 23)
+        return ProviderResult(self.name, "test-model", "PRIVATE GENERATED OUTPUT", len(prompt), len("PRIVATE GENERATED OUTPUT"))
 
 
 class StubRegistry:
