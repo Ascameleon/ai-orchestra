@@ -42,7 +42,10 @@ def _validate_id_set(value: object, name: str) -> set[str]:
         raise TypeError(f"{name} must contain only strings")
     if any(not item.strip() for item in value):
         raise ValueError(f"{name} must not contain empty IDs")
-    return {item.strip() for item in value}
+    normalized = {item.strip() for item in value}
+    if len(normalized) != len(value):
+        raise ValueError(f"{name} contains IDs that collide after whitespace normalization")
+    return normalized
 
 
 def parse_support_assessment(
@@ -102,7 +105,7 @@ def parse_support_assessment(
         normalized_refs = tuple(value.strip() for value in evidence_ids)
         if status in {"supported", "contradicted"} and not normalized_refs:
             raise ValueError("non-insufficient assessments must cite at least one evidence ID")
-        if not isinstance(rationale, str) or not rationale.strip() or len(rationale) > 300:
+        if not isinstance(rationale, str) or not rationale.strip() or len(rationale.strip()) > 300:
             raise ValueError("model response contains an invalid rationale")
         parsed.append(
             ClaimSupportAssessment(claim_id, status, normalized_refs, rationale.strip())
