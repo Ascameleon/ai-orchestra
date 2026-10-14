@@ -158,6 +158,46 @@ def test_sqlite_cost_guard_expires_reservations_outside_rolling_window(monkeypat
     guard.close()
 
 
+def test_sqlite_cost_guard_timestamps_reservation_after_write_lock_wait(monkeypatch, tmp_path):
+    import sqlite3
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from time import sleep
+
+    from orchestra import guardrails
+
+    clock = [1000.0]
+    monkeypatch.setattr(guardrails, "time", lambda: clock[0])
+    database = str(tmp_path / "contended-budget.sqlite3")
+    guard = SQLiteCostGuard(2, database, window_seconds=60)
+    blocker = sqlite3.connect(database, timeout=2)
+    blocker.execute("BEGIN IMMEDIATE")
+
+    started = Event()
+
+    def reserve():
+        started.set()
+        return guard.reserve()
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(reserve)
+            assert started.wait(timeout=1)
+            # Let the worker reach SQLite while the other connection owns the write lock.
+            sleep(0.1)
+            clock[0] = 1100.0
+            blocker.commit()
+            assert pending.result(timeout=3) == 1
+
+        # The reservation was made at 1100, not at the stale pre-lock time 1000.
+        assert guard.used == 1
+    finally:
+        if blocker.in_transaction:
+            blocker.rollback()
+        blocker.close()
+        guard.close()
+
+
 @pytest.mark.parametrize("value", [1.5, True, "2"])
 def test_guardrails_reject_non_integer_limits(value, tmp_path):
     database = str(tmp_path / "invalid-limit.sqlite3")
