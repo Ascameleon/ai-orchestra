@@ -24,7 +24,7 @@ from orchestra.traceability import (
     screen_potential_conflicts,
     trace_conclusions,
 )
-from orchestra.workflows import ReviewWorkflow
+from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow
 
 
 class TaskRequest(BaseModel):
@@ -36,6 +36,10 @@ class TaskRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class PlanExecuteRequest(WorkflowRequest):
+    task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
 
 
 class EvidenceItemRequest(BaseModel):
@@ -318,6 +322,78 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
+        except Exception as exc:
+            audit.record(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="failure",
+                )
+            )
+            with metrics_lock:
+                metrics["failed"] += 1
+            raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
+
+        audit.record(
+            AuditEvent(
+                timestamp=AuditTrail.now(),
+                request_id=result.workflow_id,
+                provider=result.provider,
+                model=result.model,
+                input_chars=result.input_chars,
+                output_chars=result.output_chars,
+                duration_ms=result.duration_ms,
+                outcome="success",
+            )
+        )
+        with metrics_lock:
+            metrics["succeeded"] += 1
+        return WorkflowResponse(**result.__dict__)
+
+
+    @app.post("/v1/workflows/plan-execute", response_model=WorkflowResponse)
+    def run_plan_execute_workflow(
+        request: PlanExecuteRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> WorkflowResponse:
+        """Plan, execute, independently review, and return only the final synthesis."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        if len(request.prompt) > max_input:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
+        if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested provider is not configured")
+        try:
+            result = PlanExecuteWorkflow(orchestrator, max_input_chars=max_input).run(
+                request.prompt,
+                preferred_provider=request.provider,
+                task_type=request.task_type,
+                before_attempt=budget.reserve,
+            )
+        except BudgetExceeded:
+            audit.record(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="rejected",
+                )
+            )
             with metrics_lock:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
