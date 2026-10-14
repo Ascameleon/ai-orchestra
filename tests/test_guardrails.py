@@ -143,7 +143,7 @@ def test_sqlite_cost_guard_rejects_invalid_configuration(tmp_path):
 
 
 def test_sqlite_cost_guard_expires_reservations_outside_rolling_window(monkeypatch, tmp_path):
-    import orchestra.guardrails as guardrails
+    from orchestra import guardrails
 
     clock = [1000.0]
     monkeypatch.setattr(guardrails, "time", lambda: clock[0])
