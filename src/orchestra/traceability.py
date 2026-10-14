@@ -115,15 +115,29 @@ def trace_conclusions(
     """
     known_evidence: set[str] | None = None
     if known_evidence_ids is not None:
+        if not isinstance(known_evidence_ids, (list, tuple, set, frozenset)):
+            raise TypeError("known_evidence_ids must be a list, tuple, set, or frozenset")
+        if any(not isinstance(item, str) for item in known_evidence_ids):
+            raise TypeError("known_evidence_ids must contain only strings")
         normalized_evidence = [item.strip() for item in known_evidence_ids]
         if any(not item for item in normalized_evidence):
             raise ValueError("known_evidence_ids must not contain empty values")
         if len(set(normalized_evidence)) != len(normalized_evidence):
-            raise ValueError("known_evidence_ids must be unique")
+            raise ValueError("known_evidence_ids must be unique after whitespace normalization")
         known_evidence = set(normalized_evidence)
 
+    if not isinstance(claims, (list, tuple)):
+        raise TypeError("claims must be a list or tuple")
     claim_by_id: dict[str, ClaimTrace] = {}
     for claim in claims:
+        if not isinstance(claim, ClaimTrace):
+            raise TypeError("claims must contain ClaimTrace instances")
+        if not isinstance(claim.claim_id, str):
+            raise TypeError("claim_id must be a string")
+        if not isinstance(claim.evidence_ids, (list, tuple)):
+            raise TypeError(f"claim {claim.claim_id!r} evidence_ids must be a list or tuple")
+        if any(not isinstance(item, str) for item in claim.evidence_ids):
+            raise TypeError(f"claim {claim.claim_id!r} evidence_ids must contain only strings")
         claim_id = claim.claim_id.strip()
         evidence_ids = tuple(item.strip() for item in claim.evidence_ids)
         if not claim_id:
@@ -134,9 +148,20 @@ def trace_conclusions(
             raise ValueError(f"claim {claim_id} contains an empty evidence reference")
         claim_by_id[claim_id] = ClaimTrace(claim_id, evidence_ids)
 
+    if not isinstance(conclusions, (list, tuple)):
+        raise TypeError("conclusions must be a list or tuple")
     seen_conclusions: set[str] = set()
     results: list[ConclusionTrace] = []
-    for raw_conclusion_id, text, raw_claim_ids in conclusions:
+    for item in conclusions:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            raise TypeError("each conclusion must be a 3-item tuple/list")
+        raw_conclusion_id, text, raw_claim_ids = item
+        if not isinstance(raw_conclusion_id, str) or not isinstance(text, str):
+            raise TypeError("conclusion_id and text must be strings")
+        if not isinstance(raw_claim_ids, (list, tuple)):
+            raise TypeError("conclusion claim_ids must be a list or tuple")
+        if any(not isinstance(claim_id, str) for claim_id in raw_claim_ids):
+            raise TypeError("conclusion claim_ids must contain only strings")
         conclusion_id = raw_conclusion_id.strip()
         claim_ids = tuple(item.strip() for item in raw_claim_ids)
         if not conclusion_id or not text.strip():
