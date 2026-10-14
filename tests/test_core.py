@@ -117,3 +117,51 @@ def test_configured_task_route_selects_provider_and_explicit_choice_overrides_it
     assert routed.provider == "backup"
     explicit = orchestrator.run("general task", preferred_provider="primary", task_type="code")
     assert explicit.provider == "primary"
+
+
+class MalformedProvider:
+    def __init__(self, result, name="malformed"):
+        self.name = name
+        self.result = result
+        self.calls = 0
+
+    def generate(self, prompt: str):
+        self.calls += 1
+        return self.result
+
+
+def test_malformed_provider_result_fails_over_and_is_recorded_as_failure():
+    primary = MalformedProvider(ProviderResult("malformed", "test-model", "   ", 5, 3))
+    backup = NamedProvider("backup", "valid answer")
+    orchestrator = Orchestrator([primary, backup])
+
+    result = orchestrator.run("hello")
+
+    assert result.provider == "backup"
+    assert result.text == "valid answer"
+    assert result.attempts == 2
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["malformed"].failures == 1
+    assert outcomes["malformed"].successes == 0
+    assert outcomes["backup"].successes == 1
+
+
+@pytest.mark.parametrize(
+    "invalid_result",
+    [
+        None,
+        ProviderResult("", "test-model", "answer", 5, 6),
+        ProviderResult("provider", " ", "answer", 5, 6),
+        ProviderResult("provider", "test-model", "answer", 4, 6),
+        ProviderResult("provider", "test-model", "answer", 5, 99),
+        ProviderResult("provider", "test-model", "   ", 5, 3),
+    ],
+)
+def test_malformed_provider_results_never_count_as_success(invalid_result):
+    provider = MalformedProvider(invalid_result)
+
+    with pytest.raises(AllProvidersFailed, match="all configured providers failed"):
+        Orchestrator(provider).run("hello")
+
+    outcome = provider_name = Orchestrator(provider).memory.snapshot()
+    assert outcome == ()
