@@ -2,6 +2,7 @@
 import hashlib
 import http.client
 import ipaddress
+import math
 import os
 import re
 import socket
@@ -77,12 +78,17 @@ class EvidenceFetcher:
         resolver: Callable[..., list[tuple]] | None = None,
         connector: Callable[..., socket.socket] | None = None,
     ) -> None:
-        if not 0 < timeout_seconds <= 10:
-            raise ValueError("timeout_seconds must be between 0 and 10")
-        if not 1 <= max_response_bytes <= 1048576:
-            raise ValueError("max_response_bytes must be between 1 and 1048576")
-        if not 1 <= max_text_chars <= 50000:
-            raise ValueError("max_text_chars must be between 1 and 50000")
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 10
+        ):
+            raise ValueError("timeout_seconds must be finite and between 0 and 10")
+        if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= 1048576:
+            raise ValueError("max_response_bytes must be an integer between 1 and 1048576")
+        if type(max_text_chars) is not int or not 1 <= max_text_chars <= 50000:
+            raise ValueError("max_text_chars must be an integer between 1 and 50000")
         self.allowed_hosts = frozenset(self._normalize_allowed_host(host) for host in allowed_hosts)
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
