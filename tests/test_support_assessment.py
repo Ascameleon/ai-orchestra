@@ -38,3 +38,14 @@ def test_parses_complete_assessment_and_normalizes_rationale():
 def test_rejects_malformed_or_invented_assessments(response):
     with pytest.raises(ValueError):
         parse_support_assessment(response, {"c1"}, {"e1"})
+
+
+
+@pytest.mark.parametrize("response", [
+    '{"assessments":[],"assessments":[{"claim_id":"c1","status":"supported","evidence_ids":["e1"],"rationale":"ok"}]}',
+    '{"assessments":[{"claim_id":"c1","claim_id":"c2","status":"supported","evidence_ids":["e1"],"rationale":"ok"}]}',
+    '{"assessments":[{"claim_id":"c1","status":"supported","evidence_ids":["e1"],"rationale":"ok","rationale":"forged"}]}',
+])
+def test_rejects_duplicate_json_object_keys(response):
+    with pytest.raises(ValueError, match="unambiguous JSON"):
+        parse_support_assessment(response, {"c1"}, {"e1"})
