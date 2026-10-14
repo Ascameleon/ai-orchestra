@@ -121,8 +121,8 @@ class SQLiteCostGuard:
 
     @property
     def used(self) -> int:
-        cutoff = time() - self._window_seconds
         with self._lock:
+            cutoff = time() - self._window_seconds
             row = self._connection.execute(
                 "SELECT COUNT(*) FROM provider_call_reservations WHERE reserved_at > ?",
                 (cutoff,),
