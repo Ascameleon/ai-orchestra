@@ -58,11 +58,12 @@ def audit_quotes(
             raise TypeError("snapshots must contain SourceSnapshot instances")
         if not isinstance(snapshot.evidence_id, str) or not isinstance(snapshot.content, str):
             raise TypeError("snapshot evidence_id and content must be strings")
-        if not snapshot.evidence_id.strip() or not snapshot.content.strip():
+        evidence_id = snapshot.evidence_id.strip()
+        if not evidence_id or not snapshot.content.strip():
             raise ValueError("snapshot evidence_id and content must not be empty")
-        if snapshot.evidence_id in by_id:
-            raise ValueError(f"duplicate snapshot evidence_id: {snapshot.evidence_id}")
-        by_id[snapshot.evidence_id] = snapshot
+        if evidence_id in by_id:
+            raise ValueError(f"duplicate snapshot evidence_id after whitespace normalization: {evidence_id}")
+        by_id[evidence_id] = SourceSnapshot(evidence_id, snapshot.content)
 
     checks: list[QuoteCheck] = []
     for reference in references:
@@ -72,18 +73,20 @@ def audit_quotes(
             reference.claim_id, reference.evidence_id, reference.quote
         )):
             raise TypeError("quote reference fields must be strings")
-        if not reference.claim_id.strip() or not reference.evidence_id.strip():
+        claim_id = reference.claim_id.strip()
+        evidence_id = reference.evidence_id.strip()
+        if not claim_id or not evidence_id:
             raise ValueError("claim_id and evidence_id must not be empty")
         if not reference.quote.strip():
             raise ValueError("quote must not be empty")
-        snapshot = by_id.get(reference.evidence_id)
+        snapshot = by_id.get(evidence_id)
         quote = _normalize(reference.quote)
         source = _normalize(snapshot.content) if snapshot else ""
         found = bool(snapshot and quote in source)
         checks.append(
             QuoteCheck(
-                claim_id=reference.claim_id,
-                evidence_id=reference.evidence_id,
+                claim_id=claim_id,
+                evidence_id=evidence_id,
                 quote_sha256=hashlib.sha256(reference.quote.encode("utf-8")).hexdigest(),
                 quote_found=found,
                 source_sha256=(
