@@ -62,6 +62,8 @@ def parse_support_assessment(
             or len(set(evidence_ids)) != len(evidence_ids)
         ):
             raise ValueError("model response contains unknown or duplicate evidence IDs")
+        if status in {"supported", "contradicted"} and not evidence_ids:
+            raise ValueError("non-insufficient assessments must cite at least one evidence ID")
         if not isinstance(rationale, str) or not rationale.strip() or len(rationale) > 300:
             raise ValueError("model response contains an invalid rationale")
         parsed.append(

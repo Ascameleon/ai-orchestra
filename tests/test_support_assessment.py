@@ -33,6 +33,7 @@ def test_parses_complete_assessment_and_normalizes_rationale():
     '{"assessments":[{"claim_id":"c1","status":"supported","evidence_ids":[[]],"rationale":"ok"}]}',
     '{"assessments":[{"claim_id":"c1","status":[],"evidence_ids":["e1"],"rationale":"ok"}]}',
     '{"assessments":[{"claim_id":"c1","status":"supported","evidence_ids":["e1","e1"],"rationale":"ok"}]}',
+    '{"assessments":[{"claim_id":"c1","status":"supported","evidence_ids":[],"rationale":"ok"}]}',
 ])
 def test_rejects_malformed_or_invented_assessments(response):
     with pytest.raises(ValueError):
