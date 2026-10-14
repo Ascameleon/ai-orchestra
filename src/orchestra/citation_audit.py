@@ -26,8 +26,15 @@ def audit_citation_coverage(
     """Measure sentence-level citation presence and unknown IDs without judging entailment."""
     if not isinstance(answer, str):
         raise TypeError("answer must be a string")
-    if any(not isinstance(item, str) or not item.strip() for item in known_evidence_ids):
+    if not isinstance(known_evidence_ids, (set, frozenset)):
+        raise TypeError("known_evidence_ids must be a set or frozenset of non-empty strings")
+    if any(not isinstance(item, str) for item in known_evidence_ids):
+        raise TypeError("known evidence IDs must be strings")
+    if any(not item.strip() for item in known_evidence_ids):
         raise ValueError("known evidence IDs must be non-empty strings")
+    normalized_ids = {item.strip() for item in known_evidence_ids}
+    if len(normalized_ids) != len(known_evidence_ids):
+        raise ValueError("known evidence IDs collide after whitespace normalization")
 
     sentences: list[str] = []
     for line in answer.splitlines():
@@ -48,9 +55,9 @@ def audit_citation_coverage(
     invalid_ids: list[str] = []
     for sentence in sentences:
         ids = _CITATION.findall(sentence)
-        if any(evidence_id in known_evidence_ids for evidence_id in ids):
+        if any(evidence_id in normalized_ids for evidence_id in ids):
             valid_cited_sentences += 1
-        invalid_ids.extend(evidence_id for evidence_id in ids if evidence_id not in known_evidence_ids)
+        invalid_ids.extend(evidence_id for evidence_id in ids if evidence_id not in normalized_ids)
 
     count = len(sentences)
     return CitationCoverage(
