@@ -19,3 +19,5 @@ The circuit snapshot exposes only provider names, state, consecutive failure cou
 ## Verification
 
 The circuit tests use deterministic clocks and stub providers. They cover state transitions, a single half-open probe under concurrency, fallback and attempt accounting, budget rejection, invalid limits, and telemetry write failures. No live provider calls or paid API credits are required.
+
+An open circuit has no manual reset endpoint: it recovers through the bounded half-open probe or when the process restarts. Circuit state is local to each application process.
