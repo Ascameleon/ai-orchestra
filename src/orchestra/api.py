@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from orchestra.agents import UnknownAgentRequested
 from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
@@ -26,6 +27,7 @@ from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consi
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
+from orchestra.skills import UnknownSkillRequested
 from orchestra.traceability import (
     ClaimTrace,
     SourceAssertion,
@@ -41,6 +43,8 @@ class TaskRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
     task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
+    agent: str | None = Field(default=None, min_length=1, max_length=40)
+    skill: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class WorkflowRequest(BaseModel):
@@ -257,6 +261,42 @@ def create_app(
             for outcome in orchestrator.memory.snapshot()
         ]
 
+    @app.get("/v1/agents")
+    def list_agents(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, object]]:
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            {
+                "name": agent.name,
+                "role": agent.role,
+                "task_type": agent.task_type,
+                "capabilities": list(agent.capabilities),
+                "description": agent.description,
+            }
+            for agent in orchestrator.agent_registry.list()
+        ]
+
+    @app.get("/v1/skills")
+    def list_skills(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, str]]:
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            {
+                "name": skill.name,
+                "agent_name": skill.agent_name,
+                "task_type": skill.task_type,
+                "capability": skill.capability,
+                "description": skill.description,
+            }
+            for skill in orchestrator.skill_registry.list()
+        ]
+
     @app.get("/providers/circuits")
     def get_provider_circuits(
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
@@ -296,17 +336,50 @@ def create_app(
         authorize(x_api_key)
         if orchestrator is None:
             raise HTTPException(status_code=503, detail=config_error_message)
-        if len(request.prompt) > max_input:
+        if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested provider is not configured")
+        if request.agent and request.skill:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=422, detail="Choose either an agent or a skill, not both")
+
+        provider_prompt = request.prompt
+        task_type = request.task_type
+        try:
+            if request.agent:
+                agent = orchestrator.agent_registry.get(request.agent)
+                if task_type not in {"general", agent.task_type}:
+                    raise HTTPException(status_code=422, detail="Task type conflicts with the selected agent")
+                provider_prompt = (
+                    f"{agent.instruction}\\n\\n"
+                    f"Task text supplied by the user:\\n{request.prompt}"
+                )
+                task_type = agent.task_type
+            elif request.skill:
+                skill = orchestrator.skill_registry.get(request.skill)
+                agent = orchestrator.agent_registry.get(skill.agent_name)
+                if task_type not in {"general", skill.task_type}:
+                    raise HTTPException(status_code=422, detail="Task type conflicts with the selected skill")
+                provider_prompt = (
+                    f"{agent.instruction}\\n\\nSkill: {skill.name}\\n"
+                    f"{skill.instruction}\\n\\n"
+                    f"Task text supplied by the user:\\n{request.prompt}"
+                )
+                task_type = skill.task_type
+        except (UnknownAgentRequested, UnknownSkillRequested) as exc:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+
+        if len(provider_prompt) > max_input:
             with metrics_lock:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
-        if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
-            raise HTTPException(status_code=400, detail="Requested provider is not configured")
         try:
             result = orchestrator.run(
-                request.prompt,
+                provider_prompt,
                 preferred_provider=request.provider,
-                task_type=request.task_type,
+                task_type=task_type,
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
@@ -316,7 +389,7 @@ def create_app(
                     request_id=str(uuid4()),
                     provider="unknown",
                     model="unknown",
-                    input_chars=len(request.prompt),
+                    input_chars=len(provider_prompt),
                     output_chars=0,
                     duration_ms=0,
                     outcome="rejected",
@@ -332,7 +405,7 @@ def create_app(
                     request_id=str(uuid4()),
                     provider="unknown",
                     model="unknown",
-                    input_chars=len(request.prompt),
+                    input_chars=len(provider_prompt),
                     output_chars=0,
                     duration_ms=0,
                     outcome="failure",

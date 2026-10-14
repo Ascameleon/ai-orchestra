@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
 
+from orchestra.agents import AgentRegistry
 from orchestra.circuit import ProviderCircuitBreaker
 from orchestra.memory import ProviderMemory
 from orchestra.providers.base import Provider, ProviderCallError, ProviderResult
+from orchestra.skills import SkillRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,8 @@ class Orchestrator:
         circuit_breaker: ProviderCircuitBreaker | None = None,
         circuit_failure_threshold: int = 3,
         circuit_reset_timeout_seconds: float = 30.0,
+        agent_registry: AgentRegistry | None = None,
+        skill_registry: SkillRegistry | None = None,
     ):
         providers = (provider,) if not isinstance(provider, (tuple, list)) else tuple(provider)
         if not providers:
@@ -52,6 +56,8 @@ class Orchestrator:
             failure_threshold=circuit_failure_threshold,
             reset_timeout_seconds=circuit_reset_timeout_seconds,
         )
+        self.agent_registry = agent_registry or AgentRegistry()
+        self.skill_registry = skill_registry or SkillRegistry(self.agent_registry)
 
     @staticmethod
     def _provider_name(provider: Provider) -> str:
