@@ -178,7 +178,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             if callable(getattr(audit, "close", None)):
                 audit.close()
 
-    app.add_event_handler("shutdown", close_resources)
+    app.router.on_shutdown.append(close_resources)
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
     metrics_lock = Lock()
 
