@@ -109,9 +109,10 @@ def assess_evidence(
     for record in records:
         if not isinstance(record, EvidenceRecord):
             raise TypeError("records must contain EvidenceRecord instances")
-        if record.evidence_id in seen_ids:
-            raise ValueError(f"duplicate evidence_id: {record.evidence_id}")
-        seen_ids.add(record.evidence_id)
+        evidence_id = record.evidence_id.strip()
+        if evidence_id in seen_ids:
+            raise ValueError(f"duplicate evidence_id after whitespace normalization: {evidence_id}")
+        seen_ids.add(evidence_id)
         canonical_url = _canonical_url(record.url)
         unique_url = canonical_url not in seen_urls
         seen_urls.add(canonical_url)
