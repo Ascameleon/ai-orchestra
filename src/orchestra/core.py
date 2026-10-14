@@ -1,15 +1,14 @@
 """Provider orchestration with explicit, bounded failover."""
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-import logging
 from time import perf_counter
 from uuid import uuid4
 
 from orchestra.circuit import ProviderCircuitBreaker
 from orchestra.memory import ProviderMemory
 from orchestra.providers.base import Provider, ProviderCallError, ProviderResult
-
 
 logger = logging.getLogger(__name__)
 
