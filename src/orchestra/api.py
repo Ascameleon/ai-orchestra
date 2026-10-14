@@ -212,6 +212,19 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             for outcome in orchestrator.memory.snapshot()
         ]
 
+    @app.get("/providers/circuits")
+    def get_provider_circuits(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, str | int]]:
+        """Report circuit state for configured providers without exposing request content."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            status.__dict__
+            for status in orchestrator.circuit_breaker.snapshot(orchestrator.provider_names)
+        ]
+
     @app.get("/audit")
     def get_audit(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> list[dict[str, str | int | float]]:
         authorize(x_api_key)
