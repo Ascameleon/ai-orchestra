@@ -1,4 +1,5 @@
 """Provider orchestration with explicit, bounded failover."""
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from time import perf_counter
@@ -6,6 +7,9 @@ from uuid import uuid4
 
 from orchestra.memory import ProviderMemory
 from orchestra.providers.base import Provider, ProviderCallError, ProviderResult
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -76,6 +80,17 @@ class Orchestrator:
             raise ProviderCallError("Provider returned inconsistent result metrics")
         return result
 
+    def _record_outcome(self, provider_name: str, *, succeeded: bool, duration_ms: int) -> None:
+        """Record aggregate telemetry without changing task success or failover semantics."""
+        try:
+            self.memory.record(provider_name, succeeded=succeeded, duration_ms=duration_ms)
+        except Exception as exc:  # noqa: BLE001 - telemetry must not alter task semantics
+            logger.warning(
+                "Provider outcome memory write failed for %s (%s)",
+                provider_name,
+                type(exc).__name__,
+            )
+
     def run(
         self,
         prompt: str,
@@ -108,21 +123,23 @@ class Orchestrator:
                 result = self._validate_result(
                     provider.generate(prompt), prompt, expected_provider=expected_provider
                 )
-                provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
-                self.memory.record(provider_name, succeeded=True, duration_ms=provider_duration)
-                duration_ms = max(0, int((perf_counter() - started) * 1000))
-                return TaskResult(
-                    request_id=request_id,
-                    provider=result.provider,
-                    model=result.model,
-                    text=result.text,
-                    duration_ms=duration_ms,
-                    input_chars=result.input_chars,
-                    output_chars=result.output_chars,
-                    attempts=index,
-                )
             except Exception as exc:  # noqa: BLE001 - isolate failures at the provider boundary
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
-                self.memory.record(provider_name, succeeded=False, duration_ms=provider_duration)
+                self._record_outcome(provider_name, succeeded=False, duration_ms=provider_duration)
                 last_error = exc
+                continue
+
+            provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
+            self._record_outcome(provider_name, succeeded=True, duration_ms=provider_duration)
+            duration_ms = max(0, int((perf_counter() - started) * 1000))
+            return TaskResult(
+                request_id=request_id,
+                provider=result.provider,
+                model=result.model,
+                text=result.text,
+                duration_ms=duration_ms,
+                input_chars=result.input_chars,
+                output_chars=result.output_chars,
+                attempts=index,
+            )
         raise AllProvidersFailed("all configured providers failed") from last_error
