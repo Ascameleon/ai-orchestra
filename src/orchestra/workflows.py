@@ -124,3 +124,99 @@ class ReviewWorkflow:
             output_chars=len(final.text),
             provider_calls=draft.attempts + critique.attempts + final.attempts,
         )
+
+
+class PlanExecuteWorkflow:
+    """Four-step plan, execute, review, and final synthesis workflow.
+
+    Only the final synthesis is returned. Every stage is bounded, routes by its
+    role unless a caller explicitly prefers one configured provider, and charges
+    each provider attempt to the caller-supplied request budget.
+    """
+
+    def __init__(self, orchestrator: Orchestrator, max_input_chars: int = 12000):
+        if max_input_chars < 1:
+            raise ValueError("max_input_chars must be greater than zero")
+        self._orchestrator = orchestrator
+        self._max_input_chars = max_input_chars
+
+    def run(
+        self,
+        prompt: str,
+        preferred_provider: str | None = None,
+        task_type: str = "general",
+        before_attempt: Callable[[], object] | None = None,
+    ) -> WorkflowResult:
+        started = perf_counter()
+        plan_prompt = _compose_bounded_prompt(
+            "Act as a planner. Produce a concise, ordered plan with requirements, "
+            "acceptance criteria, and material assumptions. Do not execute the task yet.",
+            (("ORIGINAL TASK", prompt),),
+            self._max_input_chars,
+        )
+        plan = self._orchestrator.run(
+            plan_prompt,
+            preferred_provider=preferred_provider,
+            task_type="planner",
+            before_attempt=before_attempt,
+        )
+
+        execution_prompt = _compose_bounded_prompt(
+            "Execute the original task using the plan. Produce a complete working draft "
+            "or result, state uncertainty honestly, and do not invent completed actions.",
+            (("ORIGINAL TASK", prompt), ("PLAN", plan.text)),
+            self._max_input_chars,
+        )
+        execution = self._orchestrator.run(
+            execution_prompt,
+            preferred_provider=preferred_provider,
+            task_type=task_type,
+            before_attempt=before_attempt,
+        )
+
+        review_prompt = _compose_bounded_prompt(
+            "Act as an independent reviewer. Check the task requirements against the plan "
+            "and result; identify omissions, contradictions, unsafe assumptions, and test gaps. "
+            "Return actionable corrections only.",
+            (
+                ("ORIGINAL TASK", prompt),
+                ("PLAN", plan.text),
+                ("EXECUTION RESULT", execution.text),
+            ),
+            self._max_input_chars,
+        )
+        review = self._orchestrator.run(
+            review_prompt,
+            preferred_provider=preferred_provider,
+            task_type="reviewer",
+            before_attempt=before_attempt,
+        )
+
+        final_prompt = _compose_bounded_prompt(
+            "Produce the final complete deliverable for the original task, incorporating "
+            "the review corrections. Do not mention internal workflow stages or expose review "
+            "notes. Clearly label anything that remains unverified or incomplete.",
+            (
+                ("ORIGINAL TASK", prompt),
+                ("PLAN", plan.text),
+                ("EXECUTION RESULT", execution.text),
+                ("REVIEW CORRECTIONS", review.text),
+            ),
+            self._max_input_chars,
+        )
+        final = self._orchestrator.run(
+            final_prompt,
+            preferred_provider=preferred_provider,
+            task_type="writer",
+            before_attempt=before_attempt,
+        )
+        return WorkflowResult(
+            workflow_id=str(uuid4()),
+            provider=final.provider,
+            model=final.model,
+            text=final.text,
+            duration_ms=max(0, int((perf_counter() - started) * 1000)),
+            input_chars=len(prompt),
+            output_chars=len(final.text),
+            provider_calls=plan.attempts + execution.attempts + review.attempts + final.attempts,
+        )
