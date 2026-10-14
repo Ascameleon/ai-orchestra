@@ -22,7 +22,7 @@ class ProviderCircuitBreaker:
     def __init__(self, failure_threshold: int = 3, reset_timeout_seconds: float = 30.0, *, clock: Callable[[], float] = monotonic) -> None:
         if type(failure_threshold) is not int or failure_threshold < 1:
             raise ValueError('failure_threshold must be a positive integer')
-        if not isinstance(reset_timeout_seconds, (int, float)) or not isfinite(reset_timeout_seconds) or reset_timeout_seconds <= 0:
+        if isinstance(reset_timeout_seconds, bool) or not isinstance(reset_timeout_seconds, (int, float)) or not isfinite(reset_timeout_seconds) or reset_timeout_seconds <= 0:
             raise ValueError('reset_timeout_seconds must be finite and positive')
         self.failure_threshold = failure_threshold
         self.reset_timeout_seconds = float(reset_timeout_seconds)
@@ -108,7 +108,7 @@ class SQLiteProviderCircuitBreaker:
 
         if type(failure_threshold) is not int or failure_threshold < 1:
             raise ValueError("failure_threshold must be a positive integer")
-        if not isinstance(reset_timeout_seconds, (int, float)) or not isfinite(reset_timeout_seconds) or reset_timeout_seconds <= 0:
+        if isinstance(reset_timeout_seconds, bool) or not isinstance(reset_timeout_seconds, (int, float)) or not isfinite(reset_timeout_seconds) or reset_timeout_seconds <= 0:
             raise ValueError("reset_timeout_seconds must be finite and positive")
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must be a non-empty path")
