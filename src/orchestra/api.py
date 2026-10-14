@@ -15,9 +15,9 @@ from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.evidence_fetcher import (
     EvidenceFetcher,
+    EvidenceFetchingDisabled,
     EvidenceFetchRequestError,
     EvidenceFetchUnavailable,
-    EvidenceFetchingDisabled,
 )
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency

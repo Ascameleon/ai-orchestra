@@ -6,9 +6,9 @@ import pytest
 
 from orchestra.evidence_fetcher import (
     EvidenceFetcher,
+    EvidenceFetchingDisabled,
     EvidenceFetchRequestError,
     EvidenceFetchUnavailable,
-    EvidenceFetchingDisabled,
 )
 
 

@@ -9,10 +9,8 @@ import ssl
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from email.message import Message
 from html.parser import HTMLParser
 from urllib.parse import urlsplit, urlunsplit
-
 
 _HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _IGNORED_TAGS = {"script", "style", "noscript", "svg", "template"}
