@@ -74,6 +74,8 @@ def test_duplicate_evidence_ids_are_rejected():
         "https://example.com:bad/path",
         "https://example.com:99999/path",
         "https://user:password@example.com/path",
+        "https://exa mple.com/path",
+        "https://example.com\t.evil/path",
     ],
 )
 def test_invalid_urls_are_rejected(url):
@@ -143,3 +145,19 @@ def test_evidence_assessment_rejects_normalized_identifier_collisions():
             ],
             now=NOW,
         )
+
+
+
+def test_default_ports_are_normalized_for_url_deduplication():
+    result = assess_evidence(
+        [
+            item("e1", "alpha", "http://example.com:80/report", NOW),
+            item("e2", "alpha", "http://example.com/report#section", NOW),
+            item("e3", "beta", "https://example.com:443/report", NOW),
+            item("e4", "beta", "https://example.com/report", NOW),
+        ],
+        now=NOW,
+    )
+
+    assert result.unique_urls == 2
+    assert result.duplicate_url_records == 2
