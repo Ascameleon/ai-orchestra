@@ -36,6 +36,9 @@ class TaskRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class PlanExecuteRequest(WorkflowRequest):
     task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
 
 
@@ -358,7 +361,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
 
     @app.post("/v1/workflows/plan-execute", response_model=WorkflowResponse)
     def run_plan_execute_workflow(
-        request: WorkflowRequest,
+        request: PlanExecuteRequest,
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ) -> WorkflowResponse:
         """Plan, execute, independently review, and return only the final synthesis."""
