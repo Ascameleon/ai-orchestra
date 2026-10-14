@@ -65,7 +65,7 @@ def test_abandoning_probe_releases_it_without_closing_circuit():
     assert breaker.allow_request('provider')
 
 
-@pytest.mark.parametrize('threshold,timeout', [(0, 1), (-1, 1), (1, 0), (1, float('nan'))])
+@pytest.mark.parametrize('threshold,timeout', [(0, 1), (-1, 1), (1, 0), (1, float('nan')), (1, True)])
 def test_circuit_rejects_invalid_limits(threshold, timeout):
     with pytest.raises(ValueError):
         ProviderCircuitBreaker(threshold, timeout)
