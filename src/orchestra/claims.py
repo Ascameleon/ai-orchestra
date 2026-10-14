@@ -50,6 +50,8 @@ def assess_claim_links(
     normalized_evidence_ids = {item.strip() for item in evidence_ids}
     if "" in normalized_evidence_ids:
         raise ValueError("evidence IDs must not be empty")
+    if len(normalized_evidence_ids) != len(evidence_ids):
+        raise ValueError("evidence IDs collide after whitespace normalization")
 
     seen_claim_ids: set[str] = set()
     results: list[ClaimLinkAssessment] = []
