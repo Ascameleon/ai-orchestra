@@ -286,8 +286,8 @@ def create_app(
         if budget_configuration_error:
             raise HTTPException(status_code=503, detail="Shared provider-call budget is not configured")
         try:
-            budget.used
-        except Exception:  # noqa: BLE001 - readiness must fail closed without leaking storage details
+            _ = budget.used
+        except Exception:
             if budget_db_path:
                 raise HTTPException(status_code=503, detail="Shared provider-call budget is unavailable") from None
             raise
