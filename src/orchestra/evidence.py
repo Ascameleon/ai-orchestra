@@ -33,9 +33,17 @@ def _canonical_url(url: str) -> str:
         raise ValueError("url must be an absolute http(s) URL")
     if parts.username is not None or parts.password is not None:
         raise ValueError("url must not contain embedded credentials")
+    hostname = parts.hostname.lower()
+    # urlsplit accepts whitespace and control characters inside hostnames; reject
+    # these instead of treating malformed input as a valid source URL.
+    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in hostname):
+        raise ValueError("url must be an absolute http(s) URL")
+    # Normalize default ports so equivalent origins do not inflate URL diversity.
+    if (parts.scheme.lower(), port) in {("http", 80), ("https", 443)}:
+        port = None
     # Normalize only obvious URL variants. Query parameters are retained because
     # they can identify distinct resources; fragments do not identify server content.
-    netloc = parts.hostname.lower()
+    netloc = hostname
     if port is not None:
         netloc = f"{netloc}:{port}"
     if ":" in parts.hostname and not parts.hostname.startswith("["):
