@@ -48,8 +48,16 @@ def audit_quotes(
     references: list[QuoteReference] | tuple[QuoteReference, ...],
 ) -> QuoteAudit:
     """Check normalized literal quote presence and hash supplied source snapshots."""
+    if not isinstance(snapshots, (list, tuple)):
+        raise TypeError("snapshots must be a list or tuple")
+    if not isinstance(references, (list, tuple)):
+        raise TypeError("references must be a list or tuple")
     by_id: dict[str, SourceSnapshot] = {}
     for snapshot in snapshots:
+        if not isinstance(snapshot, SourceSnapshot):
+            raise TypeError("snapshots must contain SourceSnapshot instances")
+        if not isinstance(snapshot.evidence_id, str) or not isinstance(snapshot.content, str):
+            raise TypeError("snapshot evidence_id and content must be strings")
         if not snapshot.evidence_id.strip() or not snapshot.content.strip():
             raise ValueError("snapshot evidence_id and content must not be empty")
         if snapshot.evidence_id in by_id:
@@ -58,6 +66,12 @@ def audit_quotes(
 
     checks: list[QuoteCheck] = []
     for reference in references:
+        if not isinstance(reference, QuoteReference):
+            raise TypeError("references must contain QuoteReference instances")
+        if any(not isinstance(value, str) for value in (
+            reference.claim_id, reference.evidence_id, reference.quote
+        )):
+            raise TypeError("quote reference fields must be strings")
         if not reference.claim_id.strip() or not reference.evidence_id.strip():
             raise ValueError("claim_id and evidence_id must not be empty")
         if not reference.quote.strip():
