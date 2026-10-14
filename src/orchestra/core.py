@@ -50,6 +50,29 @@ class Orchestrator:
     def provider_names(self) -> tuple[str, ...]:
         return tuple(self._provider_name(provider) for provider in self._providers)
 
+    @staticmethod
+    def _validate_result(result: object, prompt: str) -> ProviderResult:
+        """Reject malformed adapter results before treating an attempt as successful."""
+        if not isinstance(result, ProviderResult):
+            raise ProviderCallError("Provider returned an invalid result")
+        if (
+            not isinstance(result.provider, str)
+            or not result.provider.strip()
+            or not isinstance(result.model, str)
+            or not result.model.strip()
+            or not isinstance(result.text, str)
+            or not result.text.strip()
+        ):
+            raise ProviderCallError("Provider returned incomplete result metadata or empty text")
+        if (
+            type(result.input_chars) is not int
+            or type(result.output_chars) is not int
+            or result.input_chars != len(prompt)
+            or result.output_chars != len(result.text)
+        ):
+            raise ProviderCallError("Provider returned inconsistent result metrics")
+        return result
+
     def run(
         self,
         prompt: str,
@@ -76,7 +99,7 @@ class Orchestrator:
             provider_started = perf_counter()
             provider_name = getattr(provider, "name", provider.__class__.__name__).lower()
             try:
-                result: ProviderResult = provider.generate(prompt)
+                result = self._validate_result(provider.generate(prompt), prompt)
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
                 self.memory.record(provider_name, succeeded=True, duration_ms=provider_duration)
                 duration_ms = max(0, int((perf_counter() - started) * 1000))
