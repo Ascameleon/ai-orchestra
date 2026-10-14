@@ -36,7 +36,7 @@ class TaskRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=100000)
     provider: str | None = Field(default=None, min_length=1, max_length=40)
-    task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general
+    task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
 
 
 class EvidenceItemRequest(BaseModel):
