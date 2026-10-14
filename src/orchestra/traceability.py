@@ -62,22 +62,29 @@ def screen_potential_conflicts(
     assertions: list[SourceAssertion] | tuple[SourceAssertion, ...],
 ) -> ConflictScreen:
     """Flag same-topic assertions with opposite explicit caller-supplied stances."""
+    normalized_assertions: list[SourceAssertion] = []
     seen: set[str] = set()
     for item in assertions:
-        if not item.assertion_id.strip() or not item.evidence_id.strip() or not item.topic.strip():
+        assertion_id = item.assertion_id.strip()
+        evidence_id = item.evidence_id.strip()
+        topic = " ".join(item.topic.split())
+        if not assertion_id or not evidence_id or not topic:
             raise ValueError("assertion_id, evidence_id, and topic must not be empty")
-        if item.assertion_id in seen:
-            raise ValueError(f"duplicate assertion_id: {item.assertion_id}")
-        seen.add(item.assertion_id)
+        if assertion_id in seen:
+            raise ValueError(f"duplicate assertion_id: {assertion_id}")
+        seen.add(assertion_id)
         if item.stance not in ("supports", "opposes", "neutral"):
-            raise ValueError(f"invalid stance for assertion {item.assertion_id}")
+            raise ValueError(f"invalid stance for assertion {assertion_id}")
+        normalized_assertions.append(
+            SourceAssertion(assertion_id, evidence_id, topic, item.stance)
+        )
 
     conflicts: list[PotentialConflict] = []
-    for index, left in enumerate(assertions):
+    for index, left in enumerate(normalized_assertions):
         if left.stance == "neutral":
             continue
         left_topic = " ".join(left.topic.casefold().split())
-        for right in assertions[index + 1 :]:
+        for right in normalized_assertions[index + 1 :]:
             if right.stance == "neutral" or left.stance == right.stance:
                 continue
             if left_topic != " ".join(right.topic.casefold().split()):
@@ -117,23 +124,27 @@ def trace_conclusions(
 
     claim_by_id: dict[str, ClaimTrace] = {}
     for claim in claims:
-        if not claim.claim_id.strip():
+        claim_id = claim.claim_id.strip()
+        evidence_ids = tuple(item.strip() for item in claim.evidence_ids)
+        if not claim_id:
             raise ValueError("claim_id must not be empty")
-        if claim.claim_id in claim_by_id:
-            raise ValueError(f"duplicate claim_id: {claim.claim_id}")
-        if any(not evidence_id.strip() for evidence_id in claim.evidence_ids):
-            raise ValueError(f"claim {claim.claim_id} contains an empty evidence reference")
-        claim_by_id[claim.claim_id] = claim
+        if claim_id in claim_by_id:
+            raise ValueError(f"duplicate claim_id: {claim_id}")
+        if any(not evidence_id for evidence_id in evidence_ids):
+            raise ValueError(f"claim {claim_id} contains an empty evidence reference")
+        claim_by_id[claim_id] = ClaimTrace(claim_id, evidence_ids)
 
     seen_conclusions: set[str] = set()
     results: list[ConclusionTrace] = []
-    for conclusion_id, text, claim_ids in conclusions:
-        if not conclusion_id.strip() or not text.strip():
+    for raw_conclusion_id, text, raw_claim_ids in conclusions:
+        conclusion_id = raw_conclusion_id.strip()
+        claim_ids = tuple(item.strip() for item in raw_claim_ids)
+        if not conclusion_id or not text.strip():
             raise ValueError("conclusion_id and text must not be empty")
         if conclusion_id in seen_conclusions:
             raise ValueError(f"duplicate conclusion_id: {conclusion_id}")
         seen_conclusions.add(conclusion_id)
-        if any(not claim_id.strip() for claim_id in claim_ids):
+        if any(not claim_id for claim_id in claim_ids):
             raise ValueError(f"conclusion {conclusion_id} contains an empty claim reference")
         unique_claim_ids = tuple(dict.fromkeys(claim_ids))
         linked = tuple(claim_id for claim_id in unique_claim_ids if claim_id in claim_by_id)
