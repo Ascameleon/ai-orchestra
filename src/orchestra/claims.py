@@ -40,22 +40,27 @@ def assess_claim_links(
     Claim IDs must be unique. Duplicate references within one claim are collapsed
     while preserving order. Evidence metadata and claim semantics are not validated.
     """
+    normalized_evidence_ids = {item.strip() for item in evidence_ids}
+    if "" in normalized_evidence_ids:
+        raise ValueError("evidence IDs must not be empty")
+
     seen_claim_ids: set[str] = set()
     results: list[ClaimLinkAssessment] = []
     for claim in claims:
-        if not claim.claim_id.strip() or not claim.text.strip():
+        claim_id = claim.claim_id.strip()
+        if not claim_id or not claim.text.strip():
             raise ValueError("claim_id and text must not be empty")
-        if claim.claim_id in seen_claim_ids:
-            raise ValueError(f"duplicate claim_id: {claim.claim_id}")
-        seen_claim_ids.add(claim.claim_id)
+        if claim_id in seen_claim_ids:
+            raise ValueError(f"duplicate claim_id: {claim_id}")
+        seen_claim_ids.add(claim_id)
         if any(not item.strip() for item in claim.evidence_ids):
-            raise ValueError(f"claim {claim.claim_id} contains an empty evidence reference")
+            raise ValueError(f"claim {claim_id} contains an empty evidence reference")
         references = tuple(dict.fromkeys(item.strip() for item in claim.evidence_ids))
-        linked = tuple(item for item in references if item in evidence_ids)
-        unknown = tuple(item for item in references if item not in evidence_ids)
+        linked = tuple(item for item in references if item in normalized_evidence_ids)
+        unknown = tuple(item for item in references if item not in normalized_evidence_ids)
         results.append(
             ClaimLinkAssessment(
-                claim_id=claim.claim_id,
+                claim_id=claim_id,
                 linked_evidence_ids=linked,
                 unknown_evidence_ids=unknown,
                 has_valid_evidence_link=bool(linked),
