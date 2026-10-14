@@ -669,8 +669,6 @@ def test_plan_execute_workflow_endpoint_returns_final_synthesis_only():
 
 def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(monkeypatch):
     import orchestra.api as api_module
-    from orchestra.guardrails import BudgetExceeded
-
     real_guard = api_module.CostGuard
 
     class ThreeCallGuard(real_guard):
