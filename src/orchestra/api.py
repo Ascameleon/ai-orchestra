@@ -153,7 +153,12 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             settings = load_settings()
             registry = build_provider_registry(settings)
             providers = tuple(registry.get(name) for name in (settings.provider_name, *settings.provider_fallbacks))
-            orchestrator = Orchestrator(providers, routes=settings.task_routes)
+            orchestrator = Orchestrator(
+                providers,
+                routes=settings.task_routes,
+                circuit_failure_threshold=settings.circuit_failure_threshold,
+                circuit_reset_timeout_seconds=settings.circuit_reset_seconds,
+            )
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
@@ -210,6 +215,19 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 "total_duration_ms": outcome.total_duration_ms,
             }
             for outcome in orchestrator.memory.snapshot()
+        ]
+
+    @app.get("/providers/circuits")
+    def get_provider_circuits(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, str | int]]:
+        """Report circuit state for configured providers without exposing request content."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            status.__dict__
+            for status in orchestrator.circuit_breaker.snapshot(orchestrator.provider_names)
         ]
 
     @app.get("/audit")
