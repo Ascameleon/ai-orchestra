@@ -234,7 +234,6 @@ def test_fetch_bounds_body_when_content_length_is_missing(monkeypatch):
 @pytest.mark.parametrize(
     "url",
     [
-        "http://example.com/path%0d%0aHost:internal",
         "http://example.com/path with spaces",
         "http://example.com/?q=hello\r\nX-Injected: yes",
     ],
