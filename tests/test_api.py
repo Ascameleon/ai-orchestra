@@ -1,7 +1,10 @@
+import sqlite3
+
 from fastapi.testclient import TestClient
 
 from orchestra.api import create_app
 from orchestra.core import Orchestrator
+from orchestra.memory import SQLiteProviderMemory
 from orchestra.providers.base import ProviderCallError, ProviderResult
 
 
@@ -696,3 +699,19 @@ def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(m
     assert provider.calls == 3
     assert client.get("/metrics").json()["rejected"] == 1
     assert client.get("/audit").json()[-1]["outcome"] == "rejected"
+
+
+
+def test_application_shutdown_closes_persistent_provider_memory(tmp_path):
+    memory = SQLiteProviderMemory(str(tmp_path / "provider-memory.sqlite3"))
+    app = create_app(Orchestrator(StubProvider(), memory=memory))
+
+    with TestClient(app):
+        pass
+
+    try:
+        memory.snapshot()
+    except sqlite3.ProgrammingError:
+        pass
+    else:
+        raise AssertionError("provider memory connection should be closed on shutdown")
