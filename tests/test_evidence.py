@@ -94,3 +94,31 @@ def test_empty_evidence_does_not_claim_source_coverage():
     assert result.unique_urls == 0
     assert result.independent_source_groups == ()
     assert not result.has_enough_fresh_independent_sources
+
+
+
+def test_evidence_assessment_rejects_malformed_collection_and_records():
+    with pytest.raises(TypeError, match="records must be a list or tuple"):
+        assess_evidence("not-records", now=NOW)
+    with pytest.raises(TypeError, match="EvidenceRecord instances"):
+        assess_evidence([object()], now=NOW)
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"max_age": 30}, "max_age must be a timedelta"),
+        ({"minimum_independent_sources": True}, "must be an integer"),
+        ({"now": "2026-10-13"}, "now must be a datetime"),
+    ],
+)
+def test_evidence_assessment_rejects_wrong_option_types(kwargs, message):
+    with pytest.raises(TypeError, match=message):
+        assess_evidence([], **({"now": NOW} | kwargs))
+
+
+def test_evidence_record_rejects_non_datetime_timestamps():
+    with pytest.raises(TypeError, match="retrieved_at must be a datetime"):
+        EvidenceRecord("e1", "Publisher", "group", "https://example.com", retrieved_at="today")
+    with pytest.raises(TypeError, match="published_at must be a datetime or None"):
+        EvidenceRecord("e1", "Publisher", "group", "https://example.com", published_at="today", retrieved_at=NOW)
