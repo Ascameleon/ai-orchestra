@@ -258,3 +258,19 @@ def test_fetch_rejects_whitespace_or_header_injection_in_url(url):
 def test_fetcher_rejects_invalid_resource_bounds(kwargs):
     with pytest.raises(ValueError):
         EvidenceFetcher(**kwargs)
+
+
+def test_fetch_preserves_existing_percent_escapes_and_query_semantics(monkeypatch):
+    sock = FakeSocket()
+    response = FakeResponse(content_type="text/plain", body=b"ok")
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/a%2Fb?q=a+b&next=%2F"])[0]
+
+    assert b"GET /a%2Fb?q=a+b&next=%2F HTTP/1.1" in sock.request
+    assert result.url == "http://example.com/a%2Fb?q=a+b&next=%2F"
