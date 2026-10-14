@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      ORCHESTRA_BUDGET_DB: ${ORCHESTRA_BUDGET_DB:-/data/provider-budget.sqlite3}
     ports:
       - "127.0.0.1:8000:8000"
     security_opt:
