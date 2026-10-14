@@ -43,3 +43,21 @@ def test_blank_claim_fields_are_rejected():
 def test_empty_evidence_reference_is_rejected():
     with pytest.raises(ValueError, match="empty evidence reference"):
         assess_claim_links([ClaimRecord("c1", "Claim", (" ",))], {"e1"})
+
+
+def test_claim_ids_are_normalized_before_duplicate_detection():
+    with pytest.raises(ValueError, match="duplicate claim_id: c1"):
+        assess_claim_links(
+            [ClaimRecord("c1", "First", ("e1",)), ClaimRecord(" c1 ", "Second", ("e1",))],
+            {"e1"},
+        )
+
+
+def test_claim_and_evidence_ids_are_normalized_for_link_resolution():
+    result = assess_claim_links(
+        [ClaimRecord(" c1 ", "Claim", (" e1 ",))],
+        {" e1 "},
+    )
+    assert result.results[0].claim_id == "c1"
+    assert result.results[0].linked_evidence_ids == ("e1",)
+    assert result.results[0].has_unknown_references is False
