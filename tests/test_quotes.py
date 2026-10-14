@@ -50,3 +50,17 @@ def test_partial_substring_is_not_found():
         [QuoteReference("c1", "e1", "result was 43 percent")],
     )
     assert result.checks[0].quote_found is False
+
+
+
+def test_audit_quotes_rejects_malformed_collections_and_records():
+    with pytest.raises(TypeError, match="snapshots must be a list or tuple"):
+        audit_quotes("not-snapshots", [])
+    with pytest.raises(TypeError, match="SourceSnapshot instances"):
+        audit_quotes([object()], [])
+    with pytest.raises(TypeError, match="snapshot evidence_id and content must be strings"):
+        audit_quotes([SourceSnapshot(1, "text")], [])
+    with pytest.raises(TypeError, match="QuoteReference instances"):
+        audit_quotes([], [object()])
+    with pytest.raises(TypeError, match="reference fields must be strings"):
+        audit_quotes([], [QuoteReference("c1", "e1", 42)])
