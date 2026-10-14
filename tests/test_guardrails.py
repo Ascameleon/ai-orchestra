@@ -156,3 +156,18 @@ def test_sqlite_cost_guard_expires_reservations_outside_rolling_window(monkeypat
     assert guard.used == 0
     assert guard.reserve() == 1
     guard.close()
+
+
+@pytest.mark.parametrize("value", [1.5, True, "2"])
+def test_guardrails_reject_non_integer_limits(value, tmp_path):
+    database = str(tmp_path / "invalid-limit.sqlite3")
+    with pytest.raises(ValueError, match="max_requests"):
+        CostGuard(value)
+    with pytest.raises(ValueError, match="max_requests"):
+        SQLiteCostGuard(value, database)
+    with pytest.raises(ValueError, match="window_seconds"):
+        SQLiteCostGuard(1, database, window_seconds=value)
+    with pytest.raises(ValueError, match="capacity"):
+        AuditTrail(capacity=value)
+    with pytest.raises(ValueError, match="capacity"):
+        SQLiteAuditTrail(database, capacity=value)
