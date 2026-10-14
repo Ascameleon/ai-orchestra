@@ -22,6 +22,19 @@ class SupportAssessmentReport:
     assessments: tuple[ClaimSupportAssessment, ...]
 
 
+class _DuplicateJSONKey(ValueError):
+    """Raised when JSON objects contain ambiguous duplicate keys."""
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJSONKey("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
 def parse_support_assessment(
     response_text: str,
     expected_claim_ids: set[str] | frozenset[str],
@@ -29,9 +42,9 @@ def parse_support_assessment(
 ) -> SupportAssessmentReport:
     """Parse and validate the model's JSON without accepting invented IDs."""
     try:
-        payload = json.loads(response_text)
-    except (TypeError, json.JSONDecodeError):
-        raise ValueError("model response was not valid JSON") from None
+        payload = json.loads(response_text, object_pairs_hook=_unique_object)
+    except (TypeError, json.JSONDecodeError, _DuplicateJSONKey):
+        raise ValueError("model response was not valid, unambiguous JSON") from None
     if not isinstance(payload, dict) or set(payload) != {"assessments"}:
         raise ValueError("model response has an invalid top-level schema")
     raw_items = payload["assessments"]
