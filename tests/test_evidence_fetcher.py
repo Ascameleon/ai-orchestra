@@ -205,7 +205,7 @@ def test_fetch_rejects_mixed_public_and_private_dns_answers_before_connecting():
         connector=lambda *args, **kwargs: called.append(args),
     )
     with pytest.raises(EvidenceFetchRequestError, match="non-public"):
-        fetcher.fetch_many(["https://example.com/"])
+        fetcher.fetch_many(["http://example.com/"])
     assert called == []
 
 
