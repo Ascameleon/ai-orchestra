@@ -59,9 +59,13 @@ def screen_numeric_consistency(
     assertions: list[NumericAssertion] | tuple[NumericAssertion, ...],
 ) -> NumericConsistencyReport:
     """Flag unequal values sharing the same normalized metric, unit, and period."""
+    if not isinstance(assertions, (list, tuple)):
+        raise TypeError("assertions must be a list or tuple")
     seen: set[str] = set()
     parsed: list[tuple[NumericAssertion, str, str, str, Decimal]] = []
     for item in assertions:
+        if not isinstance(item, NumericAssertion):
+            raise TypeError("assertions must contain NumericAssertion instances")
         fields = (
             item.assertion_id,
             item.claim_id,
@@ -71,6 +75,8 @@ def screen_numeric_consistency(
             item.unit,
             item.period,
         )
+        if any(not isinstance(field, str) for field in fields):
+            raise TypeError("assertion fields must be strings")
         if any(not field.strip() for field in fields):
             raise ValueError("assertion fields must not be empty")
         if item.assertion_id in seen:
