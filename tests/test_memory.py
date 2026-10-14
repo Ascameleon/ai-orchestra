@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from orchestra.memory import SQLiteProviderMemory
+from orchestra.memory import ProviderOutcome, SQLiteProviderMemory
 
 
 def test_sqlite_provider_memory_persists_aggregate_outcomes_without_task_content(tmp_path):
@@ -13,9 +13,8 @@ def test_sqlite_provider_memory_persists_aggregate_outcomes_without_task_content
     memory.record("openai", succeeded=True, duration_ms=-3)
 
     assert memory.snapshot() == (
-        # Provider names are normalized and outcomes aggregate across attempts.
-        memory.snapshot()[0].__class__("gemini", 1, 1, 20),
-        memory.snapshot()[0].__class__("openai", 1, 0, 0),
+        ProviderOutcome("gemini", 1, 1, 20),
+        ProviderOutcome("openai", 1, 0, 0),
     )
     memory.close()
 
