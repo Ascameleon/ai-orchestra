@@ -13,8 +13,8 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from orchestra.agents import UnknownAgentRequested
-from orchestra.citation_audit import audit_citation_coverage
 from orchestra.circuit import SQLiteProviderCircuitBreaker
+from orchestra.citation_audit import audit_citation_coverage
 from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
