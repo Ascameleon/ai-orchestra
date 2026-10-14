@@ -111,11 +111,21 @@ class Orchestrator:
         task_type: str = "general",
         before_attempt: Callable[[], object] | None = None,
     ) -> TaskResult:
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("prompt must be a non-empty string")
+        if not isinstance(task_type, str) or task_type not in {
+            "general", "code", "research", "writing", "analysis",
+            "review", "planner", "reviewer", "writer",
+        }:
+            raise ValueError("unsupported task type")
+        if preferred_provider is not None and (
+            not isinstance(preferred_provider, str) or not preferred_provider.strip()
+        ):
+            raise ValueError("preferred_provider must be a non-empty string when provided")
+
         request_id = str(uuid4())
         started = perf_counter()
         providers = self._providers
-        if task_type not in {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}:
-            raise ValueError("unsupported task type")
         routed_provider = preferred_provider or self._task_routes.get(task_type)
         if routed_provider is not None:
             preferred = routed_provider.strip().lower()
