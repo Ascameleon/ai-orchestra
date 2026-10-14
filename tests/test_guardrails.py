@@ -1,6 +1,6 @@
 import pytest
 
-from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail
 
 
 def test_cost_guard_stops_at_configured_limit():
@@ -57,3 +57,33 @@ def test_cost_guard_is_thread_safe_under_concurrent_reservations():
     accepted = [value for value in results if value is not None]
     assert sorted(accepted) == list(range(1, 11))
     assert guard.used == 10
+
+
+def test_sqlite_audit_trail_persists_only_bounded_metadata(tmp_path):
+    import sqlite3
+
+    database = tmp_path / "audit.sqlite3"
+    trail = SQLiteAuditTrail(str(database), capacity=2)
+    trail.record(AuditEvent(1.0, "r1", "gemini", "model-a", 10, 20, 30, "success"))
+    trail.record(AuditEvent(2.0, "r2", "openai", "model-b", 11, 21, 31, "failure"))
+    trail.record(AuditEvent(3.0, "r3", "anthropic", "model-c", 12, 22, 32, "success"))
+    assert [event.request_id for event in trail.snapshot()] == ["r2", "r3"]
+    trail.close()
+
+    reopened = SQLiteAuditTrail(str(database), capacity=2)
+    assert [event.request_id for event in reopened.snapshot()] == ["r2", "r3"]
+    reopened.close()
+    with sqlite3.connect(database) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(audit_events)")}
+    assert columns == {
+        "id", "timestamp", "request_id", "provider", "model", "input_chars",
+        "output_chars", "duration_ms", "outcome",
+    }
+    assert not {"prompt", "completion", "text", "api_key", "credentials"} & columns
+
+
+def test_sqlite_audit_trail_rejects_empty_path_and_invalid_capacity(tmp_path):
+    with pytest.raises(ValueError, match="database_path"):
+        SQLiteAuditTrail(" ")
+    with pytest.raises(ValueError, match="capacity"):
+        SQLiteAuditTrail(str(tmp_path / "audit.sqlite3"), capacity=0)
