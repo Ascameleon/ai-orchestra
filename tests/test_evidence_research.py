@@ -5,7 +5,6 @@ from orchestra.core import Orchestrator
 from orchestra.evidence_fetcher import EvidenceFetchUnavailable, FetchedEvidence
 from orchestra.providers.base import ProviderResult
 
-
 VALID_ID = "ev_aaaaaaaaaaaaaaaaaaaaaaaa"
 UNKNOWN_ID = "ev_bbbbbbbbbbbbbbbbbbbbbbbb"
 
