@@ -121,7 +121,7 @@ class Orchestrator:
                     output_chars=result.output_chars,
                     attempts=index,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - isolate failures at the provider boundary
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
                 self.memory.record(provider_name, succeeded=False, duration_ms=provider_duration)
                 last_error = exc
