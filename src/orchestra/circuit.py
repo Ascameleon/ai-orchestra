@@ -249,7 +249,7 @@ class SQLiteProviderCircuitBreaker:
                 remaining = 0.0 if opened_at is None else max(
                     0.0, self.reset_timeout_seconds - (now - opened_at)
                 )
-                state = "closed" if opened_at is None else ("open" if remaining > 0 or probe else "half_open")
+                state = "closed" if opened_at is None else ("open" if remaining > 0 else "half_open")
                 result.append(CircuitStatus(name, state, failures, ceil(remaining)))
             return tuple(result)
 
