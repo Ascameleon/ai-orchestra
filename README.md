@@ -45,7 +45,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `GET /metrics` returns process-local request counters and budget use.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded.
 - `GET /providers/health` returns process-local provider success/failure counts and accumulated latency; it never stores prompts or completions.
-- Provider failover includes a process-local circuit breaker that temporarily skips repeatedly failing providers; see `docs/PROVIDER_CIRCUIT_BREAKER.md` for states, defaults, and limitations.
+- `GET /providers/circuits` reports each configured provider circuit as `closed`, `open`, or `half_open`, with consecutive failures and retry delay. It exposes metadata only and honors `ORCHESTRA_API_KEY` when configured. Provider failover temporarily skips repeatedly failing providers; see `docs/PROVIDER_CIRCUIT_BREAKER.md` for defaults and limitations.
 - `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
 - `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
 - `POST /v1/claims/verify-links` checks whether each claim references known evidence IDs, flags unlinked claims and unknown references, and returns `semantic_support_verified: false`. It does not determine whether the cited sources actually support or contradict a claim.
@@ -69,7 +69,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process, including fallbacks (default 100; allowed 1–100000).
 - `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
 - Provider calls have a 30-second timeout; OpenAI and Anthropic SDK automatic retries are disabled to avoid hidden repeat charges. The request budget and audit trail are process-local and reset on restart. They are not distributed rate limiting, persistent audit storage, or a monetary quota. Configure provider-side quotas and billing limits before live use.
-- Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, workflow, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
+- Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, workflow, metrics, audit, provider-health, and circuit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
 - No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
 
 ## Container deployment
