@@ -1,6 +1,6 @@
 import pytest
 
-from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail, SQLiteCostGuard
 
 
 def test_cost_guard_stops_at_configured_limit():
@@ -87,3 +87,49 @@ def test_sqlite_audit_trail_rejects_empty_path_and_invalid_capacity(tmp_path):
         SQLiteAuditTrail(" ")
     with pytest.raises(ValueError, match="capacity"):
         SQLiteAuditTrail(str(tmp_path / "audit.sqlite3"), capacity=0)
+
+
+def test_sqlite_cost_guard_shares_atomic_budget_between_instances(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    database = str(tmp_path / "shared-budget.sqlite3")
+    guards = [SQLiteCostGuard(10, database) for _ in range(4)]
+
+    def reserve(index):
+        try:
+            return guards[index % len(guards)].reserve()
+        except BudgetExceeded:
+            return None
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        results = list(pool.map(reserve, range(100)))
+
+    accepted = [value for value in results if value is not None]
+    assert len(accepted) == 10
+    assert all(guard.used == 10 for guard in guards)
+    assert all(guard.limit == 10 for guard in guards)
+    for guard in guards:
+        guard.close()
+
+
+def test_sqlite_cost_guard_persists_reservations_after_reopen(tmp_path):
+    database = str(tmp_path / "persistent-budget.sqlite3")
+    first = SQLiteCostGuard(2, database)
+    assert first.reserve() == 1
+    first.close()
+
+    second = SQLiteCostGuard(2, database)
+    assert second.used == 1
+    assert second.reserve() == 2
+    with pytest.raises(BudgetExceeded):
+        second.reserve()
+    second.close()
+
+
+def test_sqlite_cost_guard_rejects_invalid_configuration(tmp_path):
+    with pytest.raises(ValueError, match="database_path"):
+        SQLiteCostGuard(1, " ")
+    with pytest.raises(ValueError, match="max_requests"):
+        SQLiteCostGuard(0, str(tmp_path / "budget.sqlite3"))
+    with pytest.raises(ValueError, match="window_seconds"):
+        SQLiteCostGuard(1, str(tmp_path / "budget.sqlite3"), window_seconds=0)
