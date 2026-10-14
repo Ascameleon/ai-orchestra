@@ -701,7 +701,6 @@ def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(m
     assert client.get("/audit").json()[-1]["outcome"] == "rejected"
 
 
-
 def test_application_shutdown_closes_persistent_provider_memory(tmp_path):
     memory = SQLiteProviderMemory(str(tmp_path / "provider-memory.sqlite3"))
     app = create_app(Orchestrator(StubProvider(), memory=memory))
