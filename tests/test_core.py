@@ -160,8 +160,12 @@ def test_malformed_provider_result_fails_over_and_is_recorded_as_failure():
 def test_malformed_provider_results_never_count_as_success(invalid_result):
     provider = MalformedProvider(invalid_result)
 
+    orchestrator = Orchestrator(provider)
     with pytest.raises(AllProvidersFailed, match="all configured providers failed"):
-        Orchestrator(provider).run("hello")
+        orchestrator.run("hello")
 
-    outcome = provider_name = Orchestrator(provider).memory.snapshot()
-    assert outcome == ()
+    outcomes = orchestrator.memory.snapshot()
+    assert len(outcomes) == 1
+    assert outcomes[0].provider == "malformed"
+    assert outcomes[0].failures == 1
+    assert outcomes[0].successes == 0
