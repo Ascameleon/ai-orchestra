@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 _HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _IGNORED_TAGS = {"script", "style", "noscript", "svg", "template"}
@@ -144,10 +144,12 @@ class EvidenceFetcher:
             raise EvidenceFetchRequestError("IP-literal URLs are not allowed")
         if not any(host == allowed or host.endswith("." + allowed) for allowed in self.allowed_hosts):
             raise EvidenceFetchRequestError("URL hostname is not in ORCHESTRA_EVIDENCE_ALLOWED_HOSTS")
-        path = parts.path or "/"
-        query = parts.query
-        if any(char.isspace() for char in path + query):
+        raw_path = parts.path or "/"
+        raw_query = parts.query
+        if any(char.isspace() for char in raw_path + raw_query):
             raise EvidenceFetchRequestError("URL path contains invalid whitespace")
+        path = quote(raw_path, safe="/")
+        query = quote(raw_query, safe="=&")
         canonical_url = urlunsplit((scheme, host, path, query, ""))
         return canonical_url, host, port, scheme, path, query
 

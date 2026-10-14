@@ -171,3 +171,19 @@ def test_fetching_is_disabled_without_explicit_allowlist():
 def test_allowlist_rejects_non_host_values(host):
     with pytest.raises(ValueError):
         EvidenceFetcher([host])
+
+
+def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
+    sock = FakeSocket()
+    response = FakeResponse()
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/café?q=é"])[0]
+
+    assert b"GET /caf%C3%A9?q=%C3%A9 HTTP/1.1" in sock.request
+    assert result.url == "http://example.com/caf%C3%A9?q=%C3%A9"
