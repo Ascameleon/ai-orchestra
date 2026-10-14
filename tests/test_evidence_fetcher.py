@@ -187,3 +187,59 @@ def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
 
     assert b"GET /caf%C3%A9?q=%C3%A9 HTTP/1.1" in sock.request
     assert result.url == "http://example.com/caf%C3%A9?q=%C3%A9"
+
+
+
+def test_fetch_rejects_mixed_public_and_private_dns_answers_before_connecting():
+    called = []
+
+    def mixed_resolver(host, port, type):
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port)),
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("10.0.0.7", port)),
+        ]
+
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=mixed_resolver,
+        connector=lambda *args, **kwargs: called.append(args),
+    )
+    with pytest.raises(EvidenceFetchRequestError, match="non-public"):
+        fetcher.fetch_many(["https://example.com/"])
+    assert called == []
+
+
+def test_fetch_bounds_body_when_content_length_is_missing(monkeypatch):
+    sock = FakeSocket()
+    response = FakeResponse(
+        body=b"x" * 64,
+        content_type="text/plain",
+    )
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        max_response_bytes=16,
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    with pytest.raises(EvidenceFetchUnavailable, match="size limit"):
+        fetcher.fetch_many(["https://example.com/"])
+
+    assert response.read_called
+    assert response.closed
+    assert sock.closed
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com/path%0d%0aHost:internal",
+        "http://example.com/path with spaces",
+        "http://example.com/?q=hello\r\nX-Injected: yes",
+    ],
+)
+def test_fetch_rejects_whitespace_or_header_injection_in_url(url):
+    fetcher = EvidenceFetcher(["example.com"], resolver=public_resolver)
+    with pytest.raises(EvidenceFetchRequestError):
+        fetcher.fetch_many([url])
