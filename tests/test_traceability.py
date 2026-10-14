@@ -86,3 +86,30 @@ def test_traceability_validates_evidence_registry():
         trace_conclusions([], [], known_evidence_ids=["e1", "e1"])
     with pytest.raises(ValueError, match="must not contain empty"):
         trace_conclusions([], [], known_evidence_ids=[" "])
+
+
+def test_conflict_screen_normalizes_ids_before_duplicate_detection():
+    with pytest.raises(ValueError, match="duplicate assertion_id: a1"):
+        screen_potential_conflicts(
+            [
+                SourceAssertion("a1", "e1", "topic", "supports"),
+                SourceAssertion(" a1 ", "e2", "topic", "opposes"),
+            ]
+        )
+
+
+def test_traceability_normalizes_ids_and_rejects_duplicates_after_normalization():
+    with pytest.raises(ValueError, match="duplicate claim_id: c1"):
+        trace_conclusions(
+            [],
+            [ClaimTrace("c1", ()), ClaimTrace(" c1 ", ())],
+        )
+
+    result = trace_conclusions(
+        [(" d1 ", "Conclusion", (" c1 ",))],
+        [ClaimTrace(" c1 ", (" e1 ",))],
+        known_evidence_ids=["e1"],
+    )
+    assert result.results[0].conclusion_id == "d1"
+    assert result.results[0].linked_claim_ids == ("c1",)
+    assert result.results[0].evidence_ids == ("e1",)
