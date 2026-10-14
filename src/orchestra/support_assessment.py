@@ -6,7 +6,6 @@ or factual truth. Unknown IDs and malformed results fail closed.
 import json
 from dataclasses import dataclass
 
-
 _ALLOWED_STATUSES = frozenset({"supported", "contradicted", "insufficient"})
 
 
