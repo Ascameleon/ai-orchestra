@@ -14,6 +14,7 @@ from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
 from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.memory import SQLiteProviderMemory
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
@@ -153,7 +154,8 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             settings = load_settings()
             registry = build_provider_registry(settings)
             providers = tuple(registry.get(name) for name in (settings.provider_name, *settings.provider_fallbacks))
-            orchestrator = Orchestrator(providers, routes=settings.task_routes)
+            memory = SQLiteProviderMemory(settings.memory_db_path) if settings.memory_db_path else None
+            orchestrator = Orchestrator(providers, memory=memory, routes=settings.task_routes)
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
