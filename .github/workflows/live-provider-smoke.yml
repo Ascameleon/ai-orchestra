@@ -1,0 +1,59 @@
+name: Live Provider Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_live_calls:
+        description: "Confirm one live API request per configured provider (may incur charges)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  live-provider-smoke:
+    if: inputs.confirm_live_calls == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install provider adapters
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,openai,anthropic]"
+      - name: Select configured providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          providers=()
+          [[ -n "${GEMINI_API_KEY}" ]] && providers+=(gemini)
+          [[ -n "${OPENAI_API_KEY}" ]] && providers+=(openai)
+          [[ -n "${ANTHROPIC_API_KEY}" ]] && providers+=(anthropic)
+          if (( ${#providers[@]} == 0 )); then
+            echo "::error::Configure at least one provider secret before running live checks."
+            exit 1
+          fi
+          export PROVIDERS="${providers[*]}"
+          primary="${providers[0]}"
+          fallbacks=""
+          if (( ${#providers[@]} > 1 )); then
+            fallbacks="$(IFS=,; echo "${providers[*]:1}")"
+          fi
+          echo "ORCHESTRA_PROVIDER=$primary" >> "$GITHUB_ENV"
+          echo "ORCHESTRA_PROVIDER_FALLBACKS=$fallbacks" >> "$GITHUB_ENV"
+          echo "Configured live provider count: ${#providers[@]}"
+      - name: Test each provider once without failover
+        run: python scripts/live_provider_smoke.py
