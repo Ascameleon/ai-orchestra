@@ -29,7 +29,7 @@ class CostGuard:
     """Bound the number of provider calls made by this process."""
 
     def __init__(self, max_requests: int):
-        if max_requests < 1:
+        if type(max_requests) is not int or max_requests < 1:
             raise ValueError("max_requests must be greater than zero")
         self._limit = max_requests
         self._used = 0
@@ -63,11 +63,11 @@ class SQLiteCostGuard:
     def __init__(self, max_requests: int, database_path: str, window_seconds: int = 86400):
         import sqlite3
 
-        if max_requests < 1:
+        if type(max_requests) is not int or max_requests < 1:
             raise ValueError("max_requests must be greater than zero")
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must be a non-empty path")
-        if window_seconds < 1:
+        if type(window_seconds) is not int or window_seconds < 1:
             raise ValueError("window_seconds must be greater than zero")
         self._limit = max_requests
         self._window_seconds = window_seconds
@@ -141,7 +141,7 @@ class AuditTrail:
     """Keep bounded metadata; never store prompts, completions, or API keys."""
 
     def __init__(self, capacity: int = 1000):
-        if capacity < 1:
+        if type(capacity) is not int or capacity < 1:
             raise ValueError("capacity must be greater than zero")
         self._events: deque[AuditEvent] = deque(maxlen=capacity)
         self._lock = Lock()
@@ -167,7 +167,7 @@ class SQLiteAuditTrail:
 
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must be a non-empty path")
-        if capacity < 1:
+        if type(capacity) is not int or capacity < 1:
             raise ValueError("capacity must be greater than zero")
         self._capacity = capacity
         self._lock = Lock()
