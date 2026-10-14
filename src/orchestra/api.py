@@ -1,4 +1,5 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
+import logging
 import os
 from datetime import datetime, timedelta
 from hmac import compare_digest
@@ -26,6 +27,8 @@ from orchestra.traceability import (
     trace_conclusions,
 )
 from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow
+
+logger = logging.getLogger(__name__)
 
 
 class TaskRequest(BaseModel):
@@ -168,6 +171,13 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
     audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
     audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
 
+    def record_audit(event: AuditEvent) -> None:
+        """Best-effort telemetry must not hide a completed provider response."""
+        try:
+            audit.record(event)
+        except Exception as exc:  # noqa: BLE001 - audit storage must not change task outcome
+            logger.warning("Audit trail write failed (%s)", type(exc).__name__)
+
     def close_resources() -> None:
         """Release SQLite connections when the application shuts down."""
         provider_memory = getattr(orchestrator, "memory", None)
@@ -267,7 +277,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -283,7 +293,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -299,7 +309,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.request_id,
@@ -341,7 +351,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -357,7 +367,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.workflow_id,
@@ -397,7 +407,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -413,7 +423,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -429,7 +439,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.workflow_id,
