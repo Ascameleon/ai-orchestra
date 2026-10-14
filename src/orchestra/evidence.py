@@ -16,6 +16,9 @@ FUTURE_DATED = "future_dated"
 
 
 def _require_aware(value: dt.datetime, field_name: str) -> None:
+    if not isinstance(value, dt.datetime):
+        suffix = " or None" if field_name == "published_at" else ""
+        raise TypeError(f"{field_name} must be a datetime{suffix}")
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{field_name} must be timezone-aware")
 
