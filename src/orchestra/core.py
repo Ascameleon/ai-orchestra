@@ -1,4 +1,5 @@
 """Provider orchestration with explicit, bounded failover."""
+
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
