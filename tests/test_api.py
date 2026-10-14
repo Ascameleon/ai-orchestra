@@ -811,9 +811,10 @@ def test_production_mode_fails_closed_when_api_key_is_missing(monkeypatch):
     assert client.get("/audit").status_code == 503
 
 
-def test_production_mode_requires_configured_key_but_accepts_matching_header(monkeypatch):
+def test_production_mode_requires_configured_key_but_accepts_matching_header(monkeypatch, tmp_path):
     monkeypatch.setenv("ORCHESTRA_ENV", "production")
     monkeypatch.setenv("ORCHESTRA_API_KEY", "production-test-key")
+    monkeypatch.setenv("ORCHESTRA_BUDGET_DB", str(tmp_path / "shared-budget.sqlite3"))
     client = TestClient(create_app(Orchestrator(StubProvider())))
 
     assert client.get("/ready").status_code == 200
@@ -825,3 +826,17 @@ def test_production_mode_requires_configured_key_but_accepts_matching_header(mon
     )
     assert response.status_code == 200
 
+
+
+def test_production_mode_fails_closed_without_shared_budget_store(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_ENV", "production")
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "production-test-key")
+    monkeypatch.delenv("ORCHESTRA_BUDGET_DB", raising=False)
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    assert client.get("/ready").status_code == 503
+    response = client.post(
+        "/v1/tasks", json={"prompt": "hello"},
+        headers={"X-API-Key": "production-test-key"},
+    )
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Shared provider-call budget is not configured"}
