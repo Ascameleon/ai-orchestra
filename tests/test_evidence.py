@@ -122,3 +122,15 @@ def test_evidence_record_rejects_non_datetime_timestamps():
         EvidenceRecord("e1", "Publisher", "group", "https://example.com", retrieved_at="today")
     with pytest.raises(TypeError, match="published_at must be a datetime or None"):
         EvidenceRecord("e1", "Publisher", "group", "https://example.com", published_at="today", retrieved_at=NOW)
+
+
+
+def test_evidence_assessment_rejects_normalized_identifier_collisions():
+    with pytest.raises(ValueError, match="after whitespace normalization"):
+        assess_evidence(
+            [
+                item("e1", "alpha", "https://alpha.example"),
+                item(" e1 ", "beta", "https://beta.example"),
+            ],
+            now=NOW,
+        )
