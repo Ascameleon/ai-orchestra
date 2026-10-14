@@ -40,6 +40,13 @@ def assess_claim_links(
     Claim IDs must be unique. Duplicate references within one claim are collapsed
     while preserving order. Evidence metadata and claim semantics are not validated.
     """
+    if not isinstance(claims, (list, tuple)):
+        raise ValueError("claims must be a list or tuple of ClaimRecord objects")
+    if not isinstance(evidence_ids, (set, frozenset)):
+        raise ValueError("evidence_ids must be a set or frozenset of strings")
+    if any(not isinstance(item, str) for item in evidence_ids):
+        raise ValueError("evidence IDs must be strings")
+
     normalized_evidence_ids = {item.strip() for item in evidence_ids}
     if "" in normalized_evidence_ids:
         raise ValueError("evidence IDs must not be empty")
@@ -47,6 +54,15 @@ def assess_claim_links(
     seen_claim_ids: set[str] = set()
     results: list[ClaimLinkAssessment] = []
     for claim in claims:
+        if not isinstance(claim, ClaimRecord):
+            raise ValueError("claims must contain only ClaimRecord objects")
+        if not isinstance(claim.claim_id, str) or not isinstance(claim.text, str):
+            raise ValueError("claim_id and text must be strings")
+        if not isinstance(claim.evidence_ids, tuple):
+            raise ValueError(f"claim {claim.claim_id!r} evidence_ids must be a tuple of strings")
+        if any(not isinstance(item, str) for item in claim.evidence_ids):
+            raise ValueError(f"claim {claim.claim_id!r} evidence references must be strings")
+
         claim_id = claim.claim_id.strip()
         if not claim_id or not claim.text.strip():
             raise ValueError("claim_id and text must not be empty")
