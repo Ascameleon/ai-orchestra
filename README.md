@@ -67,7 +67,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_MAX_OUTPUT_TOKENS`: output token cap (default 1024; allowed 1–8192).
 - `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process, including fallbacks (default 100; allowed 1–100000).
 - `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
-- `ORCHESTRA_MEMORY_DB`: optional local SQLite path for durable aggregate provider outcomes. Leave unset for process-local memory; the database never stores task text or credentials.
+- `ORCHESTRA_MEMORY_DB`: optional SQLite path for durable aggregate provider outcomes. Leave unset for process-local memory. For Docker Compose, use `/data/provider-memory.sqlite3`; `/data` is a named volume. The database stores provider names, counts, and latency only—never prompts, completions, or credentials.
 - Provider calls have a 30-second timeout; OpenAI and Anthropic SDK automatic retries are disabled to avoid hidden repeat charges. The request budget and audit trail are process-local and reset on restart. They are not distributed rate limiting, persistent audit storage, or a monetary quota. Configure provider-side quotas and billing limits before live use.
 - Set `ORCHESTRA_API_KEY` to require the `X-API-Key` header on task, workflow, metrics, and audit endpoints. Compare keys securely; never commit the key. If unset, those endpoints are unauthenticated, so keep the server bound to loopback as shown. Do not expose it publicly without a configured key, TLS, deployment hardening, and a shared rate limiter.
 - No live provider call is performed by CI. The default model is not guaranteed to be available or eligible for free-tier use.
@@ -79,15 +79,16 @@ For a local, loopback-only deployment, create the environment file and set crede
 ```bash
 cp .env.example .env
 # Edit .env and set the selected provider key and a long random ORCHESTRA_API_KEY.
+# Optional persistence: set ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3 in .env.
 docker compose up --build -d
 docker compose ps
 curl -H "X-API-Key: $ORCHESTRA_API_KEY" http://127.0.0.1:8000/ready
 ```
 
-The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, drops Linux capabilities, uses a read-only root filesystem, and has readiness/health checks. Do not publish this port to the internet as-is; public deployment still requires TLS termination, managed secrets, shared rate limiting, and provider-side billing quotas. The Docker image build is validated in CI; no live model call is part of the build.
+The Compose configuration binds only to `127.0.0.1`, runs as a non-root user, drops Linux capabilities, uses a read-only root filesystem, and has readiness/health checks. It mounts a named volume at `/data`; set `ORCHESTRA_MEMORY_DB=/data/provider-memory.sqlite3` to enable provider outcome persistence across container restarts. Persistence is opt-in and never stores task text. Do not publish this port to the internet as-is; public deployment still requires TLS termination, managed secrets, shared rate limiting, and provider-side billing quotas. The Docker image build is validated in CI; no live model call is part of the build.
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware and agent-role routing, opt-in draft-review-revision and plan-execute-review-synthesis workflows, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, ephemeral provider outcome memory, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware and agent-role routing, opt-in draft-review-revision and plan-execute-review-synthesis workflows, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, FastAPI endpoints, input and request limits, bounded metadata-only audit trail, process-local provider outcome memory with optional SQLite persistence, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
-Not yet implemented: automatic evidence discovery/fetching, source-group verification, semantic contradiction detection, claim-to-source entailment checks, or evidence-backed responses from provider output; semantic/benchmark-driven provider routing, persistent audit storage or cross-process memory, production identity management, distributed quotas, TLS/public ingress, or evidence of live provider connectivity. The evidence assessor is a metadata utility only and must not be treated as proof that a source is authentic or supports a claim. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
+Not yet implemented: automatic evidence discovery/fetching, source-group verification, semantic contradiction detection, claim-to-source entailment checks, or evidence-backed responses from provider output; semantic/benchmark-driven provider routing, persistent audit storage, production identity management, distributed quotas, TLS/public ingress, or evidence of live provider connectivity. The evidence assessor is a metadata utility only and must not be treated as proof that a source is authentic or supports a claim. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
