@@ -242,3 +242,19 @@ def test_fetch_rejects_whitespace_or_header_injection_in_url(url):
     fetcher = EvidenceFetcher(["example.com"], resolver=public_resolver)
     with pytest.raises(EvidenceFetchRequestError):
         fetcher.fetch_many([url])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"max_response_bytes": 1.5},
+        {"max_response_bytes": True},
+        {"max_text_chars": 1.5},
+        {"max_text_chars": True},
+        {"timeout_seconds": True},
+        {"timeout_seconds": "3"},
+    ],
+)
+def test_fetcher_rejects_invalid_resource_bounds(kwargs):
+    with pytest.raises(ValueError):
+        EvidenceFetcher(**kwargs)
