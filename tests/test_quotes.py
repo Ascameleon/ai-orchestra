@@ -64,3 +64,20 @@ def test_audit_quotes_rejects_malformed_collections_and_records():
         audit_quotes([], [object()])
     with pytest.raises(TypeError, match="reference fields must be strings"):
         audit_quotes([], [QuoteReference("c1", "e1", 42)])
+
+
+
+def test_audit_quotes_normalizes_ids_and_rejects_collisions():
+    result = audit_quotes(
+        [SourceSnapshot(" e1 ", "The source text.")],
+        [QuoteReference(" c1 ", "e1", "source text")],
+    )
+    assert result.checks[0].claim_id == "c1"
+    assert result.checks[0].evidence_id == "e1"
+    assert result.checks[0].quote_found
+
+    with pytest.raises(ValueError, match="after whitespace normalization"):
+        audit_quotes(
+            [SourceSnapshot("e1", "first"), SourceSnapshot(" e1 ", "second")],
+            [],
+        )
