@@ -282,3 +282,29 @@ def test_fetch_preserves_existing_percent_escapes_and_query_semantics(monkeypatc
 
     assert b"GET /a%2Fb?q=a+b&next=%2F HTTP/1.1" in sock.request
     assert result.url == "http://example.com/a%2Fb?q=a+b&next=%2F"
+
+
+
+def test_fetch_rejects_unbounded_url_iterable_after_six_items():
+    consumed = []
+
+    def urls():
+        index = 0
+        while True:
+            consumed.append(index)
+            yield "http://example.com/"
+            index += 1
+
+    fetcher = EvidenceFetcher(["example.com"], resolver=public_resolver)
+
+    with pytest.raises(EvidenceFetchRequestError, match="Between 1 and 5"):
+        fetcher.fetch_many(urls())
+
+    assert consumed == list(range(6))
+
+
+def test_fetch_rejects_non_iterable_url_input():
+    fetcher = EvidenceFetcher(["example.com"], resolver=public_resolver)
+
+    with pytest.raises(EvidenceFetchRequestError, match="iterable"):
+        fetcher.fetch_many(None)
