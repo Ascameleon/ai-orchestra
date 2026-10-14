@@ -138,3 +138,43 @@ def test_circuit_settings_are_validated(monkeypatch):
     monkeypatch.setenv('ORCHESTRA_CIRCUIT_RESET_SECONDS', '3601')
     with pytest.raises(ValueError, match='ORCHESTRA_CIRCUIT_RESET_SECONDS'):
         load_settings()
+
+
+def test_sqlite_circuit_breaker_shares_state_and_half_open_probe(tmp_path):
+    from orchestra.circuit import SQLiteProviderCircuitBreaker
+
+    clock = [100.0]
+    database = str(tmp_path / "shared-circuits.sqlite3")
+    first = SQLiteProviderCircuitBreaker(1, 10, database, clock=lambda: clock[0])
+    second = SQLiteProviderCircuitBreaker(1, 10, database, clock=lambda: clock[0])
+
+    assert first.allow_request(" GEMINI ")
+    first.record_failure("gemini")
+    assert second.snapshot(["gemini"])[0].state == "open"
+    assert not second.allow_request("gemini")
+
+    clock[0] += 10
+    assert second.allow_request("gemini")
+    assert not first.allow_request("gemini")
+    assert first.snapshot(["gemini"])[0].state == "half_open"
+    second.record_success("gemini")
+    assert first.snapshot(["gemini"])[0].state == "closed"
+    first.close()
+    second.close()
+
+
+def test_sqlite_circuit_breaker_releases_abandoned_probe(tmp_path):
+    from orchestra.circuit import SQLiteProviderCircuitBreaker
+
+    clock = [0.0]
+    database = str(tmp_path / "abandoned-circuit.sqlite3")
+    first = SQLiteProviderCircuitBreaker(1, 1, database, clock=lambda: clock[0])
+    second = SQLiteProviderCircuitBreaker(1, 1, database, clock=lambda: clock[0])
+    assert first.allow_request("provider")
+    first.record_failure("provider")
+    clock[0] = 1
+    assert second.allow_request("provider")
+    second.abandon_request("provider")
+    assert first.allow_request("provider")
+    first.close()
+    second.close()
