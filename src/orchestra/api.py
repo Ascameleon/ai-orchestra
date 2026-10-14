@@ -422,8 +422,8 @@ def create_app(
                 if task_type not in {"general", agent.task_type}:
                     raise HTTPException(status_code=422, detail="Task type conflicts with the selected agent")
                 provider_prompt = (
-                    f"{agent.instruction}\\n\\n"
-                    f"Task text supplied by the user:\\n{request.prompt}"
+                    f"{agent.instruction}\n\n"
+                    f"Task text supplied by the user:\n{request.prompt}"
                 )
                 task_type = agent.task_type
             elif request.skill:
@@ -432,9 +432,9 @@ def create_app(
                 if task_type not in {"general", skill.task_type}:
                     raise HTTPException(status_code=422, detail="Task type conflicts with the selected skill")
                 provider_prompt = (
-                    f"{agent.instruction}\\n\\nSkill: {skill.name}\\n"
-                    f"{skill.instruction}\\n\\n"
-                    f"Task text supplied by the user:\\n{request.prompt}"
+                    f"{agent.instruction}\n\nSkill: {skill.name}\n"
+                    f"{skill.instruction}\n\n"
+                    f"Task text supplied by the user:\n{request.prompt}"
                 )
                 task_type = skill.task_type
         except (UnknownAgentRequested, UnknownSkillRequested) as exc:
