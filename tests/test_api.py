@@ -888,3 +888,15 @@ def test_production_mode_rejects_in_memory_budget_store(monkeypatch):
     assert response.json() == {
         "detail": "Shared provider-call budget is not configured"
     }
+
+
+def test_non_ascii_api_key_header_is_rejected_without_server_error(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "expected-ascii-key")
+    client = TestClient(
+        create_app(Orchestrator(StubProvider())),
+        raise_server_exceptions=False,
+    )
+
+    response = client.get("/audit", headers={"X-API-Key": "clé-invalide"})
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or missing API key"}
