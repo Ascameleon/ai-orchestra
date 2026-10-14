@@ -3,11 +3,11 @@
 This is a formatting/integrity screen only. It cannot establish that cited
 sources support a sentence, nor reliably distinguish factual from non-factual prose.
 """
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 _CITATION = re.compile(r"\[(ev_[^\]\s]{1,120})\]")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'([{*#-])")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(*#-])")
 
 
 @dataclass(frozen=True)
