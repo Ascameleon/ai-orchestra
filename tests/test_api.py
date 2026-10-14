@@ -890,13 +890,13 @@ def test_production_mode_rejects_in_memory_budget_store(monkeypatch):
     }
 
 
-def test_non_ascii_api_key_header_is_rejected_without_server_error(monkeypatch):
-    monkeypatch.setenv("ORCHESTRA_API_KEY", "expected-ascii-key")
+def test_unicode_configured_api_key_mismatch_is_rejected_safely(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "clé-secrète")
     client = TestClient(
         create_app(Orchestrator(StubProvider())),
         raise_server_exceptions=False,
     )
 
-    response = client.get("/audit", headers={"X-API-Key": "clé-invalide"})
+    response = client.get("/audit", headers={"X-API-Key": "expected-ascii-key"})
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid or missing API key"}
