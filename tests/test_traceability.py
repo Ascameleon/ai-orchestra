@@ -113,3 +113,38 @@ def test_traceability_normalizes_ids_and_rejects_duplicates_after_normalization(
     assert result.results[0].conclusion_id == "d1"
     assert result.results[0].linked_claim_ids == ("c1",)
     assert result.results[0].evidence_ids == ("e1",)
+
+
+
+@pytest.mark.parametrize("known_ids", ["e1", None, [1], ["e1", " e1 "]])
+def test_traceability_rejects_malformed_evidence_registries(known_ids):
+    if known_ids == ["e1", " e1 "]:
+        with pytest.raises(ValueError, match="unique after whitespace normalization"):
+            trace_conclusions([], [], known_evidence_ids=known_ids)
+    elif known_ids == [1]:
+        with pytest.raises(TypeError, match="only strings"):
+            trace_conclusions([], [], known_evidence_ids=known_ids)
+    elif known_ids is None:
+        # None remains the documented way to disable registry checking.
+        assert trace_conclusions([], [], known_evidence_ids=known_ids).conclusions_checked == 0
+    else:
+        with pytest.raises(TypeError, match="list, tuple, set, or frozenset"):
+            trace_conclusions([], [], known_evidence_ids=known_ids)
+
+
+def test_traceability_rejects_malformed_claim_and_conclusion_records():
+    with pytest.raises(TypeError, match="ClaimTrace instances"):
+        trace_conclusions([], [object()])
+    with pytest.raises(TypeError, match="evidence_ids must be a list or tuple"):
+        trace_conclusions([], [ClaimTrace("c1", "e1")])
+    with pytest.raises(TypeError, match="conclusion_id and text must be strings"):
+        trace_conclusions([(1, "Conclusion", ())], [])
+    with pytest.raises(TypeError, match="3-item tuple/list"):
+        trace_conclusions([("d1", "Conclusion")], [])
+
+
+def test_conflict_screen_rejects_malformed_assertion_records():
+    with pytest.raises(TypeError, match="SourceAssertion instances"):
+        screen_potential_conflicts([object()])
+    with pytest.raises(TypeError, match="fields must be strings"):
+        screen_potential_conflicts([SourceAssertion("a1", "e1", "topic", 3)])
