@@ -13,7 +13,7 @@ from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
-from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail
 from orchestra.memory import SQLiteProviderMemory
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
@@ -165,7 +165,8 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
     audit_capacity = settings.audit_capacity if settings else 1000
     api_key = os.getenv("ORCHESTRA_API_KEY", "").strip() or None
     budget = CostGuard(request_limit)
-    audit = AuditTrail(audit_capacity)
+    audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
+    audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
     metrics_lock = Lock()
 
