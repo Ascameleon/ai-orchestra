@@ -62,9 +62,17 @@ def screen_potential_conflicts(
     assertions: list[SourceAssertion] | tuple[SourceAssertion, ...],
 ) -> ConflictScreen:
     """Flag same-topic assertions with opposite explicit caller-supplied stances."""
+    if not isinstance(assertions, (list, tuple)):
+        raise TypeError("assertions must be a list or tuple")
     normalized_assertions: list[SourceAssertion] = []
     seen: set[str] = set()
     for item in assertions:
+        if not isinstance(item, SourceAssertion):
+            raise TypeError("assertions must contain SourceAssertion instances")
+        if any(not isinstance(value, str) for value in (
+            item.assertion_id, item.evidence_id, item.topic, item.stance
+        )):
+            raise TypeError("assertion fields must be strings")
         assertion_id = item.assertion_id.strip()
         evidence_id = item.evidence_id.strip()
         topic = " ".join(item.topic.split())
