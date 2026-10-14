@@ -1,9 +1,9 @@
 from fastapi.testclient import TestClient
 
-from orchestra.core import Orchestrator
-from orchestra.evidence_fetcher import FetchedEvidence, EvidenceFetchUnavailable
-from orchestra.providers.base import ProviderResult
 from orchestra.api import create_app
+from orchestra.core import Orchestrator
+from orchestra.evidence_fetcher import EvidenceFetchUnavailable, FetchedEvidence
+from orchestra.providers.base import ProviderResult
 
 
 VALID_ID = "ev_aaaaaaaaaaaaaaaaaaaaaaaa"
