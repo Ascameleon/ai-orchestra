@@ -1,11 +1,16 @@
 """Provider orchestration with explicit, bounded failover."""
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
 
+from orchestra.circuit import ProviderCircuitBreaker
 from orchestra.memory import ProviderMemory
 from orchestra.providers.base import Provider, ProviderCallError, ProviderResult
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -34,6 +39,9 @@ class Orchestrator:
         provider: Provider | tuple[Provider, ...] | list[Provider],
         memory: ProviderMemory | None = None,
         routes: tuple[tuple[str, str], ...] = (),
+        circuit_breaker: ProviderCircuitBreaker | None = None,
+        circuit_failure_threshold: int = 3,
+        circuit_reset_timeout_seconds: float = 30.0,
     ):
         providers = (provider,) if not isinstance(provider, (tuple, list)) else tuple(provider)
         if not providers:
@@ -41,6 +49,10 @@ class Orchestrator:
         self._providers = providers
         self.memory = memory or ProviderMemory()
         self._task_routes = dict(routes)
+        self.circuit_breaker = circuit_breaker or ProviderCircuitBreaker(
+            failure_threshold=circuit_failure_threshold,
+            reset_timeout_seconds=circuit_reset_timeout_seconds,
+        )
 
     @staticmethod
     def _provider_name(provider: Provider) -> str:
@@ -49,6 +61,19 @@ class Orchestrator:
     @property
     def provider_names(self) -> tuple[str, ...]:
         return tuple(self._provider_name(provider) for provider in self._providers)
+
+    def _record_outcome(
+        self, provider_name: str, *, succeeded: bool, duration_ms: int
+    ) -> None:
+        """Telemetry errors must not turn a completed provider call into a failure."""
+        try:
+            self.memory.record(provider_name, succeeded=succeeded, duration_ms=duration_ms)
+        except Exception as exc:  # noqa: BLE001 - isolate non-critical telemetry
+            logger.warning(
+                "Provider outcome memory write failed for %s (%s)",
+                provider_name,
+                type(exc).__name__,
+            )
 
     @staticmethod
     def _validate_result(
@@ -96,11 +121,19 @@ class Orchestrator:
                 raise UnknownProviderRequested(f"provider is not configured: {preferred}")
             providers = (matches[0], *(provider for provider in self._providers if provider is not matches[0]))
         last_error: Exception | None = None
-        for index, provider in enumerate(providers, start=1):
-            if before_attempt is not None:
-                before_attempt()
-            provider_started = perf_counter()
+        attempt_count = 0
+        for provider in providers:
             provider_name = self._provider_name(provider)
+            if not self.circuit_breaker.allow_request(provider_name):
+                continue
+            if before_attempt is not None:
+                try:
+                    before_attempt()
+                except Exception:
+                    self.circuit_breaker.abandon_request(provider_name)
+                    raise
+            attempt_count += 1
+            provider_started = perf_counter()
             expected_provider = (
                 provider_name if isinstance(getattr(provider, "name", None), str) else None
             )
@@ -109,7 +142,8 @@ class Orchestrator:
                     provider.generate(prompt), prompt, expected_provider=expected_provider
                 )
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
-                self.memory.record(provider_name, succeeded=True, duration_ms=provider_duration)
+                self._record_outcome(provider_name, succeeded=True, duration_ms=provider_duration)
+                self.circuit_breaker.record_success(provider_name)
                 duration_ms = max(0, int((perf_counter() - started) * 1000))
                 return TaskResult(
                     request_id=request_id,
@@ -119,10 +153,11 @@ class Orchestrator:
                     duration_ms=duration_ms,
                     input_chars=result.input_chars,
                     output_chars=result.output_chars,
-                    attempts=index,
+                    attempts=attempt_count,
                 )
             except Exception as exc:  # noqa: BLE001 - isolate failures at the provider boundary
                 provider_duration = max(0, int((perf_counter() - provider_started) * 1000))
-                self.memory.record(provider_name, succeeded=False, duration_ms=provider_duration)
+                self._record_outcome(provider_name, succeeded=False, duration_ms=provider_duration)
+                self.circuit_breaker.record_failure(provider_name)
                 last_error = exc
-        raise AllProvidersFailed("all configured providers failed") from last_error
+        raise AllProvidersFailed("all configured providers failed or are temporarily unavailable") from last_error
