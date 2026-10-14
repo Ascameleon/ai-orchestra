@@ -64,9 +64,20 @@ def test_duplicate_evidence_ids_are_rejected():
         )
 
 
-@pytest.mark.parametrize("url", ["", "/relative/path", "ftp://example.com/file", "https:///missing-host"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "",
+        "/relative/path",
+        "ftp://example.com/file",
+        "https:///missing-host",
+        "https://example.com:bad/path",
+        "https://example.com:99999/path",
+        "https://user:password@example.com/path",
+    ],
+)
 def test_invalid_urls_are_rejected(url):
-    with pytest.raises(ValueError, match="absolute http"):
+    with pytest.raises(ValueError, match="absolute http|embedded credentials"):
         item("bad", "alpha", url)
 
 
@@ -96,7 +107,6 @@ def test_empty_evidence_does_not_claim_source_coverage():
     assert not result.has_enough_fresh_independent_sources
 
 
-
 def test_evidence_assessment_rejects_malformed_collection_and_records():
     with pytest.raises(TypeError, match="records must be a list or tuple"):
         assess_evidence("not-records", now=NOW)
@@ -122,7 +132,6 @@ def test_evidence_record_rejects_non_datetime_timestamps():
         EvidenceRecord("e1", "Publisher", "group", "https://example.com", retrieved_at="today")
     with pytest.raises(TypeError, match="published_at must be a datetime or None"):
         EvidenceRecord("e1", "Publisher", "group", "https://example.com", published_at="today", retrieved_at=NOW)
-
 
 
 def test_evidence_assessment_rejects_normalized_identifier_collisions():
