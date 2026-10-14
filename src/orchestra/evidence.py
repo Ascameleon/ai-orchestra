@@ -85,8 +85,16 @@ def assess_evidence(
     URLs are deduplicated for independence counts, while freshness counts are
     record-level. Source groups must be assigned by the caller and are not verified.
     """
-    reference_time = now or dt.datetime.now(dt.UTC)
+    if not isinstance(records, (list, tuple)):
+        raise TypeError("records must be a list or tuple")
+    reference_time = now if now is not None else dt.datetime.now(dt.UTC)
+    if not isinstance(reference_time, dt.datetime):
+        raise TypeError("now must be a datetime or None")
     _require_aware(reference_time, "now")
+    if not isinstance(max_age, dt.timedelta):
+        raise TypeError("max_age must be a timedelta")
+    if isinstance(minimum_independent_sources, bool) or not isinstance(minimum_independent_sources, int):
+        raise TypeError("minimum_independent_sources must be an integer")
     if max_age < dt.timedelta(0):
         raise ValueError("max_age must not be negative")
     if minimum_independent_sources < 1:
@@ -99,6 +107,8 @@ def assess_evidence(
     fresh_count = stale_count = undated_count = future_count = 0
 
     for record in records:
+        if not isinstance(record, EvidenceRecord):
+            raise TypeError("records must contain EvidenceRecord instances")
         if record.evidence_id in seen_ids:
             raise ValueError(f"duplicate evidence_id: {record.evidence_id}")
         seen_ids.add(record.evidence_id)
