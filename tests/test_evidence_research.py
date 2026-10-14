@@ -62,6 +62,10 @@ def test_evidence_research_returns_linked_answer_and_disclaims_verification():
     assert body["source_ids"] == [VALID_ID]
     assert body["cited_evidence_ids"] == [VALID_ID]
     assert body["citation_ids_valid"] is True
+    assert body["citation_coverage"]["method"] == "heuristic_sentence_citation_presence"
+    assert body["citation_coverage"]["sentences_with_valid_citations"] == 1
+    assert body["citation_coverage"]["uncited_sentence_count"] == 0
+    assert body["citation_coverage"]["coverage_ratio"] == 1.0
     assert body["source_authenticity_verified"] is False
     assert body["semantic_support_verified"] is False
     assert body["sources"][0]["content_truncated_for_model"] is True
