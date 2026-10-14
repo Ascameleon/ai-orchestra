@@ -24,12 +24,22 @@ def _require_aware(value: dt.datetime, field_name: str) -> None:
 
 
 def _canonical_url(url: str) -> str:
-    parts = urlsplit(url.strip())
+    try:
+        parts = urlsplit(url.strip())
+        port = parts.port  # Access validates malformed and out-of-range ports.
+    except ValueError:
+        raise ValueError("url must be an absolute http(s) URL") from None
     if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
         raise ValueError("url must be an absolute http(s) URL")
+    if parts.username is not None or parts.password is not None:
+        raise ValueError("url must not contain embedded credentials")
     # Normalize only obvious URL variants. Query parameters are retained because
     # they can identify distinct resources; fragments do not identify server content.
-    netloc = parts.netloc.lower()
+    netloc = parts.hostname.lower()
+    if port is not None:
+        netloc = f"{netloc}:{port}"
+    if ":" in parts.hostname and not parts.hostname.startswith("["):
+        netloc = f"[{parts.hostname.lower()}]" + (f":{port}" if port is not None else "")
     path = parts.path.rstrip("/") or "/"
     return urlunsplit((parts.scheme.lower(), netloc, path, parts.query, ""))
 
