@@ -44,18 +44,21 @@ class _VisibleTextParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
-        self._ignored_depth = 0
+        self._ignored_stack: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() in _IGNORED_TAGS:
-            self._ignored_depth += 1
+        normalized = tag.lower()
+        if normalized in _IGNORED_TAGS:
+            self._ignored_stack.append(normalized)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag.lower() in _IGNORED_TAGS and self._ignored_depth:
-            self._ignored_depth -= 1
+        normalized = tag.lower()
+        if normalized in self._ignored_stack:
+            index = len(self._ignored_stack) - 1 - self._ignored_stack[::-1].index(normalized)
+            del self._ignored_stack[index:]
 
     def handle_data(self, data: str) -> None:
-        if not self._ignored_depth:
+        if not self._ignored_stack:
             self.parts.append(data)
 
 
