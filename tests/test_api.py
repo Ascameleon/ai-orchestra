@@ -870,3 +870,21 @@ def test_agent_and_skill_instructions_use_real_newlines():
         assert "\\n" not in prompt
         assert "\n\n" in prompt
         assert "Task text supplied by the user:" in prompt
+
+
+def test_production_mode_rejects_in_memory_budget_store(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_ENV", "production")
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "production-test-key")
+    monkeypatch.setenv("ORCHESTRA_BUDGET_DB", ":memory:")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/ready").status_code == 503
+    response = client.post(
+        "/v1/tasks",
+        json={"prompt": "hello"},
+        headers={"X-API-Key": "production-test-key"},
+    )
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Shared provider-call budget is not configured"
+    }
