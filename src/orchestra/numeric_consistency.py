@@ -79,15 +79,28 @@ def screen_numeric_consistency(
             raise TypeError("assertion fields must be strings")
         if any(not field.strip() for field in fields):
             raise ValueError("assertion fields must not be empty")
-        if item.assertion_id in seen:
-            raise ValueError(f"duplicate assertion_id: {item.assertion_id}")
-        seen.add(item.assertion_id)
+
+        assertion_id = item.assertion_id.strip()
+        claim_id = item.claim_id.strip()
+        evidence_id = item.evidence_id.strip()
+        if assertion_id in seen:
+            raise ValueError(f"duplicate assertion_id after whitespace normalization: {assertion_id}")
+        seen.add(assertion_id)
+        normalized_item = NumericAssertion(
+            assertion_id=assertion_id,
+            claim_id=claim_id,
+            evidence_id=evidence_id,
+            metric=item.metric,
+            value=item.value,
+            unit=item.unit,
+            period=item.period,
+        )
         parsed.append((
-            item,
+            normalized_item,
             _normalize(item.metric),
             _normalize(item.unit),
             _normalize(item.period),
-            _parse_value(item.value, item.assertion_id),
+            _parse_value(item.value, assertion_id),
         ))
 
     disagreements: list[NumericDisagreement] = []
