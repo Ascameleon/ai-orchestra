@@ -200,6 +200,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="AI ORCHESTRA", version="0.2.0")
     source_fetcher = evidence_fetcher or EvidenceFetcher.from_env()
+    shared_state_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
     configuration_error = False
     config_error_message = "Provider is not configured"
     settings = None
@@ -213,6 +214,15 @@ def create_app(
                 providers,
                 memory=memory,
                 routes=settings.task_routes,
+                circuit_breaker=(
+                    SQLiteProviderCircuitBreaker(
+                        settings.circuit_failure_threshold,
+                        settings.circuit_reset_seconds,
+                        shared_state_db_path,
+                    )
+                    if shared_state_db_path
+                    else None
+                ),
                 circuit_failure_threshold=settings.circuit_failure_threshold,
                 circuit_reset_timeout_seconds=settings.circuit_reset_seconds,
             )
@@ -247,11 +257,16 @@ def create_app(
                 provider_memory.close()
         finally:
             try:
-                if callable(getattr(audit, "close", None)):
-                    audit.close()
+                provider_circuit = getattr(orchestrator, "circuit_breaker", None)
+                if callable(getattr(provider_circuit, "close", None)):
+                    provider_circuit.close()
             finally:
-                if callable(getattr(budget, "close", None)):
-                    budget.close()
+                try:
+                    if callable(getattr(audit, "close", None)):
+                        audit.close()
+                finally:
+                    if callable(getattr(budget, "close", None)):
+                        budget.close()
 
     app.router.on_shutdown.append(close_resources)
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
