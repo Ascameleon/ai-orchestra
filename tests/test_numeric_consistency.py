@@ -40,3 +40,13 @@ def test_same_value_different_format_is_not_a_disagreement():
         NumericAssertion("a2", "c2", "e2", " RATE ", "100", " PERCENT ", "q1   2025"),
     ])
     assert result.potential_disagreement_count == 0
+
+
+
+def test_numeric_consistency_rejects_malformed_collection_and_fields():
+    with pytest.raises(TypeError, match="assertions must be a list or tuple"):
+        screen_numeric_consistency("not-assertions")
+    with pytest.raises(TypeError, match="NumericAssertion instances"):
+        screen_numeric_consistency([object()])
+    with pytest.raises(TypeError, match="assertion fields must be strings"):
+        screen_numeric_consistency([NumericAssertion("a1", "c1", "e1", "metric", 1, "kg", "2025")])
