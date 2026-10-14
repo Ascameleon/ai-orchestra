@@ -4,6 +4,7 @@ from math import ceil, isfinite
 from threading import Lock
 from time import monotonic
 
+
 @dataclass(frozen=True)
 class CircuitStatus:
     provider: str
