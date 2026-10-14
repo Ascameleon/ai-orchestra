@@ -4,7 +4,6 @@ This is a structured model judgment, not proof of entailment, source authenticit
 or factual truth. Unknown IDs and malformed results fail closed.
 """
 import json
-
 from dataclasses import dataclass
 
 
