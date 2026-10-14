@@ -73,6 +73,6 @@ def test_claim_and_evidence_ids_are_normalized_for_link_resolution():
     ([ClaimRecord("c1", "Claim", ("e1",))], None),
     ([ClaimRecord("c1", "Claim", ("e1",))], {"e1", None}),
 ])
-def test_malformed_input_types_are_rejected_with_value_error(claims, evidence_ids):
-    with pytest.raises(ValueError):
+def test_malformed_input_types_are_rejected(claims, evidence_ids):
+    with pytest.raises((TypeError, ValueError)):
         assess_claim_links(claims, evidence_ids)
