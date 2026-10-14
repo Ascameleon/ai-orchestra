@@ -3,7 +3,6 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-
 SUPPORTED_TASK_TYPES = frozenset(
     {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}
 )

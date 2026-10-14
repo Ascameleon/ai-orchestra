@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from orchestra.agents import AgentRegistry, UnknownAgentRequested
 
-
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,39}$")
 
 
