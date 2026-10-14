@@ -301,7 +301,7 @@ def create_app(
             raise HTTPException(status_code=503, detail="API authentication is not configured")
         if budget_configuration_error:
             raise HTTPException(status_code=503, detail="Shared provider-call budget is not configured")
-        if api_key and (not provided_key or not compare_digest(provided_key, api_key)):
+        if api_key and (not provided_key or not compare_digest(provided_key.encode("utf-8"), api_key.encode("utf-8"))):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
     @app.get("/metrics")
