@@ -24,7 +24,7 @@ from orchestra.evidence_fetcher import (
     EvidenceFetchRequestError,
     EvidenceFetchUnavailable,
 )
-from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail, SQLiteCostGuard
 from orchestra.memory import SQLiteProviderMemory
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
@@ -219,7 +219,9 @@ def create_app(
     api_key = os.getenv("ORCHESTRA_API_KEY", "").strip() or None
     runtime_environment = os.getenv("ORCHESTRA_ENV", "development").strip().lower()
     auth_configuration_error = runtime_environment in {"production", "prod"} and not api_key
-    budget = CostGuard(request_limit)
+    budget_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
+    budget_configuration_error = runtime_environment in {"production", "prod"} and not budget_db_path
+    budget = SQLiteCostGuard(request_limit, budget_db_path) if budget_db_path else CostGuard(request_limit)
     audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
     audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
 
@@ -237,8 +239,12 @@ def create_app(
             if provider_memory is not None and callable(getattr(provider_memory, "close", None)):
                 provider_memory.close()
         finally:
-            if callable(getattr(audit, "close", None)):
-                audit.close()
+            try:
+                if callable(getattr(audit, "close", None)):
+                    audit.close()
+            finally:
+                if callable(getattr(budget, "close", None)):
+                    budget.close()
 
     app.router.on_shutdown.append(close_resources)
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
@@ -255,6 +261,8 @@ def create_app(
     def readiness() -> dict[str, str]:
         if auth_configuration_error:
             raise HTTPException(status_code=503, detail="API authentication is not configured")
+        if budget_configuration_error:
+            raise HTTPException(status_code=503, detail="Shared provider-call budget is not configured")
         if orchestrator is None:
             raise HTTPException(status_code=503, detail=config_error_message)
         return {"status": "ready", "provider": "configured"}
@@ -262,6 +270,8 @@ def create_app(
     def authorize(provided_key: str | None) -> None:
         if auth_configuration_error:
             raise HTTPException(status_code=503, detail="API authentication is not configured")
+        if budget_configuration_error:
+            raise HTTPException(status_code=503, detail="Shared provider-call budget is not configured")
         if api_key and (not provided_key or not compare_digest(provided_key, api_key)):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
