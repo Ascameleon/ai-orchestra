@@ -590,9 +590,10 @@ def create_app(
         for claim in request.claims:
             if any(not evidence_id.strip() for evidence_id in claim.evidence_ids):
                 raise HTTPException(status_code=422, detail="Claim evidence references must not be empty")
-            if len(set(claim.evidence_ids)) != len(claim.evidence_ids):
+            normalized_references = tuple(evidence_id.strip() for evidence_id in claim.evidence_ids)
+            if len(set(normalized_references)) != len(normalized_references):
                 raise HTTPException(status_code=422, detail="Claim evidence references must be unique")
-            if any(evidence_id not in known_sources for evidence_id in claim.evidence_ids):
+            if any(evidence_id not in known_sources for evidence_id in normalized_references):
                 raise HTTPException(status_code=422, detail="Claim references an unknown source snapshot")
 
         claims = tuple(
