@@ -1,0 +1,93 @@
+name: Manual live provider smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Provider to test (makes exactly one live model request)
+        type: choice
+        required: true
+        default: gemini
+        options:
+          - gemini
+          - openai
+          - anthropic
+      gemini_model:
+        description: Gemini model ID
+        type: string
+        required: true
+        default: gemini-2.5-flash
+      openai_model:
+        description: OpenAI model ID
+        type: string
+        required: true
+        default: gpt-4o-mini
+      anthropic_model:
+        description: Anthropic model ID
+        type: string
+        required: true
+        default: claude-3-5-haiku-latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-provider-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      ORCHESTRA_PROVIDER: ${{ inputs.provider }}
+      ORCHESTRA_MAX_OUTPUT_TOKENS: "16"
+      GEMINI_MODEL: ${{ inputs.gemini_model }}
+      OPENAI_MODEL: ${{ inputs.openai_model }}
+      ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install selected provider SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [[ "$ORCHESTRA_PROVIDER" == "openai" ]]; then
+            python -m pip install -e ".[openai]"
+          elif [[ "$ORCHESTRA_PROVIDER" == "anthropic" ]]; then
+            python -m pip install -e ".[anthropic]"
+          else
+            python -m pip install -e .
+          fi
+      - name: Verify selected provider with one live request
+        run: |
+          python - <<'PY'
+          import time
+
+          from orchestra.config import load_settings
+          from orchestra.providers.factory import build_provider_registry
+
+          settings = load_settings()
+          registry = build_provider_registry(settings)
+          provider = registry.get(settings.provider_name)
+          started = time.monotonic()
+          result = provider.generate(
+              "Reply with exactly this token and no other text: ORCHESTRA_OK"
+          )
+          elapsed_ms = round((time.monotonic() - started) * 1000)
+          if "ORCHESTRA_OK" not in result.text:
+              raise SystemExit("Provider returned a response that failed the smoke-test assertion.")
+          # Do not print response text or credentials into CI logs.
+          print(
+              f"Live provider smoke test passed: provider={result.provider}, "
+              f"model={result.model}, latency_ms={elapsed_ms}, "
+              f"output_chars={len(result.text)}"
+          )
+          PY
