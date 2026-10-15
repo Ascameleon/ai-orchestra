@@ -623,7 +623,7 @@ def create_app(
             with metrics_lock:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - provider output parsing is an untrusted boundary
             with metrics_lock:
                 metrics["failed"] += 1
             logger.warning("Semantic claim assessment failed (%s)", type(exc).__name__)
