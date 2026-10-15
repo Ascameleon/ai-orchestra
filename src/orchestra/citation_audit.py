@@ -1,4 +1,4 @@
-"""Deterministic citation-presence audit for generated answer text.
+""""Deterministic citation-presence audit for generated answer text.
 
 This is a formatting/integrity screen only. It cannot establish that cited
 sources support a sentence, nor reliably distinguish factual from non-factual prose.
@@ -7,7 +7,10 @@ import re
 from dataclasses import dataclass
 
 _CITATION = re.compile(r"\[(ev_[^\]\s]{1,120})\]")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=\S)")
+# Split after terminal punctuation and any closing quotation/bracket characters.
+# Without the optional closers, e.g. 'Claim [ev_id].” Next claim.' is counted
+# as one sentence and can falsely inflate sentence-level citation coverage.
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[\"'”’»）)\]]*\s+(?=\S)")
 
 
 @dataclass(frozen=True)
