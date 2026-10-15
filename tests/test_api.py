@@ -874,3 +874,37 @@ def test_api_persists_daily_budget_across_app_restarts(monkeypatch, tmp_path):
         response = second_client.post("/v1/tasks", json={"prompt": "second request"})
         assert response.status_code == 200
         assert second_client.get("/metrics").json()["requests_used"] == 2
+
+
+def test_required_api_key_fails_closed_when_secret_is_missing(monkeypatch):
+    monkeypatch.delenv("ORCHESTRA_API_KEY", raising=False)
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "true")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+    assert client.get("/metrics").status_code == 503
+    assert client.post("/v1/tasks", json={"prompt": "hello"}).status_code == 503
+
+
+def test_invalid_api_key_requirement_setting_fails_closed(monkeypatch):
+    monkeypatch.delenv("ORCHESTRA_API_KEY", raising=False)
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "treu")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/ready").status_code == 503
+    assert client.get("/metrics").status_code == 503
+
+
+def test_required_api_key_accepts_only_matching_key(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "production-test-key")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.post("/v1/tasks", json={"prompt": "hello"}).status_code == 401
+    allowed = client.post(
+        "/v1/tasks",
+        json={"prompt": "hello"},
+        headers={"X-API-Key": "production-test-key"},
+    )
+    assert allowed.status_code == 200
