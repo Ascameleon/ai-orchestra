@@ -1,7 +1,7 @@
-"""In-process request budget and metadata-only audit trail.
+"""Provider-call budgets and metadata-only audit trail.
 
-These safeguards are process-local, not a substitute for provider billing quotas
-or a shared production rate limiter.
+The in-memory budget is process-local. The optional SQLite daily budget persists across
+restarts on one host; neither replaces provider billing quotas or multi-host rate limiting.
 """
 from collections import deque
 from collections.abc import Callable
@@ -12,7 +12,7 @@ from time import time
 
 
 class BudgetExceeded(RuntimeError):
-    """Raised when the configured per-process request budget is exhausted."""
+    """Raised when the configured provider-call budget is exhausted."""
 
 
 @dataclass(frozen=True)
