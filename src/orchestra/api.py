@@ -1,4 +1,5 @@
 """HTTP API with bounded requests, generic provider errors, and safe metrics."""
+import logging
 import os
 from datetime import datetime, timedelta
 from hmac import compare_digest
@@ -13,7 +14,14 @@ from orchestra.claims import ClaimRecord, assess_claim_links
 from orchestra.config import load_settings
 from orchestra.core import Orchestrator
 from orchestra.evidence import EvidenceRecord, assess_evidence
-from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard
+from orchestra.evidence_fetcher import (
+    EvidenceFetcher,
+    EvidenceFetchingDisabled,
+    EvidenceFetchRequestError,
+    EvidenceFetchUnavailable,
+)
+from orchestra.guardrails import AuditEvent, AuditTrail, BudgetExceeded, CostGuard, SQLiteAuditTrail
+from orchestra.memory import SQLiteProviderMemory
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
@@ -25,6 +33,8 @@ from orchestra.traceability import (
     trace_conclusions,
 )
 from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow
+
+logger = logging.getLogger(__name__)
 
 
 class TaskRequest(BaseModel):
@@ -55,6 +65,10 @@ class EvidenceAssessmentRequest(BaseModel):
     evidence: list[EvidenceItemRequest] = Field(max_length=100)
     max_age_days: int = Field(default=30, ge=0, le=3650)
     minimum_independent_sources: int = Field(default=2, ge=1, le=100)
+
+
+class EvidenceFetchRequest(BaseModel):
+    urls: list[Annotated[str, Field(min_length=1, max_length=2048)]] = Field(min_length=1, max_length=5)
 
 
 class ClaimItemRequest(BaseModel):
@@ -143,8 +157,12 @@ class TaskResponse(BaseModel):
     attempts: int = 1
 
 
-def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
+def create_app(
+    orchestrator: Orchestrator | None = None,
+    evidence_fetcher: EvidenceFetcher | None = None,
+) -> FastAPI:
     app = FastAPI(title="AI ORCHESTRA", version="0.2.0")
+    source_fetcher = evidence_fetcher or EvidenceFetcher.from_env()
     configuration_error = False
     config_error_message = "Provider is not configured"
     settings = None
@@ -153,7 +171,14 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             settings = load_settings()
             registry = build_provider_registry(settings)
             providers = tuple(registry.get(name) for name in (settings.provider_name, *settings.provider_fallbacks))
-            orchestrator = Orchestrator(providers, routes=settings.task_routes)
+            memory = SQLiteProviderMemory(settings.memory_db_path) if settings.memory_db_path else None
+            orchestrator = Orchestrator(
+                providers,
+                memory=memory,
+                routes=settings.task_routes,
+                circuit_failure_threshold=settings.circuit_failure_threshold,
+                circuit_reset_timeout_seconds=settings.circuit_reset_seconds,
+            )
         except (ProviderConfigurationError, ValueError):
             configuration_error = True
             orchestrator = None
@@ -163,7 +188,27 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
     audit_capacity = settings.audit_capacity if settings else 1000
     api_key = os.getenv("ORCHESTRA_API_KEY", "").strip() or None
     budget = CostGuard(request_limit)
-    audit = AuditTrail(audit_capacity)
+    audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
+    audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
+
+    def record_audit(event: AuditEvent) -> None:
+        """Best-effort telemetry must not hide a completed provider response."""
+        try:
+            audit.record(event)
+        except Exception as exc:  # noqa: BLE001 - audit storage must not change task outcome
+            logger.warning("Audit trail write failed (%s)", type(exc).__name__)
+
+    def close_resources() -> None:
+        """Release SQLite connections when the application shuts down."""
+        provider_memory = getattr(orchestrator, "memory", None)
+        try:
+            if provider_memory is not None and callable(getattr(provider_memory, "close", None)):
+                provider_memory.close()
+        finally:
+            if callable(getattr(audit, "close", None)):
+                audit.close()
+
+    app.router.on_shutdown.append(close_resources)
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
     metrics_lock = Lock()
 
@@ -212,6 +257,19 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             for outcome in orchestrator.memory.snapshot()
         ]
 
+    @app.get("/providers/circuits")
+    def get_provider_circuits(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> list[dict[str, str | int]]:
+        """Report circuit state without exposing request content."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+        return [
+            status.__dict__
+            for status in orchestrator.circuit_breaker.snapshot(orchestrator.provider_names)
+        ]
+
     @app.get("/audit")
     def get_audit(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> list[dict[str, str | int | float]]:
         authorize(x_api_key)
@@ -252,7 +310,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -268,7 +326,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -284,7 +342,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Provider request failed") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.request_id,
@@ -326,7 +384,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -342,7 +400,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.workflow_id,
@@ -382,7 +440,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 before_attempt=budget.reserve,
             )
         except BudgetExceeded:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -398,7 +456,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["rejected"] += 1
             raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
         except Exception as exc:
-            audit.record(
+            record_audit(
                 AuditEvent(
                     timestamp=AuditTrail.now(),
                     request_id=str(uuid4()),
@@ -414,7 +472,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
                 metrics["failed"] += 1
             raise HTTPException(status_code=502, detail="Workflow failed; no partial result returned") from exc
 
-        audit.record(
+        record_audit(
             AuditEvent(
                 timestamp=AuditTrail.now(),
                 request_id=result.workflow_id,
@@ -429,6 +487,35 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         with metrics_lock:
             metrics["succeeded"] += 1
         return WorkflowResponse(**result.__dict__)
+
+    @app.post("/v1/evidence/fetch")
+    def fetch_evidence_endpoint(
+        request: EvidenceFetchRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Fetch bounded visible-text snapshots from explicitly allowlisted public hosts."""
+        authorize(x_api_key)
+        if not source_fetcher.enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Evidence fetching is disabled; configure ORCHESTRA_EVIDENCE_ALLOWED_HOSTS",
+            )
+        try:
+            sources = source_fetcher.fetch_many(request.urls)
+        except EvidenceFetchRequestError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        except EvidenceFetchingDisabled:
+            raise HTTPException(status_code=503, detail="Evidence fetching is disabled") from None
+        except EvidenceFetchUnavailable:
+            raise HTTPException(
+                status_code=502,
+                detail="One or more sources could not be fetched safely; no partial result returned",
+            ) from None
+        return {
+            "sources": [source.__dict__ for source in sources],
+            "source_authenticity_verified": False,
+            "semantic_support_verified": False,
+        }
 
     @app.post("/v1/evidence/assess")
     def assess_evidence_endpoint(

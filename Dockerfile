@@ -10,7 +10,8 @@ COPY src ./src
 RUN python -m pip install --upgrade pip && pip install .
 
 RUN useradd --system --uid 10001 --create-home orchestra \
-    && chown -R orchestra:orchestra /app
+    && mkdir -p /data \
+    && chown -R orchestra:orchestra /app /data
 USER 10001:10001
 
 EXPOSE 8000

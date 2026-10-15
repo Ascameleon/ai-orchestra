@@ -212,3 +212,36 @@ def test_provider_result_cannot_claim_a_different_adapter_identity():
     assert outcomes["primary"].failures == 1
     assert outcomes["primary"].successes == 0
     assert outcomes["backup"].successes == 1
+
+
+class BrokenMemory:
+    def record(self, provider: str, *, succeeded: bool, duration_ms: int) -> None:
+        raise OSError("simulated persistent-memory write failure")
+
+    def snapshot(self):
+        return ()
+
+
+def test_memory_write_failure_does_not_retry_successful_provider():
+    primary = NamedProvider("primary", "primary answer")
+    backup = NamedProvider("backup", "backup answer")
+
+    result = Orchestrator([primary, backup], memory=BrokenMemory()).run("hello")
+
+    assert result.provider == "primary"
+    assert result.text == "primary answer"
+    assert result.attempts == 1
+    assert primary.calls == 1
+    assert backup.calls == 0
+
+
+def test_memory_write_failure_does_not_interrupt_provider_failover():
+    primary = FailingProvider()
+    backup = NamedProvider("backup", "backup answer")
+
+    result = Orchestrator([primary, backup], memory=BrokenMemory()).run("hello")
+
+    assert result.provider == "backup"
+    assert result.text == "backup answer"
+    assert result.attempts == 2
+    assert primary.calls == backup.calls == 1

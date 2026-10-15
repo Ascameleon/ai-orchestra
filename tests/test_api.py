@@ -1,7 +1,10 @@
+import sqlite3
+
 from fastapi.testclient import TestClient
 
 from orchestra.api import create_app
 from orchestra.core import Orchestrator
+from orchestra.memory import SQLiteProviderMemory
 from orchestra.providers.base import ProviderCallError, ProviderResult
 
 
@@ -696,3 +699,36 @@ def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(m
     assert provider.calls == 3
     assert client.get("/metrics").json()["rejected"] == 1
     assert client.get("/audit").json()[-1]["outcome"] == "rejected"
+
+
+def test_application_shutdown_closes_persistent_provider_memory(tmp_path):
+    memory = SQLiteProviderMemory(str(tmp_path / "provider-memory.sqlite3"))
+    app = create_app(Orchestrator(StubProvider(), memory=memory))
+
+    with TestClient(app):
+        pass
+
+    try:
+        memory.snapshot()
+    except sqlite3.ProgrammingError:
+        pass
+    else:
+        raise AssertionError("provider memory connection should be closed on shutdown")
+
+
+def test_api_can_restore_persistent_audit_events_after_app_recreation(monkeypatch, tmp_path):
+    database = tmp_path / "api-audit.sqlite3"
+    monkeypatch.setenv("ORCHESTRA_AUDIT_DB", str(database))
+    first_client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = first_client.post("/v1/tasks", json={"prompt": "private prompt"})
+    assert response.status_code == 200
+    assert first_client.get("/audit").json()[0]["request_id"] == response.json()["request_id"]
+    first_client.close()
+
+    second_client = TestClient(create_app(Orchestrator(StubProvider())))
+    events = second_client.get("/audit").json()
+    assert len(events) == 1
+    assert events[0]["provider"] == "stub"
+    assert events[0]["outcome"] == "success"
+    assert "private prompt" not in str(events)
+    second_client.close()

@@ -16,6 +16,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=16m,noexec,nosuid
+    volumes:
+      - orchestra-memory:/data
     healthcheck:
       test:
         - CMD
@@ -26,3 +28,6 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
+
+volumes:
+  orchestra-memory:

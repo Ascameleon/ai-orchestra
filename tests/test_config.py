@@ -8,7 +8,7 @@ def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
         "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
         "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL",
         "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
-        "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY",
+        "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY", "ORCHESTRA_MEMORY_DB",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -18,6 +18,7 @@ def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     assert settings.openai_api_key is None
     assert settings.anthropic_api_key is None
     assert settings.max_requests_per_process == 100
+    assert settings.memory_db_path is None
 
 
 @pytest.mark.parametrize("name,value", [
@@ -85,3 +86,8 @@ def test_invalid_task_routes_are_rejected(monkeypatch, routes):
     monkeypatch.setenv("ORCHESTRA_TASK_ROUTES", routes)
     with pytest.raises(ValueError, match="ORCHESTRA_TASK_ROUTES"):
         load_settings()
+
+
+def test_optional_memory_database_path_is_trimmed(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_MEMORY_DB", " /tmp/orchestra.sqlite3 ")
+    assert load_settings().memory_db_path == "/tmp/orchestra.sqlite3"
