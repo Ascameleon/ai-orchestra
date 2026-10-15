@@ -27,6 +27,7 @@ from orchestra.guardrails import (
     CostGuard,
     SQLiteAuditTrail,
     SQLiteDailyCostGuard,
+    RedisDailyCostGuard,
 )
 from orchestra.memory import SQLiteProviderMemory
 from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consistency
@@ -222,12 +223,14 @@ def create_app(
     require_api_key = auth_required_value in true_values
     auth_setting_invalid = auth_required_value not in true_values | false_values
     auth_configuration_error = auth_setting_invalid or (require_api_key and not api_key)
+    redis_url = os.getenv("ORCHESTRA_REDIS_URL", "").strip() or None
     budget_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
-    budget = (
-        SQLiteDailyCostGuard(budget_db_path, request_limit)
-        if budget_db_path
-        else CostGuard(request_limit)
-    )
+    if redis_url:
+        budget = RedisDailyCostGuard(redis_url, request_limit)
+    elif budget_db_path:
+        budget = SQLiteDailyCostGuard(budget_db_path, request_limit)
+    else:
+        budget = CostGuard(request_limit)
     audit_db_path = os.getenv("ORCHESTRA_AUDIT_DB", "").strip() or None
     audit = SQLiteAuditTrail(audit_db_path, audit_capacity) if audit_db_path else AuditTrail(audit_capacity)
 
@@ -269,6 +272,13 @@ def create_app(
             raise HTTPException(status_code=503, detail="API authentication is not configured safely")
         if orchestrator is None:
             raise HTTPException(status_code=503, detail=config_error_message)
+        budget_check = getattr(budget, "check_ready", None)
+        if callable(budget_check):
+            try:
+                budget_check()
+            except Exception as exc:  # noqa: BLE001 - fail readiness if quota storage is unavailable
+                logger.warning("Request budget backend unavailable (%s)", type(exc).__name__)
+                raise HTTPException(status_code=503, detail="Request budget backend unavailable") from None
         return {"status": "ready", "provider": "configured"}
 
     def authorize(provided_key: str | None) -> None:
