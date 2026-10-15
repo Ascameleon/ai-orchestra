@@ -79,3 +79,15 @@ def test_citation_coverage_splits_lowercase_sentence_starts():
     assert result.sentences_with_valid_citations == 1
     assert result.uncited_sentence_count == 1
     assert result.coverage_ratio == pytest.approx(0.5)
+
+
+def test_citation_coverage_splits_after_closing_quotes():
+    result = audit_citation_coverage(
+        f"“Supported fact [{VALID}].” this next sentence is uncited.",
+        {VALID},
+    )
+
+    assert result.sentence_count == 2
+    assert result.sentences_with_valid_citations == 1
+    assert result.uncited_sentence_count == 1
+    assert result.coverage_ratio == pytest.approx(0.5)
