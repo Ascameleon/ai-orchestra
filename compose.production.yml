@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ORCHESTRA_EXTRAS: ${ORCHESTRA_EXTRAS:-}
     image: ai-orchestra:0.2.0
     init: true
     restart: unless-stopped
