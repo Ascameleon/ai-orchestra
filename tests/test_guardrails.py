@@ -87,3 +87,90 @@ def test_sqlite_audit_trail_rejects_empty_path_and_invalid_capacity(tmp_path):
         SQLiteAuditTrail(" ")
     with pytest.raises(ValueError, match="capacity"):
         SQLiteAuditTrail(str(tmp_path / "audit.sqlite3"), capacity=0)
+
+
+def test_sqlite_daily_budget_persists_across_instances_and_enforces_limit(tmp_path):
+    from orchestra.guardrails import SQLiteDailyCostGuard
+
+    database = str(tmp_path / "daily-budget.sqlite3")
+    first = SQLiteDailyCostGuard(database, 2)
+    second = SQLiteDailyCostGuard(database, 2)
+
+    assert first.reserve() == 1
+    assert second.reserve() == 2
+    with pytest.raises(BudgetExceeded, match="Daily"):
+        first.reserve()
+    assert first.used == 2
+    assert second.used == 2
+
+    first.close()
+    second.close()
+    reopened = SQLiteDailyCostGuard(database, 2)
+    assert reopened.used == 2
+    with pytest.raises(BudgetExceeded):
+        reopened.reserve()
+    reopened.close()
+
+
+def test_sqlite_daily_budget_resets_at_utc_day_boundary(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from orchestra.guardrails import SQLiteDailyCostGuard
+
+    current = [datetime(2026, 10, 15, 23, 59, tzinfo=UTC)]
+    guard = SQLiteDailyCostGuard(
+        str(tmp_path / "daily-budget.sqlite3"),
+        1,
+        clock=lambda: current[0],
+    )
+    assert guard.reserve() == 1
+    with pytest.raises(BudgetExceeded):
+        guard.reserve()
+
+    current[0] += timedelta(minutes=2)
+    assert guard.used == 0
+    assert guard.reserve() == 1
+    guard.close()
+
+
+def test_sqlite_daily_budget_reservations_are_atomic_across_connections(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from orchestra.guardrails import SQLiteDailyCostGuard
+
+    database = str(tmp_path / "daily-budget.sqlite3")
+    guards = [SQLiteDailyCostGuard(database, 5) for _ in range(12)]
+
+    def reserve(guard):
+        try:
+            return guard.reserve()
+        except BudgetExceeded:
+            return None
+
+    with ThreadPoolExecutor(max_workers=len(guards)) as pool:
+        results = list(pool.map(reserve, guards))
+
+    accepted = [value for value in results if value is not None]
+    assert sorted(accepted) == [1, 2, 3, 4, 5]
+    assert all(guard.used == 5 for guard in guards)
+    for guard in guards:
+        guard.close()
+
+
+def test_sqlite_daily_budget_rejects_invalid_configuration(tmp_path):
+    from orchestra.guardrails import SQLiteDailyCostGuard
+
+    with pytest.raises(ValueError, match="database_path"):
+        SQLiteDailyCostGuard(" ", 1)
+    with pytest.raises(ValueError, match="max_requests"):
+        SQLiteDailyCostGuard(str(tmp_path / "budget.sqlite3"), 0)
+    from datetime import datetime
+
+    guard = SQLiteDailyCostGuard(
+        str(tmp_path / "budget.sqlite3"),
+        1,
+        clock=lambda: datetime(2026, 10, 15),
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        guard.reserve()
+    guard.close()

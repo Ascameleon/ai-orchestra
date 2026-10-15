@@ -54,13 +54,13 @@ docker compose --env-file .env.production -f compose.production.yml restart orch
 docker compose --env-file .env.production -f compose.production.yml down
 ```
 
-The named `orchestra-data` volume stores bounded audit metadata and provider outcome aggregates. Back it up according to your retention policy. It must not be assumed to contain prompts or completions.
+The named `orchestra-data` volume stores bounded audit metadata, provider outcome aggregates, and the persistent daily request budget. The production profile reserves up to `ORCHESTRA_MAX_REQUESTS` provider attempts per UTC day; the counter survives restarts and uses SQLite transactions to serialize callers sharing this local file. Back up the volume according to your retention policy. It does not contain prompts or completions.
 
 ## 5. Before public production traffic
 
 - Terminate TLS at a maintained reverse proxy or managed ingress and configure authentication/rate limits there as appropriate.
 - Keep API credentials in the host's secret manager or protected environment file; rotate them after suspected exposure.
 - Add external monitoring, backups, log retention, and an alerting path.
-- The request budget and circuit breaker are process-local; they are not global quotas across multiple replicas.
+- With `ORCHESTRA_BUDGET_DB` configured, the daily budget survives restarts and is atomic for processes sharing the same local SQLite file on one host; it is not a multi-host quota or a substitute for provider billing limits. Circuit breakers remain process-local.
 - Run the test suite and dependency audit on the exact commit being deployed.
 - Run a controlled live smoke test with an explicitly budgeted provider key before accepting traffic.
