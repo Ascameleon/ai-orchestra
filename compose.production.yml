@@ -1,0 +1,53 @@
+services:
+  orchestra:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-orchestra:0.2.0
+    init: true
+    restart: unless-stopped
+    ports:
+      # Keep the API private to this host by default; put a TLS reverse proxy in front if remote access is required.
+      - "127.0.0.1:${ORCHESTRA_PORT:-8000}:8000"
+    environment:
+      ORCHESTRA_PROVIDER: ${ORCHESTRA_PROVIDER:-gemini}
+      ORCHESTRA_PROVIDER_FALLBACKS: ${ORCHESTRA_PROVIDER_FALLBACKS:-}
+      ORCHESTRA_API_KEY: ${ORCHESTRA_API_KEY:?Set ORCHESTRA_API_KEY in the deployment env file}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
+      ORCHESTRA_MAX_INPUT_CHARS: ${ORCHESTRA_MAX_INPUT_CHARS:-12000}
+      ORCHESTRA_MAX_OUTPUT_TOKENS: ${ORCHESTRA_MAX_OUTPUT_TOKENS:-512}
+      ORCHESTRA_MAX_REQUESTS: ${ORCHESTRA_MAX_REQUESTS:-100}
+      ORCHESTRA_AUDIT_CAPACITY: ${ORCHESTRA_AUDIT_CAPACITY:-1000}
+      ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD: ${ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD:-3}
+      ORCHESTRA_CIRCUIT_RESET_SECONDS: ${ORCHESTRA_CIRCUIT_RESET_SECONDS:-30}
+      ORCHESTRA_AUDIT_DB: /data/audit.sqlite3
+      ORCHESTRA_MEMORY_DB: /data/provider-memory.sqlite3
+      ORCHESTRA_EVIDENCE_ALLOWED_HOSTS: ${ORCHESTRA_EVIDENCE_ALLOWED_HOSTS:-}
+      ORCHESTRA_TASK_ROUTES: ${ORCHESTRA_TASK_ROUTES:-}
+    volumes:
+      - orchestra-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  orchestra-data:
