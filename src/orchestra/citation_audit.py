@@ -10,7 +10,7 @@ _CITATION = re.compile(r"\[(ev_[^\]\s]{1,120})\]")
 # Split after terminal punctuation and any closing quotation/bracket characters.
 # Without the optional closers, e.g. 'Claim [ev_id].” Next claim.' is counted
 # as one sentence and can falsely inflate sentence-level citation coverage.
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?؟。｡！])[\\"'”’»）)\\]]*\\s+(?=\\S)")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?؟。｡！？])[\\"'”’»）)\\]]*\\s+(?=\\S)")
 
 
 @dataclass(frozen=True)
