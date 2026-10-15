@@ -77,6 +77,8 @@ def test_duplicate_evidence_ids_are_rejected():
         "https://example.com:99999/path",
         "https://user:password@example.com/path",
         "https://exa mple.com/path",
+        "https://example.com/a\nb",
+        "https://example.com/a\tb",
     ],
 )
 def test_invalid_urls_are_rejected(url):
