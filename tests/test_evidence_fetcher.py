@@ -308,3 +308,11 @@ def test_fetch_rejects_non_iterable_url_input():
 
     with pytest.raises(EvidenceFetchRequestError, match="iterable"):
         fetcher.fetch_many(None)
+
+
+@pytest.mark.parametrize("url", ["http://[::1/", "https://[not-an-ip]/"])
+def test_malformed_url_authority_is_a_request_error(url):
+    fetcher = EvidenceFetcher(["example.com"], resolver=public_resolver)
+    with pytest.raises(EvidenceFetchRequestError, match="URL is invalid"):
+        fetcher.fetch_many([url])
+
