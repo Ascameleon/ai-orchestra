@@ -157,9 +157,9 @@ class Orchestrator:
                     raise
             attempt_count += 1
             provider_started = perf_counter()
-            expected_provider = (
-                provider_name if isinstance(getattr(provider, "name", None), str) else None
-            )
+            # _provider_name already falls back to the adapter class name when
+            # no explicit name is declared, so always validate attribution against it.
+            expected_provider = provider_name
             try:
                 result = self._validate_result(
                     provider.generate(prompt), prompt, expected_provider=expected_provider
