@@ -732,3 +732,128 @@ def test_api_can_restore_persistent_audit_events_after_app_recreation(monkeypatc
     assert events[0]["outcome"] == "success"
     assert "private prompt" not in str(events)
     second_client.close()
+
+
+def test_semantic_claim_support_assessment_uses_one_provider_call_and_limits_citations():
+    import json
+
+    class AssessmentProvider:
+        name = "assessment"
+
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            text = json.dumps({
+                "results": [{
+                    "claim_id": "c1",
+                    "verdict": "supported",
+                    "rationale": "The supplied snapshot directly states the claim.",
+                    "evidence_ids": ["e1"],
+                }]
+            })
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    provider = AssessmentProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/assess-support",
+        json={
+            "sources": [{"evidence_id": "e1", "content": "The report says the sky is blue."}],
+            "claims": [{"claim_id": "c1", "text": "The sky is blue.", "evidence_ids": ["e1"]}],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"][0]["verdict"] == "supported"
+    assert body["results"][0]["evidence_ids"] == ["e1"]
+    assert body["semantic_support_assessed"] is True
+    assert body["semantic_support_verified"] is False
+    assert body["source_authenticity_verified"] is False
+    assert provider.calls == 1
+    assert client.get("/metrics").json()["requests_used"] == 1
+    assert "The sky is blue" not in client.get("/audit").text
+
+
+def test_semantic_claim_support_rejects_unknown_source_without_provider_call():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/assess-support",
+        json={
+            "sources": [{"evidence_id": "e1", "content": "source text"}],
+            "claims": [{"claim_id": "c1", "text": "claim text", "evidence_ids": ["unknown"]}],
+        },
+    )
+    assert response.status_code == 422
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_semantic_claim_support_rejects_invalid_model_output_without_partial_result():
+    class InvalidAssessmentProvider:
+        name = "invalid-assessment"
+
+        def generate(self, prompt: str) -> ProviderResult:
+            text = '{"results":[{"claim_id":"c1","verdict":"supported","rationale":"yes","evidence_ids":["other"]}]}'
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    client = TestClient(create_app(Orchestrator(InvalidAssessmentProvider())))
+    response = client.post(
+        "/v1/claims/assess-support",
+        json={
+            "sources": [{"evidence_id": "e1", "content": "source text"}],
+            "claims": [{"claim_id": "c1", "text": "claim text", "evidence_ids": ["e1"]}],
+        },
+    )
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Claim assessment failed; no partial result returned"}
+    assert "other" not in response.text
+
+
+def test_semantic_claim_support_honors_api_key(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "semantic-secret")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    payload = {
+        "sources": [{"evidence_id": "e1", "content": "source text"}],
+        "claims": [{"claim_id": "c1", "text": "claim text", "evidence_ids": ["e1"]}],
+    }
+    assert client.post("/v1/claims/assess-support", json=payload).status_code == 401
+    authorized = client.post(
+        "/v1/claims/assess-support",
+        json=payload,
+        headers={"X-API-Key": "semantic-secret"},
+    )
+    assert authorized.status_code == 502  # StubProvider intentionally returns non-JSON.
+
+
+
+def test_semantic_claim_support_rejects_oversized_prompt_without_provider_call():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/assess-support",
+        json={
+            "sources": [{"evidence_id": "e1", "content": "x" * 15000}],
+            "claims": [{"claim_id": "c1", "text": "claim", "evidence_ids": ["e1"]}],
+        },
+    )
+    assert response.status_code == 413
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0

@@ -26,6 +26,12 @@ from orchestra.numeric_consistency import NumericAssertion, screen_numeric_consi
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.factory import build_provider_registry
 from orchestra.quotes import QuoteReference, SourceSnapshot, audit_quotes
+from orchestra.semantic_support import (
+    ClaimForAssessment,
+    SourceForAssessment,
+    build_assessment_prompt,
+    parse_assessment_response,
+)
 from orchestra.traceability import (
     ClaimTrace,
     SourceAssertion,
@@ -80,6 +86,22 @@ class ClaimItemRequest(BaseModel):
 class ClaimLinkAssessmentRequest(BaseModel):
     evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(max_length=100)
     claims: list[ClaimItemRequest] = Field(max_length=100)
+
+
+class SemanticSourceSnapshotRequest(BaseModel):
+    evidence_id: str = Field(min_length=1, max_length=128)
+    content: str = Field(min_length=1, max_length=20000)
+
+
+class SemanticClaimRequest(BaseModel):
+    claim_id: str = Field(min_length=1, max_length=128)
+    text: str = Field(min_length=1, max_length=4000)
+    evidence_ids: list[Annotated[str, Field(min_length=1, max_length=128)]] = Field(min_length=1, max_length=10)
+
+
+class SemanticSupportRequest(BaseModel):
+    sources: list[SemanticSourceSnapshotRequest] = Field(min_length=1, max_length=10)
+    claims: list[SemanticClaimRequest] = Field(min_length=1, max_length=10)
 
 
 class SourceSnapshotRequest(BaseModel):
@@ -546,6 +568,104 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from None
         return result.__dict__
 
+
+
+    @app.post("/v1/claims/assess-support")
+    def assess_claim_support(
+        request: SemanticSupportRequest,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Use one explicitly requested provider call to review claims against supplied snapshots."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+
+        source_ids = [source.evidence_id.strip() for source in request.sources]
+        if any(not source_id for source_id in source_ids) or len(set(source_ids)) != len(source_ids):
+            raise HTTPException(status_code=422, detail="Source evidence IDs must be non-empty and unique")
+        claim_ids = [claim.claim_id.strip() for claim in request.claims]
+        if any(not claim_id for claim_id in claim_ids) or len(set(claim_ids)) != len(claim_ids):
+            raise HTTPException(status_code=422, detail="Claim IDs must be non-empty and unique")
+        known_sources = set(source_ids)
+        for claim in request.claims:
+            if any(not evidence_id.strip() for evidence_id in claim.evidence_ids):
+                raise HTTPException(status_code=422, detail="Claim evidence references must not be empty")
+            normalized_references = tuple(evidence_id.strip() for evidence_id in claim.evidence_ids)
+            if len(set(normalized_references)) != len(normalized_references):
+                raise HTTPException(status_code=422, detail="Claim evidence references must be unique")
+            if any(evidence_id not in known_sources for evidence_id in normalized_references):
+                raise HTTPException(status_code=422, detail="Claim references an unknown source snapshot")
+
+        claims = tuple(
+            ClaimForAssessment(
+                item.claim_id.strip(),
+                item.text,
+                tuple(evidence_id.strip() for evidence_id in item.evidence_ids),
+            )
+            for item in request.claims
+        )
+        sources = tuple(
+            SourceForAssessment(item.evidence_id.strip(), item.content)
+            for item in request.sources
+        )
+        prompt = build_assessment_prompt(claims, sources)
+        if len(prompt) > max_input:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(
+                status_code=413,
+                detail="Combined claim and source prompt exceeds configured input limit",
+            )
+        try:
+            result = orchestrator.run(prompt, before_attempt=budget.reserve)
+            assessments = parse_assessment_response(result.text, claims)
+        except BudgetExceeded:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=429, detail="Process provider-call budget exhausted") from None
+        except Exception as exc:  # noqa: BLE001 - provider output parsing is an untrusted boundary
+            with metrics_lock:
+                metrics["failed"] += 1
+            logger.warning("Semantic claim assessment failed (%s)", type(exc).__name__)
+            raise HTTPException(
+                status_code=502,
+                detail="Claim assessment failed; no partial result returned",
+            ) from None
+
+        record_audit(
+            AuditEvent(
+                timestamp=AuditTrail.now(),
+                request_id=result.request_id,
+                provider=result.provider,
+                model=result.model,
+                input_chars=result.input_chars,
+                output_chars=result.output_chars,
+                duration_ms=result.duration_ms,
+                outcome="success",
+            )
+        )
+        with metrics_lock:
+            metrics["succeeded"] += 1
+        return {
+            "assessment_type": "provider_assisted",
+            "provider": result.provider,
+            "model": result.model,
+            "duration_ms": result.duration_ms,
+            "provider_calls": result.attempts,
+            "results": [
+                {
+                    "claim_id": item.claim_id,
+                    "verdict": item.verdict,
+                    "rationale": item.rationale,
+                    "evidence_ids": list(item.evidence_ids),
+                }
+                for item in assessments
+            ],
+            "semantic_support_assessed": True,
+            "semantic_support_verified": False,
+            "source_authenticity_verified": False,
+            "source_truth_verified": False,
+        }
 
     @app.post("/v1/claims/verify-links")
     def verify_claim_links(
