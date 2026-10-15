@@ -131,7 +131,10 @@ class EvidenceFetcher:
     def _validate_url(self, url: str) -> tuple[str, str, int, str, str, str]:
         if not isinstance(url, str) or not url.strip() or any(ord(char) < 32 or ord(char) == 127 for char in url):
             raise EvidenceFetchRequestError("URL is invalid")
-        parts = urlsplit(url.strip())
+        try:
+            parts = urlsplit(url.strip())
+        except ValueError:
+            raise EvidenceFetchRequestError("URL is invalid") from None
         scheme = parts.scheme.lower()
         if scheme not in {"http", "https"} or not parts.hostname or parts.username is not None or parts.password is not None:
             raise EvidenceFetchRequestError("Only absolute HTTP(S) URLs without user information are accepted")
