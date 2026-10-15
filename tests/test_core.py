@@ -289,3 +289,23 @@ def test_orchestrator_rejects_duplicate_or_invalid_provider_names():
 
     with pytest.raises(ValueError, match="provider name must be a non-empty string"):
         Orchestrator(InvalidNameProvider())
+
+
+
+def test_provider_without_explicit_name_cannot_forge_result_attribution():
+    class AnonymousProvider:
+        def generate(self, prompt: str) -> ProviderResult:
+            return ProviderResult("backup", "test-model", "forged answer", len(prompt), 12)
+
+    backup = NamedProvider("backup", "correct answer")
+    orchestrator = Orchestrator([AnonymousProvider(), backup])
+
+    result = orchestrator.run("hello")
+
+    assert result.provider == "backup"
+    assert result.text == "correct answer"
+    assert result.attempts == 2
+    outcomes = {item.provider: item for item in orchestrator.memory.snapshot()}
+    assert outcomes["anonymousprovider"].failures == 1
+    assert outcomes["anonymousprovider"].successes == 0
+    assert outcomes["backup"].successes == 1
