@@ -51,9 +51,11 @@ def test_independence_counts_distinct_declared_groups_and_deduplicates_urls():
     assert result.total_records == 4
     assert result.unique_urls == 3
     assert result.duplicate_url_records == 1
-    assert result.independent_source_groups == ("independent-paper", "stale-source", "wire-service")
-    assert result.fresh_independent_source_groups == ("independent-paper", "wire-service")
-    assert result.has_enough_fresh_independent_sources
+    # The duplicated URL has conflicting group labels, so it must not
+    # contribute an independence claim regardless of record ordering.
+    assert result.independent_source_groups == ("independent-paper", "stale-source")
+    assert result.fresh_independent_source_groups == ("independent-paper",)
+    assert not result.has_enough_fresh_independent_sources
 
 
 def test_duplicate_evidence_ids_are_rejected():
@@ -230,3 +232,18 @@ def test_source_group_labels_normalize_whitespace_and_case():
     assert result.independent_source_groups == ("independent source", "other source")
     assert result.fresh_independent_source_groups == ("independent source", "other source")
     assert result.has_enough_fresh_independent_sources
+
+
+
+def test_conflicting_duplicate_url_group_labels_are_order_independent():
+    first = item("e1", "alpha", "https://same.example/report", NOW)
+    conflicting = item("e2", "beta", "https://same.example/report#section", NOW)
+    independent = item("e3", "gamma", "https://other.example/report", NOW)
+
+    forward = assess_evidence([first, conflicting, independent], now=NOW)
+    reverse = assess_evidence([conflicting, first, independent], now=NOW)
+
+    assert forward.independent_source_groups == reverse.independent_source_groups == ("gamma",)
+    assert forward.fresh_independent_source_groups == reverse.fresh_independent_source_groups == ("gamma",)
+    assert not forward.has_enough_fresh_independent_sources
+    assert not reverse.has_enough_fresh_independent_sources
