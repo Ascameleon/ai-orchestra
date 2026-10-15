@@ -908,3 +908,41 @@ def test_required_api_key_accepts_only_matching_key(monkeypatch):
         headers={"X-API-Key": "production-test-key"},
     )
     assert allowed.status_code == 200
+
+def test_redis_budget_backend_unavailability_fails_readiness_and_prevents_provider_calls(monkeypatch):
+    import orchestra.api as api_module
+
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    class OfflineBudget:
+        used = 0
+        limit = 10
+
+        def __init__(self, redis_url, max_requests):
+            self.redis_url = redis_url
+            self.max_requests = max_requests
+
+        def check_ready(self):
+            raise ConnectionError("private Redis connection detail")
+
+        def reserve(self):
+            raise ConnectionError("private Redis connection detail")
+
+        def close(self):
+            pass
+
+    monkeypatch.setenv("ORCHESTRA_REDIS_URL", "redis://unavailable")
+    monkeypatch.setattr(api_module, "RedisDailyCostGuard", OfflineBudget)
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+
+    assert client.get("/ready").status_code == 503
+    response = client.post("/v1/tasks", json={"prompt": "do not call provider"})
+    assert response.status_code == 502
+    assert "private Redis connection detail" not in response.text
+    assert provider.calls == 0
