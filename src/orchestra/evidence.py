@@ -163,7 +163,9 @@ def assess_evidence(
                 status = STALE
 
         if unique_url:
-            group = record.source_group.strip().casefold()
+            # Collapse whitespace and case so formatting differences cannot inflate
+            # the count of caller-declared independent source groups.
+            group = " ".join(record.source_group.split()).casefold()
             all_groups.add(group)
             if status == FRESH:
                 fresh_groups.add(group)
