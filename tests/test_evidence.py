@@ -195,3 +195,22 @@ def test_evidence_record_rejects_blank_identity_fields():
         kwargs[field] = "  "
         with pytest.raises(ValueError, match=f"{field} must not be empty"):
             EvidenceRecord(**kwargs)
+
+
+def test_dns_root_dot_is_normalized_for_url_deduplication():
+    result = assess_evidence(
+        [
+            item("e1", "alpha", "https://example.com./report", NOW),
+            item("e2", "beta", "https://example.com/report", NOW),
+        ],
+        now=NOW,
+    )
+
+    assert result.unique_urls == 1
+    assert result.duplicate_url_records == 1
+
+
+def test_hostname_made_only_of_root_dots_is_rejected():
+    with pytest.raises(ValueError, match="absolute http"):
+        item("bad", "alpha", "https://./report")
+
