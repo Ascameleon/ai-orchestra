@@ -1,4 +1,4 @@
-""""Deterministic citation-presence audit for generated answer text.
+"""Deterministic citation-presence audit for generated answer text.
 
 This is a formatting/integrity screen only. It cannot establish that cited
 sources support a sentence, nor reliably distinguish factual from non-factual prose.
