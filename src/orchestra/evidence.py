@@ -24,6 +24,10 @@ def _require_aware(value: dt.datetime, field_name: str) -> None:
 
 
 def _canonical_url(url: str) -> str:
+    if not isinstance(url, str) or any(
+        ord(character) < 32 or ord(character) == 127 for character in url
+    ):
+        raise ValueError("url must be an absolute http(s) URL")
     try:
         parts = urlsplit(url.strip())
         port = parts.port  # Access validates malformed and out-of-range ports.
