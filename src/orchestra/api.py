@@ -216,6 +216,12 @@ def create_app(
     request_limit = settings.max_requests_per_process if settings else 100
     audit_capacity = settings.audit_capacity if settings else 1000
     api_key = os.getenv("ORCHESTRA_API_KEY", "").strip() or None
+    auth_required_value = os.getenv("ORCHESTRA_REQUIRE_API_KEY", "false").strip().lower()
+    true_values = {"1", "true", "yes", "on"}
+    false_values = {"", "0", "false", "no", "off"}
+    require_api_key = auth_required_value in true_values
+    auth_setting_invalid = auth_required_value not in true_values | false_values
+    auth_configuration_error = auth_setting_invalid or (require_api_key and not api_key)
     budget_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
     budget = (
         SQLiteDailyCostGuard(budget_db_path, request_limit)
@@ -259,11 +265,15 @@ def create_app(
 
     @app.get("/ready")
     def readiness() -> dict[str, str]:
+        if auth_configuration_error:
+            raise HTTPException(status_code=503, detail="API authentication is not configured safely")
         if orchestrator is None:
             raise HTTPException(status_code=503, detail=config_error_message)
         return {"status": "ready", "provider": "configured"}
 
     def authorize(provided_key: str | None) -> None:
+        if auth_configuration_error:
+            raise HTTPException(status_code=503, detail="API authentication is not configured safely")
         if api_key and (not provided_key or not compare_digest(provided_key, api_key)):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
