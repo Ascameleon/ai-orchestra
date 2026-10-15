@@ -34,9 +34,16 @@ def _canonical_url(url: str) -> str:
     if parts.username is not None or parts.password is not None:
         raise ValueError("url must not contain embedded credentials")
     hostname = parts.hostname.lower()
+    # A trailing DNS root dot is equivalent to the same hostname without it.
+    # Strip it for URL deduplication, but reject a host made only of dots.
+    if ":" not in hostname:
+        hostname = hostname.rstrip(".")
     # urlsplit accepts whitespace and control characters inside hostnames; reject
     # these instead of treating malformed input as a valid source URL.
-    if any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in hostname):
+    if not hostname or any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in hostname
+    ):
         raise ValueError("url must be an absolute http(s) URL")
     # Normalize default ports so equivalent origins do not inflate URL diversity.
     if (parts.scheme.lower(), port) in {("http", 80), ("https", 443)}:
