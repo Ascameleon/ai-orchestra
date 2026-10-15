@@ -596,11 +596,15 @@ def create_app(
                 raise HTTPException(status_code=422, detail="Claim references an unknown source snapshot")
 
         claims = tuple(
-            ClaimForAssessment(item.claim_id, item.text, tuple(item.evidence_ids))
+            ClaimForAssessment(
+                item.claim_id.strip(),
+                item.text,
+                tuple(evidence_id.strip() for evidence_id in item.evidence_ids),
+            )
             for item in request.claims
         )
         sources = tuple(
-            SourceForAssessment(item.evidence_id, item.content)
+            SourceForAssessment(item.evidence_id.strip(), item.content)
             for item in request.sources
         )
         prompt = build_assessment_prompt(claims, sources)
