@@ -275,3 +275,17 @@ def test_orchestrator_rejects_invalid_provider_preference(preferred_provider):
         Orchestrator(provider).run("hello", preferred_provider=preferred_provider)
 
     assert provider.calls == 0
+
+
+def test_orchestrator_rejects_duplicate_or_invalid_provider_names():
+    with pytest.raises(ValueError, match="unique after normalization"):
+        Orchestrator([NamedProvider("Primary", "one"), NamedProvider(" primary ", "two")])
+
+    class InvalidNameProvider:
+        name = "   "
+
+        def generate(self, prompt: str) -> ProviderResult:
+            return ProviderResult("invalid", "test-model", "answer", len(prompt), 6)
+
+    with pytest.raises(ValueError, match="provider name must be a non-empty string"):
+        Orchestrator(InvalidNameProvider())
