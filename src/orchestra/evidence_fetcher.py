@@ -150,16 +150,9 @@ class EvidenceFetcher:
             raise EvidenceFetchRequestError("URL path contains invalid whitespace")
         if re.search(r"%(?![0-9A-Fa-f]{2})", raw_path + raw_query):
             raise EvidenceFetchRequestError("URL contains an invalid percent escape")
-        # Preserve valid existing escapes (for example %2F) instead of changing
-        # their meaning by double-encoding the percent sign.
-        path = quote(raw_path, safe="/%:@!        if any(char.isspace() for char in raw_path + raw_query):
-            raise EvidenceFetchRequestError("URL path contains invalid whitespace")
-        path = quote(raw_path, safe="/")
-        query = quote(raw_query, safe="=&")'()*+,;=-._~")
-        query = quote(raw_query, safe="/?%:@!        if any(char.isspace() for char in raw_path + raw_query):
-            raise EvidenceFetchRequestError("URL path contains invalid whitespace")
-        path = quote(raw_path, safe="/")
-        query = quote(raw_query, safe="=&")'()*+,;=-._~")
+        # Preserve valid existing escapes rather than changing their meaning.
+        path = quote(raw_path, safe="/%:@!$&'()*+,;=-._~")
+        query = quote(raw_query, safe="/?%:@!$&'()*+,;=-._~")
         canonical_url = urlunsplit((scheme, host, path, query, ""))
         return canonical_url, host, port, scheme, path, query
 
