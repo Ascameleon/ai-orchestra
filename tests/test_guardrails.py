@@ -164,9 +164,13 @@ def test_sqlite_daily_budget_rejects_invalid_configuration(tmp_path):
         SQLiteDailyCostGuard(" ", 1)
     with pytest.raises(ValueError, match="max_requests"):
         SQLiteDailyCostGuard(str(tmp_path / "budget.sqlite3"), 0)
+    from datetime import datetime
+
+    guard = SQLiteDailyCostGuard(
+        str(tmp_path / "budget.sqlite3"),
+        1,
+        clock=lambda: datetime(2026, 10, 15),
+    )
     with pytest.raises(ValueError, match="timezone-aware"):
-        SQLiteDailyCostGuard(
-            str(tmp_path / "budget.sqlite3"),
-            1,
-            clock=lambda: __import__("datetime").datetime(2026, 10, 15),
-        ).reserve()
+        guard.reserve()
+    guard.close()
