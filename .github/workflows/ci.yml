@@ -61,6 +61,8 @@ jobs:
           else:
               raise SystemExit("readiness should fail closed without provider credentials")
           PY
+      - name: Validate production Compose configuration
+        run: docker compose --env-file .env.production.example -f compose.production.yml config --quiet
       - name: Dependency security audit
         run: |
           python -m pip install pip-audit

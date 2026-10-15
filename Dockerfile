@@ -5,9 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
+
+# Optional extras: pass ORCHESTRA_EXTRAS=openai,anthropic at build time.
+ARG ORCHESTRA_EXTRAS=""
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN python -m pip install --upgrade pip && pip install .
+RUN python -m pip install --upgrade pip \
+    && if [ -n "$ORCHESTRA_EXTRAS" ]; then pip install ".[${ORCHESTRA_EXTRAS}]"; else pip install .; fi
 
 RUN useradd --system --uid 10001 --create-home orchestra \
     && mkdir -p /data \
