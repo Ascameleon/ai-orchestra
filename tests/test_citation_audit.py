@@ -91,3 +91,16 @@ def test_citation_coverage_splits_after_closing_quotes():
     assert result.sentences_with_valid_citations == 1
     assert result.uncited_sentence_count == 1
     assert result.coverage_ratio == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("punctuation", ["؟", "！", "。", "｡"])
+def test_citation_coverage_splits_unicode_sentence_terminators(punctuation):
+    result = audit_citation_coverage(
+        f"حقيقة مدعومة [{VALID}]{punctuation} جملة أخرى بلا مصدر.",
+        {VALID},
+    )
+
+    assert result.sentence_count == 2
+    assert result.sentences_with_valid_citations == 1
+    assert result.uncited_sentence_count == 1
+    assert result.coverage_ratio == pytest.approx(0.5)
