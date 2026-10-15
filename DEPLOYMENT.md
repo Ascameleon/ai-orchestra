@@ -10,7 +10,7 @@ This repository provides a Docker Compose deployment baseline for a **single hos
 4. For OpenAI and/or Anthropic, set `ORCHESTRA_EXTRAS=openai` or `ORCHESTRA_EXTRAS=anthropic` (or `openai,anthropic`) so Docker installs the optional SDKs. The default image includes Gemini only.
 5. Keep `.env.production` out of version control and restrict access to it. Do not paste secrets into issue reports or logs.
 
-The API key protects task, workflow, metrics, audit, provider-health/circuit, and evidence/claim endpoints. The Compose port is bound to loopback by default. Do not expose the port directly to the public internet.
+The production profile sets `ORCHESTRA_REQUIRE_API_KEY=true`: if the API key is absent or that setting is invalid, readiness and protected endpoints fail closed with `503`. With a configured key, missing or incorrect client keys receive `401`. The key protects task, workflow, metrics, audit, provider-health/circuit, and evidence/claim endpoints. The Compose port is bound to loopback by default. Do not expose the port directly to the public internet.
 
 ## 2. Build and start
 

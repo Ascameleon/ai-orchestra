@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, and optional Anthropic adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, and a process-local budget with an optional persistent UTC-day cap.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, and optional Anthropic adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, a process-local budget with an optional persistent UTC-day cap, and a fail-closed API-key requirement mode.
 
 ## Requirements
 
@@ -40,7 +40,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 ```
 
 - `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live provider connectivity.
-- `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`.
+- `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`. Set `ORCHESTRA_REQUIRE_API_KEY=true` to fail closed if `ORCHESTRA_API_KEY` is missing or the requirement flag is invalid; the production Compose profile enables this automatically.
 - `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"` or `"provider":"anthropic"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and current budget use.
 - Set `ORCHESTRA_BUDGET_DB` to a local SQLite path to persist the provider-call cap across restarts and enforce it atomically for processes sharing that same file on one host. `ORCHESTRA_MAX_REQUESTS` becomes the per-UTC-day cap when this option is enabled; the default production profile allows 100 provider attempts per UTC day. Without this setting, the budget is process-local and resets on restart. This guard limits application attempts, not provider billing or multi-host usage.
