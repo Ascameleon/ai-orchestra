@@ -190,7 +190,7 @@ def test_existing_percent_escapes_are_preserved_and_malformed_ones_rejected(monk
 
     with pytest.raises(EvidenceFetchRequestError, match="percent escape"):
         fetcher.fetch_many(["http://example.com/a%2"])
-        
+
 
 def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
     sock = FakeSocket()
