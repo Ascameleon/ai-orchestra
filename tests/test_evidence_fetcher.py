@@ -173,6 +173,25 @@ def test_allowlist_rejects_non_host_values(host):
         EvidenceFetcher([host])
 
 
+def test_existing_percent_escapes_are_preserved_and_malformed_ones_rejected(monkeypatch):
+    sock = FakeSocket()
+    response = FakeResponse()
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/a%2Fb?q=hello%20world"])[0]
+
+    assert result.url == "http://example.com/a%2Fb?q=hello%20world"
+    assert b"GET /a%2Fb?q=hello%20world HTTP/1.1" in sock.request
+
+    with pytest.raises(EvidenceFetchRequestError, match="percent escape"):
+        fetcher.fetch_many(["http://example.com/a%2"])
+        
+
 def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
     sock = FakeSocket()
     response = FakeResponse()
