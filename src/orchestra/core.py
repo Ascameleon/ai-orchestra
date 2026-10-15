@@ -49,6 +49,11 @@ class Orchestrator:
         providers = (provider,) if not isinstance(provider, (tuple, list)) else tuple(provider)
         if not providers:
             raise ValueError("at least one provider must be configured")
+        provider_names = tuple(self._provider_name(item) for item in providers)
+        if any(not name for name in provider_names):
+            raise ValueError("provider names must not be empty")
+        if len(set(provider_names)) != len(provider_names):
+            raise ValueError("provider names must be unique after normalization")
         self._providers = providers
         self.memory = memory or ProviderMemory()
         self._task_routes = dict(routes)
@@ -61,7 +66,12 @@ class Orchestrator:
 
     @staticmethod
     def _provider_name(provider: Provider) -> str:
-        return str(getattr(provider, "name", provider.__class__.__name__)).strip().lower()
+        raw_name = getattr(provider, "name", None)
+        if raw_name is None:
+            raw_name = provider.__class__.__name__
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            raise ValueError("provider name must be a non-empty string")
+        return raw_name.strip().lower()
 
     @property
     def provider_names(self) -> tuple[str, ...]:
