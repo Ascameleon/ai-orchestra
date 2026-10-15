@@ -8,7 +8,7 @@ This repository provides a Docker Compose deployment baseline for a **single hos
 2. Copy `.env.production.example` to `.env.production`.
 3. Replace `ORCHESTRA_API_KEY` with a unique, long random secret and set the API key for the selected provider.
 4. For OpenAI and/or Anthropic, set `ORCHESTRA_EXTRAS=openai` or `ORCHESTRA_EXTRAS=anthropic` (or `openai,anthropic`) so Docker installs the optional SDKs. The default image includes Gemini only.
-4. Keep `.env.production` out of version control and restrict access to it. Do not paste secrets into issue reports or logs.
+5. Keep `.env.production` out of version control and restrict access to it. Do not paste secrets into issue reports or logs.
 
 The API key protects task, workflow, metrics, audit, provider-health/circuit, and evidence/claim endpoints. The Compose port is bound to loopback by default. Do not expose the port directly to the public internet.
 
