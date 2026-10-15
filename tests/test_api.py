@@ -820,7 +820,7 @@ def test_semantic_claim_support_rejects_invalid_model_output_without_partial_res
     assert "other" not in response.text
 
 
-def test_semantic_claim_support_honors_api_key_and_combined_input_limit(monkeypatch):
+def test_semantic_claim_support_honors_api_key(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_API_KEY", "semantic-secret")
     client = TestClient(create_app(Orchestrator(StubProvider())))
     payload = {
@@ -834,3 +834,26 @@ def test_semantic_claim_support_honors_api_key_and_combined_input_limit(monkeypa
         headers={"X-API-Key": "semantic-secret"},
     )
     assert authorized.status_code == 502  # StubProvider intentionally returns non-JSON.
+
+
+
+def test_semantic_claim_support_rejects_oversized_prompt_without_provider_call():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return super().generate(prompt)
+
+    provider = CountingProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+    response = client.post(
+        "/v1/claims/assess-support",
+        json={
+            "sources": [{"evidence_id": "e1", "content": "x" * 15000}],
+            "claims": [{"claim_id": "c1", "text": "claim", "evidence_ids": ["e1"]}],
+        },
+    )
+    assert response.status_code == 413
+    assert provider.calls == 0
+    assert client.get("/metrics").json()["requests_used"] == 0
