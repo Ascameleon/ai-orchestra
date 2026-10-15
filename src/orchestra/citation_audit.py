@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 
 _CITATION = re.compile(r"\[(ev_[^\]\s]{1,120})\]")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(*#-])")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=\S)")
 
 
 @dataclass(frozen=True)
