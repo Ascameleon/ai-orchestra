@@ -131,9 +131,8 @@ def assess_evidence(
         raise ValueError("minimum_independent_sources must be at least 1")
 
     seen_ids: set[str] = set()
-    seen_urls: set[str] = set()
-    all_groups: set[str] = set()
-    fresh_groups: set[str] = set()
+    url_groups: dict[str, set[str]] = {}
+    fresh_urls: set[str] = set()
     fresh_count = stale_count = undated_count = future_count = 0
 
     for record in records:
@@ -144,8 +143,8 @@ def assess_evidence(
             raise ValueError(f"duplicate evidence_id after whitespace normalization: {evidence_id}")
         seen_ids.add(evidence_id)
         canonical_url = _canonical_url(record.url)
-        unique_url = canonical_url not in seen_urls
-        seen_urls.add(canonical_url)
+        group = " ".join(record.source_group.split()).casefold()
+        url_groups.setdefault(canonical_url, set()).add(group)
 
         if record.published_at is None:
             undated_count += 1
@@ -161,14 +160,21 @@ def assess_evidence(
             else:
                 stale_count += 1
                 status = STALE
+        if status == FRESH:
+            fresh_urls.add(canonical_url)
 
-        if unique_url:
-            # Collapse whitespace and case so formatting differences cannot inflate
-            # the count of caller-declared independent source groups.
-            group = " ".join(record.source_group.split()).casefold()
-            all_groups.add(group)
-            if status == FRESH:
-                fresh_groups.add(group)
+    # A URL repeated with conflicting source-group labels is ambiguous. Exclude
+    # it from independence counts rather than letting input order choose a label.
+    unambiguous_urls = {
+        url: next(iter(groups))
+        for url, groups in url_groups.items()
+        if len(groups) == 1
+    }
+    all_groups = set(unambiguous_urls.values())
+    fresh_groups = {
+        unambiguous_urls[url] for url in fresh_urls if url in unambiguous_urls
+    }
+    seen_urls = set(url_groups)
 
     return EvidenceAssessment(
         total_records=len(records),
