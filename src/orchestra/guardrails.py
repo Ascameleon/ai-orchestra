@@ -129,7 +129,7 @@ class SQLiteDailyCostGuard:
                 )
                 self._connection.commit()
                 return next_used
-            except Exception:  # noqa: BLE001 - rollback must cover every transaction failure
+            except Exception:
                 if self._connection.in_transaction:
                     self._connection.rollback()
                 raise
