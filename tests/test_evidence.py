@@ -214,3 +214,19 @@ def test_hostname_made_only_of_root_dots_is_rejected():
     with pytest.raises(ValueError, match="absolute http"):
         item("bad", "alpha", "https://./report")
 
+
+
+def test_source_group_labels_normalize_whitespace_and_case():
+    result = assess_evidence(
+        [
+            item("e1", "Independent   Source", "https://one.example/report", NOW),
+            item("e2", " independent source ", "https://two.example/report", NOW),
+            item("e3", "Other Source", "https://three.example/report", NOW),
+        ],
+        now=NOW,
+        minimum_independent_sources=2,
+    )
+
+    assert result.independent_source_groups == ("independent source", "other source")
+    assert result.fresh_independent_source_groups == ("independent source", "other source")
+    assert result.has_enough_fresh_independent_sources
