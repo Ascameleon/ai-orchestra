@@ -67,3 +67,15 @@ def test_citation_coverage_normalizes_registry_whitespace():
 
     assert result.sentences_with_valid_citations == 1
     assert result.invalid_citation_ids == ()
+
+
+def test_citation_coverage_splits_lowercase_sentence_starts():
+    result = audit_citation_coverage(
+        f"Supported fact [{VALID}]. this next sentence is uncited.",
+        {VALID},
+    )
+
+    assert result.sentence_count == 2
+    assert result.sentences_with_valid_citations == 1
+    assert result.uncited_sentence_count == 1
+    assert result.coverage_ratio == pytest.approx(0.5)
