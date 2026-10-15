@@ -857,3 +857,20 @@ def test_semantic_claim_support_rejects_oversized_prompt_without_provider_call()
     assert response.status_code == 413
     assert provider.calls == 0
     assert client.get("/metrics").json()["requests_used"] == 0
+
+
+def test_api_persists_daily_budget_across_app_restarts(monkeypatch, tmp_path):
+    database = tmp_path / "request-budget.sqlite3"
+    monkeypatch.setenv("ORCHESTRA_BUDGET_DB", str(database))
+
+    with TestClient(create_app(Orchestrator(StubProvider()))) as first_client:
+        response = first_client.post("/v1/tasks", json={"prompt": "first request"})
+        assert response.status_code == 200
+        assert first_client.get("/metrics").json()["requests_used"] == 1
+
+    with TestClient(create_app(Orchestrator(StubProvider()))) as second_client:
+        metrics = second_client.get("/metrics").json()
+        assert metrics["requests_used"] == 1
+        response = second_client.post("/v1/tasks", json={"prompt": "second request"})
+        assert response.status_code == 200
+        assert second_client.get("/metrics").json()["requests_used"] == 2
