@@ -8,6 +8,7 @@ This repository provides a Docker Compose deployment baseline for a **single hos
 2. Copy `.env.production.example` to `.env.production`.
 3. Replace `ORCHESTRA_API_KEY` with a unique, long random secret and set the API key for the selected provider.
 4. For OpenAI and/or Anthropic, set `ORCHESTRA_EXTRAS=openai` or `ORCHESTRA_EXTRAS=anthropic` (or `openai,anthropic`) so Docker installs the optional SDKs. The default image includes Gemini only.
+5. For a shared daily quota across multiple hosts, set `ORCHESTRA_EXTRAS=redis` (or combine it with other extras) and configure `ORCHESTRA_REDIS_URL` for a reachable Redis instance. Redis takes precedence over the local SQLite budget and `/ready` checks its connectivity. Use authentication and TLS for remote Redis; never expose Redis directly to the public internet. Leave `ORCHESTRA_REDIS_URL` blank to use the local SQLite daily budget.
 5. Keep `.env.production` out of version control and restrict access to it. Do not paste secrets into issue reports or logs.
 
 The production profile sets `ORCHESTRA_REQUIRE_API_KEY=true`: if the API key is absent or that setting is invalid, readiness and protected endpoints fail closed with `503`. With a configured key, missing or incorrect client keys receive `401`. The key protects task, workflow, metrics, audit, provider-health/circuit, and evidence/claim endpoints. The Compose port is bound to loopback by default. Do not expose the port directly to the public internet.
@@ -54,13 +55,13 @@ docker compose --env-file .env.production -f compose.production.yml restart orch
 docker compose --env-file .env.production -f compose.production.yml down
 ```
 
-The named `orchestra-data` volume stores bounded audit metadata, provider outcome aggregates, and the persistent daily request budget. The production profile reserves up to `ORCHESTRA_MAX_REQUESTS` provider attempts per UTC day; the counter survives restarts and uses SQLite transactions to serialize callers sharing this local file. Back up the volume according to your retention policy. It does not contain prompts or completions.
+The named `orchestra-data` volume stores bounded audit metadata, provider outcome aggregates, and the persistent daily request budget when SQLite is selected. The production profile reserves up to `ORCHESTRA_MAX_REQUESTS` provider attempts per UTC day; the counter survives restarts and uses SQLite transactions to serialize callers sharing this local file. When `ORCHESTRA_REDIS_URL` is set, Redis is used instead and atomically shares the daily cap across hosts. Back up the volume according to your retention policy. It does not contain prompts or completions.
 
 ## 5. Before public production traffic
 
 - Terminate TLS at a maintained reverse proxy or managed ingress and configure authentication/rate limits there as appropriate.
 - Keep API credentials in the host's secret manager or protected environment file; rotate them after suspected exposure.
 - Add external monitoring, backups, log retention, and an alerting path.
-- With `ORCHESTRA_BUDGET_DB` configured, the daily budget survives restarts and is atomic for processes sharing the same local SQLite file on one host; it is not a multi-host quota or a substitute for provider billing limits. Circuit breakers remain process-local.
+- With `ORCHESTRA_BUDGET_DB` configured, the daily budget survives restarts and is atomic for processes sharing the same local SQLite file on one host. Set `ORCHESTRA_REDIS_URL` to use the optional Redis-backed shared daily quota across hosts. Neither backend replaces provider billing limits. Circuit breakers remain process-local.
 - Run the test suite and dependency audit on the exact commit being deployed.
 - Run a controlled live smoke test with an explicitly budgeted provider key before accepting traffic.

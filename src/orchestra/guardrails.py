@@ -153,6 +153,100 @@ class SQLiteDailyCostGuard:
             self._connection.close()
 
 
+class RedisDailyCostGuard:
+    """Enforce an atomic UTC-day budget using a shared Redis instance.
+
+    This supports multiple application hosts that share the same Redis endpoint.
+    Redis availability is required for readiness and reservations; failures are fail-closed.
+    """
+
+    _RESERVE_SCRIPT = """
+    local used = tonumber(redis.call('GET', KEYS[1]) or '0')
+    local limit = tonumber(ARGV[1])
+    if used >= limit then
+        return -1
+    end
+    local next_used = redis.call('INCR', KEYS[1])
+    if next_used == 1 then
+        redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+    end
+    return next_used
+    """
+
+    def __init__(
+        self,
+        redis_url: str,
+        max_requests: int,
+        *,
+        key_prefix: str = "ai-orchestra:provider-budget",
+        clock: Callable[[], datetime] | None = None,
+        client: object | None = None,
+    ) -> None:
+        if not isinstance(redis_url, str) or not redis_url.strip():
+            raise ValueError("redis_url must be a non-empty URL")
+        if type(max_requests) is not int or max_requests < 1:
+            raise ValueError("max_requests must be a positive integer")
+        if not isinstance(key_prefix, str) or not key_prefix.strip():
+            raise ValueError("key_prefix must not be empty")
+        if client is None:
+            from redis import Redis
+
+            client = Redis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=3,
+                socket_timeout=3,
+                health_check_interval=30,
+            )
+        self._client = client
+        self._limit = max_requests
+        self._key_prefix = key_prefix.strip().rstrip(":")
+        self._clock = clock or (lambda: datetime.now(UTC))
+
+    def _today(self) -> str:
+        now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("budget clock must return a timezone-aware datetime")
+        return now.astimezone(UTC).date().isoformat()
+
+    def _key(self) -> str:
+        return f"{self._key_prefix}:{self._today()}"
+
+    def check_ready(self) -> None:
+        """Raise if the shared quota backend is unreachable."""
+        if not self._client.ping():
+            raise RuntimeError("Redis budget backend did not respond to ping")
+
+    def reserve(self) -> int:
+        """Atomically reserve one provider attempt or raise when today's limit is reached."""
+        key = self._key()
+        result = self._client.eval(
+            self._RESERVE_SCRIPT,
+            1,
+            key,
+            self._limit,
+            35 * 24 * 60 * 60,
+        )
+        if result == -1:
+            raise BudgetExceeded("Daily provider-call budget exhausted")
+        if type(result) is not int or result < 1:
+            raise RuntimeError("Redis returned an invalid budget reservation result")
+        return result
+
+    @property
+    def used(self) -> int:
+        value = self._client.get(self._key())
+        return int(value) if value is not None else 0
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    def close(self) -> None:
+        """Close the Redis client connection pool."""
+        self._client.close()
+
+
 class AuditTrail:
     """Keep bounded metadata; never store prompts, completions, or API keys."""
 

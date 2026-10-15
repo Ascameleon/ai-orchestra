@@ -174,3 +174,95 @@ def test_sqlite_daily_budget_rejects_invalid_configuration(tmp_path):
     with pytest.raises(ValueError, match="timezone-aware"):
         guard.reserve()
     guard.close()
+
+def test_redis_daily_budget_is_atomic_persistent_and_day_scoped():
+    from datetime import UTC, datetime, timedelta
+
+    from orchestra.guardrails import RedisDailyCostGuard
+
+    class FakeRedis:
+        def __init__(self, shared):
+            self.shared = shared
+            self.ttls = {}
+            self.closed = False
+            self.available = True
+
+        def ping(self):
+            return self.available
+
+        def eval(self, script, numkeys, key, limit, ttl):
+            assert numkeys == 1
+            assert "redis.call('INCR'" in script
+            used = int(self.shared.get(key, 0))
+            if used >= int(limit):
+                return -1
+            next_used = used + 1
+            self.shared[key] = str(next_used)
+            if next_used == 1:
+                self.ttls[key] = int(ttl)
+            return next_used
+
+        def get(self, key):
+            return self.shared.get(key)
+
+        def close(self):
+            self.closed = True
+
+    shared = {}
+    current = [datetime(2026, 10, 15, 23, 59, tzinfo=UTC)]
+    first_client = FakeRedis(shared)
+    second_client = FakeRedis(shared)
+    first = RedisDailyCostGuard(
+        "redis://test",
+        2,
+        clock=lambda: current[0],
+        client=first_client,
+    )
+    second = RedisDailyCostGuard(
+        "redis://test",
+        2,
+        clock=lambda: current[0],
+        client=second_client,
+    )
+
+    first.check_ready()
+    assert first.reserve() == 1
+    assert second.reserve() == 2
+    with pytest.raises(BudgetExceeded, match="Daily"):
+        first.reserve()
+    assert second.used == 2
+    assert first_client.ttls["ai-orchestra:provider-budget:2026-10-15"] == 35 * 24 * 60 * 60
+
+    current[0] += timedelta(minutes=2)
+    assert first.used == 0
+    assert first.reserve() == 1
+    first.close()
+    second.close()
+    assert first_client.closed and second_client.closed
+
+
+def test_redis_daily_budget_fails_readiness_when_backend_is_unavailable():
+    from orchestra.guardrails import RedisDailyCostGuard
+
+    class OfflineRedis:
+        def ping(self):
+            raise ConnectionError("private connection detail")
+
+        def close(self):
+            pass
+
+    guard = RedisDailyCostGuard("redis://test", 1, client=OfflineRedis())
+    with pytest.raises(ConnectionError):
+        guard.check_ready()
+    guard.close()
+
+
+def test_redis_daily_budget_rejects_invalid_configuration():
+    from orchestra.guardrails import RedisDailyCostGuard
+
+    with pytest.raises(ValueError, match="redis_url"):
+        RedisDailyCostGuard(" ", 1, client=object())
+    with pytest.raises(ValueError, match="max_requests"):
+        RedisDailyCostGuard("redis://test", 0, client=object())
+    with pytest.raises(ValueError, match="key_prefix"):
+        RedisDailyCostGuard("redis://test", 1, key_prefix=" ", client=object())
