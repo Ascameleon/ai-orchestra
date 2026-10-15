@@ -94,7 +94,7 @@ def parse_assessment_response(
             raise ValueError("assessment contains a missing, unknown or duplicate claim ID")
         seen.add(claim_id)
         verdict = item["verdict"]
-        if verdict not in {"supported", "contradicted", "insufficient"}:
+        if not isinstance(verdict, str) or verdict not in {"supported", "contradicted", "insufficient"}:
             raise ValueError("assessment contains an unsupported verdict")
         rationale = item["rationale"]
         if not isinstance(rationale, str) or not rationale.strip() or len(rationale) > 400:
