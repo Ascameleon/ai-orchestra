@@ -295,7 +295,7 @@ def test_orchestrator_rejects_duplicate_or_invalid_provider_names():
 def test_provider_without_explicit_name_cannot_forge_result_attribution():
     class AnonymousProvider:
         def generate(self, prompt: str) -> ProviderResult:
-            return ProviderResult("backup", "test-model", "forged answer", len(prompt), 12)
+            return ProviderResult("backup", "test-model", "forged answer", len(prompt), len("forged answer"))
 
     backup = NamedProvider("backup", "correct answer")
     orchestrator = Orchestrator([AnonymousProvider(), backup])
