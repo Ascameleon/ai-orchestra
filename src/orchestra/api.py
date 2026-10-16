@@ -364,6 +364,49 @@ finally{button.disabled=false;}
                 "audit_events": len(audit.snapshot()),
             }
 
+    @app.get("/providers/configuration")
+    def get_provider_configuration(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict[str, object]:
+        """Report provider configuration metadata without exposing credentials or making calls."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+
+        provider_settings = {
+            "gemini": (
+                settings.gemini_api_key if settings else None,
+                settings.gemini_model if settings else None,
+            ),
+            "openai": (
+                settings.openai_api_key if settings else None,
+                settings.openai_model if settings else None,
+            ),
+            "anthropic": (
+                settings.anthropic_api_key if settings else None,
+                settings.anthropic_model if settings else None,
+            ),
+        }
+        active_names = set(orchestrator.provider_names)
+        providers = []
+        for name, (credential, model) in provider_settings.items():
+            providers.append(
+                {
+                    "name": name,
+                    "configured_for_routing": name in active_names,
+                    "credential_configured": bool(credential) if settings else None,
+                    "model": model,
+                    "live_verified": False,
+                }
+            )
+        return {
+            "primary": settings.provider_name if settings else None,
+            "fallbacks": list(settings.provider_fallbacks) if settings else [],
+            "providers": providers,
+            "live_check_performed": False,
+            "note": "Configuration only; no provider request was sent.",
+        }
+
     @app.get("/providers/health")
     def get_provider_health(
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
