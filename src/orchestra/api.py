@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from orchestra.claims import ClaimRecord, assess_claim_links
@@ -259,8 +260,70 @@ def create_app(
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
     metrics_lock = Lock()
 
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def workbench() -> HTMLResponse:
+        """Serve a small, stateless browser interface for the complete goal workflow."""
+        return HTMLResponse(r"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light"><title>AI ORCHESTRA — Workbench</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#edf2f7;background:#0c111b}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 15% 0%,#182b42 0,transparent 42%),#0c111b}
+main{width:min(920px,100%);margin:auto;padding:clamp(20px,5vw,54px) 18px 48px}
+header{margin-bottom:28px}.eyebrow{font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;font-weight:750}
+h1{font-size:clamp(2rem,6vw,3.5rem);letter-spacing:-.045em;margin:.45rem 0}.sub{color:#aab8ca;line-height:1.6;max-width:680px}
+.panel{background:#121b29;border:1px solid #2a394b;border-radius:18px;padding:clamp(16px,3vw,28px);box-shadow:0 18px 60px #0003}
+label{display:block;font-size:.9rem;font-weight:650;margin:18px 0 8px}textarea,select,input{width:100%;background:#0c1420;color:#f4f7fb;border:1px solid #34465b;border-radius:10px;padding:12px 13px;font:inherit}
+textarea{min-height:180px;resize:vertical;line-height:1.55}select,input{min-height:46px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+small,.hint{color:#9eafc2;line-height:1.55}.hint{font-size:.84rem;margin-top:8px}
+button{margin-top:22px;width:100%;border:0;border-radius:10px;padding:14px 18px;background:#67e8f9;color:#08202b;font-weight:800;font-size:1rem;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}#status{margin-top:18px;color:#a5f3fc;white-space:pre-wrap;overflow-wrap:anywhere}
+#result{display:none;margin-top:18px;padding:20px;border:1px solid #34465b;border-radius:12px;background:#0a111b;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+footer{margin-top:18px;color:#8799ae;font-size:.8rem;line-height:1.55}
+@media(max-width:620px){.grid{grid-template-columns:1fr;gap:0}main{padding-top:28px}}
+</style></head>
+<body><main>
+<header><div class="eyebrow">AI ORCHESTRA · OBJECTIF → LIVRABLE</div>
+<h1>Transformez votre objectif en résultat.</h1>
+<p class="sub">Décrivez ce que vous voulez accomplir. L’orchestrateur planifie, exécute, fait relire le résultat puis produit une livraison finale. Les étapes intermédiaires restent cachées.</p></header>
+<section class="panel">
+<form id="goal-form">
+<label for="prompt">Votre objectif</label>
+<textarea id="prompt" name="prompt" maxlength="100000" required placeholder="Ex. : Construis un outil qui compare des voyages, définit le MVP, crée le code, ajoute les tests et documente son lancement."></textarea>
+<p class="hint">Soyez concret sur le résultat attendu, les contraintes, le budget et les critères de réussite. Ne collez pas de mots de passe ni de clés secrètes dans l’objectif.</p>
+<div class="grid">
+<div><label for="task_type">Type de travail</label><select id="task_type">
+<option value="general">Choix automatique</option><option value="research">Recherche</option><option value="analysis">Analyse</option><option value="code">Développement / code</option><option value="writing">Rédaction</option><option value="review">Audit / vérification</option></select></div>
+<div><label for="provider">Fournisseur (facultatif)</label><select id="provider"><option value="">Configuration par défaut</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></div>
+</div>
+<label for="api_key">Clé API de votre instance (si requise)</label><input id="api_key" type="password" autocomplete="off" placeholder="Utilisée pour cette requête uniquement">
+<p class="hint">La clé n’est pas enregistrée dans le navigateur. Elle est envoyée uniquement à cette instance via l’en-tête X-API-Key. Les appels au fournisseur peuvent être payants selon votre compte et sa configuration.</p>
+<button id="run" type="submit">Lancer l’orchestration complète</button>
+</form><div id="status" role="status" aria-live="polite"></div><pre id="result"></pre>
+</section><footer>Interface sans stockage local. Le résultat dépend des fournisseurs configurés, de leurs limites et des outils accessibles à cette instance. Les actions externes non exécutées ne sont pas présentées comme accomplies.</footer>
+</main>
+<script>
+(function(){
+const form=document.getElementById("goal-form"),button=document.getElementById("run"),status=document.getElementById("status"),result=document.getElementById("result");
+form.addEventListener("submit",async function(event){
+event.preventDefault();const prompt=document.getElementById("prompt").value.trim();if(!prompt)return;
+button.disabled=true;status.textContent="Orchestration en cours. Les étapes sont exécutées et relues avant la synthèse finale…";result.style.display="none";result.textContent="";
+const body={prompt:prompt,task_type:document.getElementById("task_type").value};const provider=document.getElementById("provider").value;if(provider)body.provider=provider;
+const headers={"Content-Type":"application/json"};const key=document.getElementById("api_key").value;if(key)headers["X-API-Key"]=key;
+try{const response=await fetch("/v1/workflows/plan-execute",{method:"POST",headers:headers,body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.detail||("Erreur HTTP "+response.status));
+result.textContent=data.text||"Aucun livrable n’a été retourné.";result.style.display="block";status.textContent="Terminé côté orchestration · "+data.provider+" / "+data.model+" · "+data.provider_calls+" appels fournisseur · "+data.duration_ms+" ms.";
+}catch(error){status.textContent="Échec : "+(error&&error.message?error.message:"requête impossible")+". Vérifiez la configuration du fournisseur, l’authentification et le budget. Aucun résultat partiel n’est affiché.";}
+finally{button.disabled=false;}
+});
+})();
+</script></body></html>""")
+
     @app.get("/health")
     def health() -> dict[str, str]:
+
         return {
             "status": "ok",
             "provider": "configured" if not configuration_error else "not_configured",
