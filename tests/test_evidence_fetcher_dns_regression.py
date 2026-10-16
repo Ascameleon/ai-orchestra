@@ -98,3 +98,42 @@ def test_dns_resolution_failure_is_normalized_and_never_connects():
 
     assert "private resolver details" not in str(error.value)
     assert connected == []
+
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "127.0.0.1",
+        "10.20.30.40",
+        "169.254.10.20",
+        "192.0.2.10",
+        "224.0.0.1",
+        "::1",
+        "fc00::1",
+        "fe80::1",
+        "2001:db8::1",
+        "ff02::1",
+        "0.0.0.0",
+        "::",
+    ],
+)
+def test_loopback_private_link_local_documentation_and_reserved_ips_are_blocked(address):
+    """Every non-global DNS answer is rejected before the network connector is called."""
+    connected = []
+
+    def reserved_resolver(host, port, type):
+        family = socket.AF_INET6 if ":" in address else socket.AF_INET
+        sockaddr = (address, port, 0, 0) if family == socket.AF_INET6 else (address, port)
+        return [(family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", sockaddr)]
+
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=reserved_resolver,
+        connector=lambda *args, **kwargs: connected.append((args, kwargs)),
+    )
+
+    with pytest.raises(EvidenceFetchRequestError, match="non-public"):
+        fetcher.fetch_many(["http://example.com/article"])
+
+    assert connected == []
