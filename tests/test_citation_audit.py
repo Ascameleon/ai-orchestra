@@ -104,3 +104,13 @@ def test_citation_coverage_splits_unicode_sentence_terminators(punctuation):
     assert result.sentences_with_valid_citations == 1
     assert result.uncited_sentence_count == 1
     assert result.coverage_ratio == pytest.approx(0.5)
+
+
+def test_citation_coverage_reports_overlong_ids_as_invalid():
+    overlong_id = "ev_" + ("x" * 121)
+
+    result = audit_citation_coverage(f"Claim [{overlong_id}].", {VALID})
+
+    assert result.sentences_with_valid_citations == 0
+    assert result.uncited_sentence_count == 1
+    assert result.invalid_citation_ids == (overlong_id,)
