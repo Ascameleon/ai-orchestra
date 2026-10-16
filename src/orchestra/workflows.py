@@ -153,8 +153,8 @@ class PlanExecuteWorkflow:
         prompt: str,
         preferred_provider: str | None = None,
         task_type: str = "general",
-        review_provider: str | None = None,
         before_attempt: Callable[[], object] | None = None,
+        review_provider: str | None = None,
     ) -> WorkflowResult:
         started = perf_counter()
         plan_prompt = _compose_bounded_prompt(
