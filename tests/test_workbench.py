@@ -21,5 +21,6 @@ def test_root_serves_goal_workbench():
     assert "OBJECTIF → LIVRABLE" in response.text
     assert "review_provider" in response.text
     assert "Fournisseur de relecture indépendante" in response.text
+    assert "relecture "+'"+data.review_provider+"' in response.text
     assert "/v1/workflows/plan-execute" in response.text
     assert "localStorage" not in response.text
