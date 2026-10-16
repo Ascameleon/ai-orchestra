@@ -3,7 +3,7 @@ import pytest
 from orchestra.core import Orchestrator
 from orchestra.guardrails import BudgetExceeded, CostGuard
 from orchestra.providers.base import ProviderResult
-from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow
+from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow, WorkflowInputTooLong
 
 
 class SequencedProvider:
@@ -166,11 +166,21 @@ def test_plan_execute_workflow_returns_no_partial_result_when_budget_exhausts():
     assert guard.used == 3
 
 
-def test_plan_execute_workflow_bounds_every_stage():
+def test_plan_execute_rejects_original_task_that_would_be_truncated():
     provider = FourStageProvider()
     workflow = PlanExecuteWorkflow(Orchestrator(provider), max_input_chars=400)
 
-    workflow.run("large task " * 100)
+    with pytest.raises(WorkflowInputTooLong, match="Original task"):
+        workflow.run("large task " * 100)
 
-    assert len(provider.prompts) == 4
-    assert all(len(prompt) <= 400 for prompt in provider.prompts)
+    assert provider.prompts == []
+
+
+def test_review_rejects_original_task_that_would_be_truncated():
+    provider = SequencedProvider()
+    workflow = ReviewWorkflow(Orchestrator(provider), max_input_chars=400)
+
+    with pytest.raises(WorkflowInputTooLong, match="Original task"):
+        workflow.run("large task " * 100)
+
+    assert provider.prompts == []
