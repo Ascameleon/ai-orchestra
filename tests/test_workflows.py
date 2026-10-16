@@ -24,6 +24,7 @@ def test_review_workflow_runs_draft_review_and_revision():
     result = ReviewWorkflow(Orchestrator(provider)).run("Build a safe API")
 
     assert result.provider == "sequence"
+    assert result.review_provider == "sequence"
     assert result.text == "complete revised answer"
     assert result.provider_calls == 3
     assert result.input_chars == len("Build a safe API")
@@ -193,6 +194,7 @@ def test_plan_execute_workflow_can_use_a_distinct_review_provider():
     )
 
     assert result.provider == "primary"
+    assert result.review_provider == "reviewer"
     assert result.provider_calls == 4
     assert primary.calls == 3
     assert reviewer.calls == 1
