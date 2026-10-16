@@ -100,6 +100,11 @@ class SQLiteDailyCostGuard:
             raise ValueError("budget clock must return a timezone-aware datetime")
         return now.astimezone(UTC).date().isoformat()
 
+    def check_ready(self) -> None:
+        """Raise if the persistent SQLite budget database cannot be queried."""
+        with self._lock:
+            self._connection.execute("SELECT 1").fetchone()
+
     def reserve(self) -> int:
         """Atomically reserve one provider attempt or raise when today's limit is reached."""
         with self._lock:
