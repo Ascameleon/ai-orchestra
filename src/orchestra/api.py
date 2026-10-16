@@ -65,6 +65,7 @@ class WorkflowRequest(BaseModel):
 
 class PlanExecuteRequest(WorkflowRequest):
     task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
+    review_provider: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class EvidenceItemRequest(BaseModel):
@@ -573,11 +574,14 @@ finally{button.disabled=false;}
             raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
         if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
             raise HTTPException(status_code=400, detail="Requested provider is not configured")
+        if request.review_provider and request.review_provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested review provider is not configured")
         try:
             result = PlanExecuteWorkflow(orchestrator, max_input_chars=max_input).run(
                 request.prompt,
                 preferred_provider=request.provider,
                 task_type=request.task_type,
+                review_provider=request.review_provider,
                 before_attempt=budget.reserve,
             )
         except WorkflowInputTooLong as exc:
