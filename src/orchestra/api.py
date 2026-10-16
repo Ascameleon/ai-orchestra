@@ -260,7 +260,7 @@ def create_app(
     metrics = {"succeeded": 0, "failed": 0, "rejected": 0}
     metrics_lock = Lock()
 
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def workbench() -> HTMLResponse:
         """Serve a small, stateless browser interface for the complete goal workflow."""
         return HTMLResponse(r"""<!doctype html>
