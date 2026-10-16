@@ -7,6 +7,10 @@ from uuid import uuid4
 from orchestra.core import Orchestrator
 
 
+class WorkflowInputTooLong(ValueError):
+    """Raised when the original task cannot fit without silently truncating it."""
+
+
 @dataclass(frozen=True)
 class WorkflowResult:
     workflow_id: str
@@ -76,6 +80,10 @@ class ReviewWorkflow:
         draft_prompt = _compose_bounded_prompt(
             draft_instruction, (("TASK", prompt),), self._max_input_chars
         )
+        if prompt not in draft_prompt:
+            raise WorkflowInputTooLong(
+                "Original task exceeds the workflow input limit; shorten it or raise the configured limit"
+            )
         draft = self._orchestrator.run(
             draft_prompt,
             preferred_provider=preferred_provider,
@@ -154,6 +162,10 @@ class PlanExecuteWorkflow:
             (("ORIGINAL TASK", prompt),),
             self._max_input_chars,
         )
+        if prompt not in plan_prompt:
+            raise WorkflowInputTooLong(
+                "Original task exceeds the workflow input limit; shorten it or raise the configured limit"
+            )
         plan = self._orchestrator.run(
             plan_prompt,
             preferred_provider=preferred_provider,
