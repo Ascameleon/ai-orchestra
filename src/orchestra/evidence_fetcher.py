@@ -173,10 +173,14 @@ class EvidenceFetcher:
             raise EvidenceFetchUnavailable("Source host could not be resolved") from None
         addresses: list[str] = []
         for answer in answers:
-            raw_ip = answer[4][0].split("%", 1)[0]
+            # Resolver output is an external boundary. Ignore malformed records
+            # and fail closed if none of the returned addresses can be validated.
             try:
-                address = ipaddress.ip_address(raw_ip)
-            except ValueError:
+                raw_ip = answer[4][0]
+                if not isinstance(raw_ip, str):
+                    continue
+                address = ipaddress.ip_address(raw_ip.split("%", 1)[0])
+            except (IndexError, TypeError, ValueError):
                 continue
             if not address.is_global:
                 raise EvidenceFetchRequestError("Source hostname resolves to a non-public IP address")
