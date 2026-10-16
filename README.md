@@ -31,6 +31,12 @@ python -m build
 
 The automated tests stub the provider SDK; they do not contact Gemini or spend API credits.
 
+## Browser workbench
+
+Open the root URL of a running instance (for local development, `http://127.0.0.1:8000/`) to use the browser workbench. Enter a goal, choose a task type, and run the complete plan → execute → independent review → final synthesis workflow. The interface displays only the final deliverable and execution metadata.
+
+The workbench sends requests to this same instance and does not persist the API key in browser storage. If API-key authentication is enabled, enter the instance key for the current request. Provider credentials must still be configured server-side. Provider calls can incur charges; the UI does not bypass request budgets, provider limits, or external permissions. This is a practical browser entry point, not a claim that the application can execute external actions or deploy software without the required tools and credentials.
+
 ## Run the API
 
 For local use, after configuring a valid API key and a model enabled for your account:
