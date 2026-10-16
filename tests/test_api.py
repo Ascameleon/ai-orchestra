@@ -197,7 +197,9 @@ def test_task_response_reports_fallback_attempt_count():
     assert response.json()["attempts"] == 2
 
 
-def test_provider_configuration_endpoint_is_authenticated_and_never_claims_live_verification(monkeypatch):
+def test_provider_configuration_endpoint_is_authenticated_and_never_claims_live_verification(
+    monkeypatch,
+):
     monkeypatch.setenv("ORCHESTRA_API_KEY", "test-instance-secret")
     client = TestClient(create_app(Orchestrator(StubProvider())))
 
