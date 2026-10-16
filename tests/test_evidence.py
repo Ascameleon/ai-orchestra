@@ -249,3 +249,17 @@ def test_conflicting_duplicate_url_group_labels_are_order_independent():
     assert forward.fresh_independent_source_groups == reverse.fresh_independent_source_groups == ("gamma",)
     assert not forward.has_enough_fresh_independent_sources
     assert not reverse.has_enough_fresh_independent_sources
+
+
+def test_unicode_and_punycode_hostnames_are_deduplicated():
+    result = assess_evidence(
+        [
+            item("e1", "alpha", "https://bücher.example/report", NOW),
+            item("e2", "beta", "https://xn--bcher-kva.example/report", NOW),
+        ],
+        now=NOW,
+    )
+
+    assert result.unique_urls == 1
+    assert result.duplicate_url_records == 1
+    assert result.independent_source_groups == ()
