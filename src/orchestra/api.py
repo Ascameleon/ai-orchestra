@@ -65,6 +65,7 @@ class WorkflowRequest(BaseModel):
 
 class PlanExecuteRequest(WorkflowRequest):
     task_type: Literal["general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"] = "general"
+    review_provider: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class EvidenceItemRequest(BaseModel):
@@ -297,7 +298,8 @@ footer{margin-top:18px;color:#8799ae;font-size:.8rem;line-height:1.55}
 <div class="grid">
 <div><label for="task_type">Type de travail</label><select id="task_type">
 <option value="general">Choix automatique</option><option value="research">Recherche</option><option value="analysis">Analyse</option><option value="code">Développement / code</option><option value="writing">Rédaction</option><option value="review">Audit / vérification</option></select></div>
-<div><label for="provider">Fournisseur (facultatif)</label><select id="provider"><option value="">Configuration par défaut</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></div>
+<div><label for="provider">Fournisseur principal (facultatif)</label><select id="provider"><option value="">Configuration par défaut</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></div>
+<div><label for="review_provider">Fournisseur de relecture indépendante</label><select id="review_provider"><option value="">Même politique que l’orchestration</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></div>
 </div>
 <label for="api_key">Clé API de votre instance (si requise)</label><input id="api_key" type="password" autocomplete="off" placeholder="Utilisée pour cette requête uniquement">
 <p class="hint">La clé n’est pas enregistrée dans le navigateur. Elle est envoyée uniquement à cette instance via l’en-tête X-API-Key. Les appels au fournisseur peuvent être payants selon votre compte et sa configuration.</p>
@@ -311,7 +313,7 @@ const form=document.getElementById("goal-form"),button=document.getElementById("
 form.addEventListener("submit",async function(event){
 event.preventDefault();const prompt=document.getElementById("prompt").value.trim();if(!prompt)return;
 button.disabled=true;status.textContent="Orchestration en cours. Les étapes sont exécutées et relues avant la synthèse finale…";result.style.display="none";result.textContent="";
-const body={prompt:prompt,task_type:document.getElementById("task_type").value};const provider=document.getElementById("provider").value;if(provider)body.provider=provider;
+const body={prompt:prompt,task_type:document.getElementById("task_type").value};const provider=document.getElementById("provider").value;if(provider)body.provider=provider;const reviewProvider=document.getElementById("review_provider").value;if(reviewProvider)body.review_provider=reviewProvider;
 const headers={"Content-Type":"application/json"};const key=document.getElementById("api_key").value;if(key)headers["X-API-Key"]=key;
 try{const response=await fetch("/v1/workflows/plan-execute",{method:"POST",headers:headers,body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.detail||("Erreur HTTP "+response.status));
 result.textContent=data.text||"Aucun livrable n’a été retourné.";result.style.display="block";status.textContent="Terminé côté orchestration · "+data.provider+" / "+data.model+" · "+data.provider_calls+" appels fournisseur · "+data.duration_ms+" ms.";
@@ -573,11 +575,14 @@ finally{button.disabled=false;}
             raise HTTPException(status_code=413, detail="Prompt exceeds configured input limit")
         if request.provider and request.provider.strip().lower() not in orchestrator.provider_names:
             raise HTTPException(status_code=400, detail="Requested provider is not configured")
+        if request.review_provider and request.review_provider.strip().lower() not in orchestrator.provider_names:
+            raise HTTPException(status_code=400, detail="Requested review provider is not configured")
         try:
             result = PlanExecuteWorkflow(orchestrator, max_input_chars=max_input).run(
                 request.prompt,
                 preferred_provider=request.provider,
                 task_type=request.task_type,
+                review_provider=request.review_provider,
                 before_attempt=budget.reserve,
             )
         except WorkflowInputTooLong as exc:

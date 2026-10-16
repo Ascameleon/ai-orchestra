@@ -706,6 +706,51 @@ def test_plan_execute_rejects_task_that_would_be_truncated_before_provider_call(
     assert client.get("/metrics").json()["rejected"] == 1
 
 
+def test_plan_execute_endpoint_supports_distinct_review_provider():
+    class NamedProvider:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            text = f"{self.name} response {self.calls}"
+            return ProviderResult(self.name, "test-model", text, len(prompt), len(text))
+
+    primary = NamedProvider("primary")
+    reviewer = NamedProvider("reviewer")
+    client = TestClient(create_app(Orchestrator([primary, reviewer])))
+
+    response = client.post(
+        "/v1/workflows/plan-execute",
+        json={
+            "prompt": "Build and test an API",
+            "task_type": "code",
+            "provider": "primary",
+            "review_provider": "reviewer",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["provider"] == "primary"
+    assert response.json()["provider_calls"] == 4
+    assert primary.calls == 3
+    assert reviewer.calls == 1
+
+
+def test_plan_execute_rejects_unconfigured_review_provider_before_budget_reservation():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    response = client.post(
+        "/v1/workflows/plan-execute",
+        json={"prompt": "do the work", "review_provider": "missing"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Requested review provider is not configured"}
+    assert client.get("/metrics").json()["requests_used"] == 0
+
+
 def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(monkeypatch):
     import orchestra.api as api_module
     real_guard = api_module.CostGuard
