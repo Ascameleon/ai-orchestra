@@ -155,6 +155,34 @@ def test_plan_execute_workflow_routes_each_stage_by_role():
     assert (planner.calls, coder.calls, reviewer.calls, writer.calls) == (1, 1, 1, 1)
 
 
+def test_plan_execute_workflow_can_use_a_distinct_review_provider():
+    class NamedProvider:
+        def __init__(self, name, answer):
+            self.name = name
+            self.answer = answer
+            self.calls = 0
+
+        def generate(self, prompt: str) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(self.name, "test-model", self.answer, len(prompt), len(self.answer))
+
+    primary = NamedProvider("primary", "primary-stage")
+    reviewer = NamedProvider("reviewer", "independent corrections")
+    workflow = PlanExecuteWorkflow(Orchestrator([primary, reviewer]))
+
+    result = workflow.run(
+        "Build and test an API",
+        preferred_provider="primary",
+        task_type="code",
+        review_provider="reviewer",
+    )
+
+    assert result.provider == "primary"
+    assert result.provider_calls == 4
+    assert primary.calls == 3
+    assert reviewer.calls == 1
+
+
 def test_plan_execute_workflow_returns_no_partial_result_when_budget_exhausts():
     provider = FourStageProvider()
     guard = CostGuard(3)
