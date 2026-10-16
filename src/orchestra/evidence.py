@@ -38,9 +38,15 @@ def _canonical_url(url: str) -> str:
     if parts.username is not None or parts.password is not None:
         raise ValueError("url must not contain embedded credentials")
     hostname = parts.hostname.lower()
-    # A trailing DNS root dot is equivalent to the same hostname without it.
-    # Strip it for URL deduplication, but reject a host made only of dots.
+    # DNS names must be compared in their ASCII IDNA form, otherwise the Unicode
+    # spelling and its punycode spelling can be counted as separate sources.
     if ":" not in hostname:
+        try:
+            hostname = hostname.encode("idna").decode("ascii")
+        except UnicodeError:
+            raise ValueError("url must be an absolute http(s) URL") from None
+        # A trailing DNS root dot is equivalent to the same hostname without it.
+        # Strip it for URL deduplication, but reject a host made only of dots.
         hostname = hostname.rstrip(".")
     # urlsplit accepts whitespace and control characters inside hostnames; reject
     # these instead of treating malformed input as a valid source URL.
