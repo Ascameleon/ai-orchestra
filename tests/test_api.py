@@ -684,6 +684,7 @@ def test_plan_execute_workflow_endpoint_returns_final_synthesis_only():
     assert response.status_code == 200
     assert response.json()["text"] == "final deliverable"
     assert response.json()["provider_calls"] == 4
+    assert response.json()["review_provider"] == "four-stage"
     assert provider.calls == 4
     audit = client.get("/audit").json()[0]
     assert audit["outcome"] == "success"
@@ -734,6 +735,7 @@ def test_plan_execute_endpoint_supports_distinct_review_provider():
     assert response.status_code == 200
     assert response.json()["provider"] == "primary"
     assert response.json()["provider_calls"] == 4
+    assert response.json()["review_provider"] == "reviewer"
     assert primary.calls == 3
     assert reviewer.calls == 1
 
