@@ -197,6 +197,26 @@ def test_task_response_reports_fallback_attempt_count():
     assert response.json()["attempts"] == 2
 
 
+def test_provider_configuration_endpoint_is_authenticated_and_never_claims_live_verification(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "test-instance-secret")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    denied = client.get("/providers/configuration")
+    assert denied.status_code == 401
+
+    response = client.get(
+        "/providers/configuration",
+        headers={"X-API-Key": "test-instance-secret"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["live_check_performed"] is False
+    assert body["note"] == "Configuration only; no provider request was sent."
+    assert "test-instance-secret" not in response.text
+    assert all(item["live_verified"] is False for item in body["providers"])
+    assert all("api_key" not in item and "credential" not in item.get("secret", "") for item in body["providers"])
+
+
 def test_provider_health_endpoint_reports_metadata_only(monkeypatch):
     client = TestClient(create_app(Orchestrator([FailingProvider(), StubProvider()])))
     response = client.post("/v1/tasks", json={"prompt": "private prompt"})
