@@ -112,6 +112,14 @@ def test_sqlite_daily_budget_persists_across_instances_and_enforces_limit(tmp_pa
     reopened.close()
 
 
+def test_sqlite_daily_budget_readiness_queries_database(tmp_path):
+    from orchestra.guardrails import SQLiteDailyCostGuard
+
+    guard = SQLiteDailyCostGuard(str(tmp_path / "daily-budget.sqlite3"), 3)
+    guard.check_ready()
+    guard.close()
+
+
 def test_sqlite_daily_budget_resets_at_utc_day_boundary(tmp_path):
     from datetime import UTC, datetime, timedelta
 
