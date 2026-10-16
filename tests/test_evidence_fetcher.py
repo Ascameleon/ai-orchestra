@@ -125,6 +125,24 @@ def test_fetch_blocks_private_dns_answers_before_connecting():
     assert called == []
 
 
+@pytest.mark.parametrize("malformed_answers", [[()], [(None,)], [(0, 0, 0, "", ())], [(0, 0, 0, "", (None, 80))]])
+def test_malformed_dns_resolver_records_fail_closed(malformed_answers):
+    called = []
+
+    def malformed_resolver(host, port, type):
+        return malformed_answers
+
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=malformed_resolver,
+        connector=lambda *args, **kwargs: called.append(args),
+    )
+
+    with pytest.raises(EvidenceFetchUnavailable, match="no usable public address"):
+        fetcher.fetch_many(["http://example.com/"])
+    assert called == []
+
+
 def test_redirects_are_rejected_and_never_followed(monkeypatch):
     sock = FakeSocket()
     response = FakeResponse(status=302)
