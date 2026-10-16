@@ -580,6 +580,22 @@ finally{button.disabled=false;}
                 task_type=request.task_type,
                 before_attempt=budget.reserve,
             )
+        except WorkflowInputTooLong as exc:
+            record_audit(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="rejected",
+                )
+            )
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail=str(exc)) from None
         except BudgetExceeded:
             record_audit(
                 AuditEvent(
