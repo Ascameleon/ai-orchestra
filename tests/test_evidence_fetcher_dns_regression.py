@@ -3,7 +3,11 @@ import socket
 
 import pytest
 
-from orchestra.evidence_fetcher import EvidenceFetcher, EvidenceFetchRequestError
+from orchestra.evidence_fetcher import (
+    EvidenceFetcher,
+    EvidenceFetchRequestError,
+    EvidenceFetchUnavailable,
+)
 
 
 def test_mixed_public_and_private_dns_answers_fail_closed_before_connect():
@@ -55,7 +59,6 @@ def test_ipv4_mapped_private_ipv6_dns_answer_fails_closed():
     assert connected == []
 
 
-
 def test_dns_answers_without_parseable_ips_fail_closed_without_connecting():
     """A resolver response with no usable IP must never reach the connector."""
     connected = []
@@ -70,8 +73,6 @@ def test_dns_answers_without_parseable_ips_fail_closed_without_connecting():
         resolver=unusable_resolver,
         connector=lambda *args, **kwargs: connected.append((args, kwargs)),
     )
-
-    from orchestra.evidence_fetcher import EvidenceFetchUnavailable
 
     with pytest.raises(EvidenceFetchUnavailable, match="no usable public address"):
         fetcher.fetch_many(["http://example.com/article"])
@@ -91,8 +92,6 @@ def test_dns_resolution_failure_is_normalized_and_never_connects():
         resolver=failing_resolver,
         connector=lambda *args, **kwargs: connected.append((args, kwargs)),
     )
-
-    from orchestra.evidence_fetcher import EvidenceFetchUnavailable
 
     with pytest.raises(EvidenceFetchUnavailable, match="could not be resolved") as error:
         fetcher.fetch_many(["http://example.com/article"])
