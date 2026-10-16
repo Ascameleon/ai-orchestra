@@ -367,7 +367,7 @@ finally{button.disabled=false;}
     @app.get("/providers/configuration")
     def get_provider_configuration(
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-    ) -> dict[str, object]:
+    ) -> dict:
         """Report provider configuration without exposing credentials or making calls."""
         authorize(x_api_key)
         if orchestrator is None:
