@@ -168,7 +168,9 @@ class EvidenceFetcher:
                 address = ipaddress.ip_address(raw_ip)
             except ValueError:
                 continue
-            if not address.is_global:
+            # Python considers multicast addresses globally scoped in some cases;
+            # they are never valid unicast destinations for this fetcher.
+            if not address.is_global or address.is_multicast:
                 raise EvidenceFetchRequestError("Source hostname resolves to a non-public IP address")
             addresses.append(str(address))
         if not addresses:
