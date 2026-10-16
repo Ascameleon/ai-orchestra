@@ -53,3 +53,49 @@ def test_ipv4_mapped_private_ipv6_dns_answer_fails_closed():
         fetcher.fetch_many(["http://example.com/article"])
 
     assert connected == []
+
+
+
+def test_dns_answers_without_parseable_ips_fail_closed_without_connecting():
+    """A resolver response with no usable IP must never reach the connector."""
+    connected = []
+
+    def unusable_resolver(host, port, type):
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("not-an-ip", port))
+        ]
+
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=unusable_resolver,
+        connector=lambda *args, **kwargs: connected.append((args, kwargs)),
+    )
+
+    from orchestra.evidence_fetcher import EvidenceFetchUnavailable
+
+    with pytest.raises(EvidenceFetchUnavailable, match="no usable public address"):
+        fetcher.fetch_many(["http://example.com/article"])
+
+    assert connected == []
+
+
+def test_dns_resolution_failure_is_normalized_and_never_connects():
+    """DNS infrastructure errors are surfaced safely without attempting a connection."""
+    connected = []
+
+    def failing_resolver(host, port, type):
+        raise socket.gaierror("private resolver details should not leak")
+
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=failing_resolver,
+        connector=lambda *args, **kwargs: connected.append((args, kwargs)),
+    )
+
+    from orchestra.evidence_fetcher import EvidenceFetchUnavailable
+
+    with pytest.raises(EvidenceFetchUnavailable, match="could not be resolved") as error:
+        fetcher.fetch_many(["http://example.com/article"])
+
+    assert "private resolver details" not in str(error.value)
+    assert connected == []
