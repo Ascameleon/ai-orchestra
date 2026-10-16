@@ -12,7 +12,7 @@ _CITATION = re.compile(r"\[(ev_[^\]\s]+)\]")
 # Split after terminal punctuation and any closing quotation/bracket characters.
 # Without the optional closers, e.g. 'Claim [ev_id].” Next claim.' is counted
 # as one sentence and can falsely inflate sentence-level citation coverage.
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?؟。｡！？])[\\"'”’»）)\]]*\s+(?=\S)")
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?؟。｡！？])[\"'”’»）)\]]*\s+(?=\S)")
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ def audit_citation_coverage(
         if not normalized:
             continue
         # Markdown headings alone do not make a factual sentence.
-        normalized = re.sub(r"^#{1,6}\\s+", "", normalized)
+        normalized = re.sub(r"^#{1,6}\s+", "", normalized)
         if not normalized or normalized in {"-", "*", "•"}:
             continue
         sentences.extend(
