@@ -47,7 +47,7 @@ from orchestra.traceability import (
     screen_potential_conflicts,
     trace_conclusions,
 )
-from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow
+from orchestra.workflows import PlanExecuteWorkflow, ReviewWorkflow, WorkflowInputTooLong
 
 logger = logging.getLogger(__name__)
 
@@ -430,6 +430,22 @@ finally{button.disabled=false;}
                 task_type=request.task_type,
                 before_attempt=budget.reserve,
             )
+        except WorkflowInputTooLong as exc:
+            record_audit(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="rejected",
+                )
+            )
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail=str(exc)) from None
         except BudgetExceeded:
             record_audit(
                 AuditEvent(
@@ -500,6 +516,10 @@ finally{button.disabled=false;}
                 preferred_provider=request.provider,
                 before_attempt=budget.reserve,
             )
+        except WorkflowInputTooLong as exc:
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail=str(exc)) from None
         except BudgetExceeded:
             with metrics_lock:
                 metrics["rejected"] += 1
@@ -560,6 +580,22 @@ finally{button.disabled=false;}
                 task_type=request.task_type,
                 before_attempt=budget.reserve,
             )
+        except WorkflowInputTooLong as exc:
+            record_audit(
+                AuditEvent(
+                    timestamp=AuditTrail.now(),
+                    request_id=str(uuid4()),
+                    provider="unknown",
+                    model="unknown",
+                    input_chars=len(request.prompt),
+                    output_chars=0,
+                    duration_ms=0,
+                    outcome="rejected",
+                )
+            )
+            with metrics_lock:
+                metrics["rejected"] += 1
+            raise HTTPException(status_code=413, detail=str(exc)) from None
         except BudgetExceeded:
             record_audit(
                 AuditEvent(

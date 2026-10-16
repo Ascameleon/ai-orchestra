@@ -670,6 +670,21 @@ def test_plan_execute_workflow_endpoint_returns_final_synthesis_only():
     assert "execution draft" not in client.get("/audit").text
 
 
+def test_plan_execute_rejects_task_that_would_be_truncated_before_provider_call():
+    provider = StubProvider()
+    client = TestClient(create_app(Orchestrator(provider)))
+
+    response = client.post(
+        "/v1/workflows/plan-execute",
+        json={"prompt": "x" * 12000},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"].startswith("Original task exceeds")
+    assert client.get("/metrics").json()["requests_used"] == 0
+    assert client.get("/metrics").json()["rejected"] == 1
+
+
 def test_plan_execute_endpoint_returns_no_partial_result_when_budget_exhausted(monkeypatch):
     import orchestra.api as api_module
     real_guard = api_module.CostGuard
