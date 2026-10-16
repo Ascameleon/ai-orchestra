@@ -80,6 +80,22 @@ def test_dns_answers_without_parseable_ips_fail_closed_without_connecting():
     assert connected == []
 
 
+
+def test_malformed_bracketed_host_is_rejected_as_invalid_url():
+    """Malformed URL authority must produce a request error, not leak ValueError."""
+    connected = []
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=lambda *args, **kwargs: [],
+        connector=lambda *args, **kwargs: connected.append((args, kwargs)),
+    )
+
+    with pytest.raises(EvidenceFetchRequestError, match="URL is invalid"):
+        fetcher.fetch_many(["http://[broken/"])
+
+    assert connected == []
+
+
 def test_dns_resolution_failure_is_normalized_and_never_connects():
     """DNS infrastructure errors are surfaced safely without attempting a connection."""
     connected = []
