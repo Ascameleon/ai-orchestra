@@ -150,6 +150,27 @@ def test_readiness_distinguishes_missing_provider_configuration(monkeypatch):
     assert client.get("/ready").status_code == 503
 
 
+def test_readiness_fails_when_sqlite_budget_backend_is_unavailable(monkeypatch, tmp_path):
+    import sqlite3
+
+    import orchestra.api as api_module
+
+    real_guard = api_module.SQLiteDailyCostGuard
+
+    class UnavailableSQLiteBudget(real_guard):
+        def check_ready(self):
+            raise sqlite3.OperationalError("private database detail")
+
+    monkeypatch.setenv("ORCHESTRA_BUDGET_DB", str(tmp_path / "budget.sqlite3"))
+    monkeypatch.setattr(api_module, "SQLiteDailyCostGuard", UnavailableSQLiteBudget)
+
+    with TestClient(create_app(Orchestrator(StubProvider()))) as client:
+        response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Request budget backend unavailable"}
+
+
 def test_readiness_reports_configured_injected_orchestrator():
     client = TestClient(create_app(Orchestrator(StubProvider())))
     response = client.get("/ready")
