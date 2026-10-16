@@ -155,6 +155,21 @@ def test_plan_execute_workflow_routes_each_stage_by_role():
     assert (planner.calls, coder.calls, reviewer.calls, writer.calls) == (1, 1, 1, 1)
 
 
+def test_plan_execute_preserves_positional_before_attempt_callback():
+    provider = FourStageProvider()
+    guard = CostGuard(4)
+
+    result = PlanExecuteWorkflow(Orchestrator(provider)).run(
+        "Build an API",
+        None,
+        "general",
+        guard.reserve,
+    )
+
+    assert result.provider_calls == 4
+    assert guard.used == 4
+
+
 def test_plan_execute_workflow_can_use_a_distinct_review_provider():
     class NamedProvider:
         def __init__(self, name, answer):
