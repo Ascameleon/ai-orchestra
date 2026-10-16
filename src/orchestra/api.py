@@ -170,6 +170,7 @@ class ConclusionTraceabilityRequest(BaseModel):
 class WorkflowResponse(BaseModel):
     workflow_id: str
     provider: str
+    review_provider: str
     model: str
     text: str
     duration_ms: int
@@ -316,7 +317,7 @@ button.disabled=true;status.textContent="Orchestration en cours. Les étapes son
 const body={prompt:prompt,task_type:document.getElementById("task_type").value};const provider=document.getElementById("provider").value;if(provider)body.provider=provider;const reviewProvider=document.getElementById("review_provider").value;if(reviewProvider)body.review_provider=reviewProvider;
 const headers={"Content-Type":"application/json"};const key=document.getElementById("api_key").value;if(key)headers["X-API-Key"]=key;
 try{const response=await fetch("/v1/workflows/plan-execute",{method:"POST",headers:headers,body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.detail||("Erreur HTTP "+response.status));
-result.textContent=data.text||"Aucun livrable n’a été retourné.";result.style.display="block";status.textContent="Terminé côté orchestration · "+data.provider+" / "+data.model+" · "+data.provider_calls+" appels fournisseur · "+data.duration_ms+" ms.";
+result.textContent=data.text||"Aucun livrable n’a été retourné.";result.style.display="block";status.textContent="Terminé · résultat "+data.provider+" / "+data.model+" · relecture "+data.review_provider+" · "+data.provider_calls+" appels fournisseur · "+data.duration_ms+" ms.";
 }catch(error){status.textContent="Échec : "+(error&&error.message?error.message:"requête impossible")+". Vérifiez la configuration du fournisseur, l’authentification et le budget. Aucun résultat partiel n’est affiché.";}
 finally{button.disabled=false;}
 });
