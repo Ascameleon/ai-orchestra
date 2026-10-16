@@ -153,6 +153,7 @@ class PlanExecuteWorkflow:
         prompt: str,
         preferred_provider: str | None = None,
         task_type: str = "general",
+        review_provider: str | None = None,
         before_attempt: Callable[[], object] | None = None,
     ) -> WorkflowResult:
         started = perf_counter()
@@ -199,7 +200,7 @@ class PlanExecuteWorkflow:
         )
         review = self._orchestrator.run(
             review_prompt,
-            preferred_provider=preferred_provider,
+            preferred_provider=review_provider or preferred_provider,
             task_type="reviewer",
             before_attempt=before_attempt,
         )
