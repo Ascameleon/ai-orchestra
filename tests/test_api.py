@@ -214,7 +214,7 @@ def test_provider_configuration_endpoint_is_authenticated_and_never_claims_live_
     assert body["note"] == "Configuration only; no provider request was sent."
     assert "test-instance-secret" not in response.text
     assert all(item["live_verified"] is False for item in body["providers"])
-    assert all("api_key" not in item and "credential" not in item.get("secret", "") for item in body["providers"])
+    assert all(set(item) == {"name", "configured_for_routing", "credential_configured", "model", "live_verified"} for item in body["providers"])
 
 
 def test_provider_health_endpoint_reports_metadata_only(monkeypatch):
