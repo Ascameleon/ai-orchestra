@@ -15,6 +15,7 @@ class WorkflowInputTooLong(ValueError):
 class WorkflowResult:
     workflow_id: str
     provider: str
+    review_provider: str
     model: str
     text: str
     duration_ms: int
@@ -125,6 +126,7 @@ class ReviewWorkflow:
         return WorkflowResult(
             workflow_id=str(uuid4()),
             provider=final.provider,
+            review_provider=critique.provider,
             model=final.model,
             text=final.text,
             duration_ms=max(0, int((perf_counter() - started) * 1000)),
@@ -226,6 +228,7 @@ class PlanExecuteWorkflow:
         return WorkflowResult(
             workflow_id=str(uuid4()),
             provider=final.provider,
+            review_provider=review.provider,
             model=final.model,
             text=final.text,
             duration_ms=max(0, int((perf_counter() - started) * 1000)),
