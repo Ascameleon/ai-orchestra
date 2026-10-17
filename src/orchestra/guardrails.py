@@ -256,8 +256,8 @@ class AuditTrail:
     """Keep bounded metadata; never store prompts, completions, or API keys."""
 
     def __init__(self, capacity: int = 1000):
-        if capacity < 1:
-            raise ValueError("capacity must be greater than zero")
+        if type(capacity) is not int or capacity < 1:
+            raise ValueError("capacity must be a positive integer")
         self._events: deque[AuditEvent] = deque(maxlen=capacity)
         self._lock = Lock()
 
@@ -282,8 +282,8 @@ class SQLiteAuditTrail:
 
         if not isinstance(database_path, str) or not database_path.strip():
             raise ValueError("database_path must be a non-empty path")
-        if capacity < 1:
-            raise ValueError("capacity must be greater than zero")
+        if type(capacity) is not int or capacity < 1:
+            raise ValueError("capacity must be a positive integer")
         self._capacity = capacity
         self._lock = Lock()
         self._connection = sqlite3.connect(database_path, check_same_thread=False, timeout=5)
