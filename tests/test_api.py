@@ -205,7 +205,11 @@ def test_provider_configuration_endpoint_reports_no_live_check(monkeypatch):
         headers={"X-API-Key": "test-instance-secret"},
     )
     assert response.status_code == 200
-    assert response.json()["live_check_performed"] is False
+    body = response.json()
+    assert body["live_check_performed"] is False
+    # Provider diagnostics must cover every registered provider, including Grok.
+    assert body["credentials"]["grok"] is False
+    assert body["models"]["grok"] is None
     assert "test-instance-secret" not in response.text
 
 
