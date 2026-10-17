@@ -138,6 +138,16 @@ def test_configured_api_key_protects_metrics_too(monkeypatch):
     assert client.get("/audit", headers=headers).status_code == 200
 
 
+def test_readiness_rejects_example_provider_key(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "REPLACE_WITH_YOUR_PROVIDER_API_KEY")
+    monkeypatch.delenv("ORCHESTRA_PROVIDER_FALLBACKS", raising=False)
+    client = TestClient(create_app())
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+
+
 def test_readiness_distinguishes_missing_provider_configuration(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ORCHESTRA_PROVIDER_FALLBACKS", raising=False)
