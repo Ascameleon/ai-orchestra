@@ -31,8 +31,8 @@ class CostGuard:
     """Bound the number of provider calls made by this process."""
 
     def __init__(self, max_requests: int):
-        if max_requests < 1:
-            raise ValueError("max_requests must be greater than zero")
+        if type(max_requests) is not int or max_requests < 1:
+            raise ValueError("max_requests must be a positive integer")
         self._limit = max_requests
         self._used = 0
         self._lock = Lock()
