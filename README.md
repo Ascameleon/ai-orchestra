@@ -19,7 +19,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Set `GEMINI_API_KEY` for Gemini; install `python -m pip install -e ".[openai]"` for OpenAI or `python -m pip install -e ".[anthropic]"` for Anthropic. Configure the matching provider key. Never commit credentials. The app does not automatically load a `.env` file.
+Set `GEMINI_API_KEY` for Gemini; install `python -m pip install -e ".[openai]"` for OpenAI, `python -m pip install -e ".[anthropic]"` for Anthropic, or `python -m pip install -e ".[grok]"` for Grok. Grok uses `XAI_API_KEY` and `GROK_MODEL`. Configure the matching provider key. Never commit credentials. The app does not automatically load a `.env` file.
 
 ## Verify locally without provider API calls
 
