@@ -33,7 +33,7 @@ def test_load_settings_rejects_invalid_limits(monkeypatch, name, value):
         load_settings()
 
 
-@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL"])
+@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL"])
 def test_load_settings_rejects_empty_model_names(monkeypatch, name):
     monkeypatch.setenv(name, "   ")
     with pytest.raises(ValueError, match="cannot be empty"):
