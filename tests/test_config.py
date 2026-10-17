@@ -65,7 +65,7 @@ def test_provider_fallbacks_are_normalized_and_ordered(monkeypatch):
 @pytest.mark.parametrize("fallbacks", [
     "gemini",
     "openai,OPENAI",
-    "grok",
+    "unknown-provider",
 ])
 def test_provider_fallbacks_reject_primary_duplicates_or_unknown_names(monkeypatch, fallbacks):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
