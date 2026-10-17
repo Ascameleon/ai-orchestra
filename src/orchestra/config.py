@@ -13,6 +13,8 @@ class Settings:
     openai_model: str = "gpt-4o-mini"
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-5-haiku-latest"
+    xai_api_key: str | None = None
+    grok_model: str = "grok-3-mini"
     provider_name: str = "gemini"
     provider_fallbacks: tuple[str, ...] = ()
     task_routes: tuple[tuple[str, str], ...] = ()
@@ -43,6 +45,10 @@ def load_settings() -> Settings:
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-latest").strip()
     if not anthropic_model:
         raise ValueError("ANTHROPIC_MODEL cannot be empty")
+    xai_key = os.getenv("XAI_API_KEY", "").strip() or None
+    grok_model = os.getenv("GROK_MODEL", "grok-3-mini").strip()
+    if not grok_model:
+        raise ValueError("GROK_MODEL cannot be empty")
     provider_name = os.getenv("ORCHESTRA_PROVIDER", "gemini").strip().lower()
     if not provider_name:
         raise ValueError("ORCHESTRA_PROVIDER cannot be empty")
@@ -50,9 +56,9 @@ def load_settings() -> Settings:
     provider_fallbacks = tuple(
         item.strip().lower() for item in fallback_raw.split(",") if item.strip()
     )
-    supported_providers = {"gemini", "openai", "anthropic"}
+    supported_providers = {"gemini", "openai", "anthropic", "grok"}
     if provider_name not in supported_providers:
-        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, or anthropic")
+        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, anthropic, or grok")
     if any(item not in supported_providers for item in provider_fallbacks):
         raise ValueError("ORCHESTRA_PROVIDER_FALLBACKS contains an unsupported provider")
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
@@ -82,6 +88,8 @@ def load_settings() -> Settings:
         openai_model=openai_model,
         anthropic_api_key=anthropic_key,
         anthropic_model=anthropic_model,
+        xai_api_key=xai_key,
+        grok_model=grok_model,
         provider_name=provider_name,
         provider_fallbacks=provider_fallbacks,
         task_routes=tuple(task_routes),
