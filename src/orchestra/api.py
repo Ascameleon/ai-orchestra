@@ -366,6 +366,34 @@ finally{button.disabled=false;}
                 "audit_events": len(audit.snapshot()),
             }
 
+    @app.get("/providers/configuration")
+    def get_provider_configuration(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict:
+        """Report provider configuration without exposing credentials or making calls."""
+        authorize(x_api_key)
+        if orchestrator is None:
+            raise HTTPException(status_code=503, detail=config_error_message)
+
+        return {
+            "primary": settings.provider_name if settings else None,
+            "fallbacks": list(settings.provider_fallbacks) if settings else [],
+            "configured_providers": list(orchestrator.provider_names),
+            "credentials": {
+                "gemini": bool(settings and settings.gemini_api_key),
+                "openai": bool(settings and settings.openai_api_key),
+                "anthropic": bool(settings and settings.anthropic_api_key),
+                "grok": bool(settings and settings.xai_api_key),
+            },
+            "models": {
+                "gemini": settings.gemini_model if settings else None,
+                "openai": settings.openai_model if settings else None,
+                "anthropic": settings.anthropic_model if settings else None,
+                "grok": settings.grok_model if settings else None,
+            },
+            "live_check_performed": False,
+        }
+
     @app.get("/providers/health")
     def get_provider_health(
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),

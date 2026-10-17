@@ -207,6 +207,24 @@ def test_task_response_reports_fallback_attempt_count():
     assert response.json()["attempts"] == 2
 
 
+def test_provider_configuration_endpoint_reports_no_live_check(
+    monkeypatch,
+):
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "test-instance-secret")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.get(
+        "/providers/configuration",
+        headers={"X-API-Key": "test-instance-secret"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["live_check_performed"] is False
+    # Provider diagnostics must cover every registered provider, including Grok.
+    assert body["credentials"]["grok"] is False
+    assert body["models"]["grok"] is None
+    assert "test-instance-secret" not in response.text
+
+
 def test_provider_health_endpoint_reports_metadata_only(monkeypatch):
     client = TestClient(create_app(Orchestrator([FailingProvider(), StubProvider()])))
     response = client.post("/v1/tasks", json={"prompt": "private prompt"})
