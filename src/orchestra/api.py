@@ -225,7 +225,9 @@ def create_app(
     false_values = {"", "0", "false", "no", "off"}
     require_api_key = auth_required_value in true_values
     auth_setting_invalid = auth_required_value not in true_values | false_values
-    auth_configuration_error = auth_setting_invalid or (require_api_key and not api_key)
+    auth_configuration_error = auth_setting_invalid or (
+        require_api_key and (not api_key or api_key.startswith("REPLACE_WITH_"))
+    )
     redis_url = os.getenv("ORCHESTRA_REDIS_URL", "").strip() or None
     budget_db_path = os.getenv("ORCHESTRA_BUDGET_DB", "").strip() or None
     if redis_url:
