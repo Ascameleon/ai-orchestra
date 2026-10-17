@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, and optional Anthropic adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, a process-local budget with an optional persistent UTC-day cap, and a fail-closed API-key requirement mode.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, optional Anthropic, and optional xAI Grok adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, a process-local budget with an optional persistent UTC-day cap, and a fail-closed API-key requirement mode.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Set `GEMINI_API_KEY` for Gemini; install `python -m pip install -e ".[openai]"` for OpenAI or `python -m pip install -e ".[anthropic]"` for Anthropic. Configure the matching provider key. Never commit credentials. The app does not automatically load a `.env` file.
+Set `GEMINI_API_KEY` for Gemini; install `python -m pip install -e ".[openai]"` for OpenAI, `python -m pip install -e ".[anthropic]"` for Anthropic, or `python -m pip install -e ".[grok]"` for xAI Grok. Configure the matching provider key (`XAI_API_KEY` for Grok; optionally select `GROK_MODEL`). Configure the matching provider key. Never commit credentials. The app does not automatically load a `.env` file. Never commit credentials. The app does not automatically load a `.env` file.
 
 ## Verify locally without provider API calls
 
@@ -47,7 +47,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 - `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live provider connectivity.
 - `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`. Set `ORCHESTRA_REQUIRE_API_KEY=true` to fail closed if `ORCHESTRA_API_KEY` is missing or the requirement flag is invalid; the production Compose profile enables this automatically.
-- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"` or `"provider":"anthropic"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
+- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"`, `"provider":"anthropic"`, or `"provider":"grok"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and current budget use.
 - Set `ORCHESTRA_BUDGET_DB` to a local SQLite path to persist the provider-call cap across restarts and enforce it atomically for processes sharing that same file on one host. `ORCHESTRA_MAX_REQUESTS` becomes the per-UTC-day cap; the default production profile allows 100 provider attempts per UTC day. For a shared multi-host quota, set `ORCHESTRA_REDIS_URL` and build with `ORCHESTRA_EXTRAS=redis`; Redis takes precedence over SQLite, uses atomic reservations, and is checked by `/ready`. Configure Redis authentication/TLS and network restrictions. Without either backend, the budget is process-local and resets on restart. Application budgets do not replace provider billing limits.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded. Set `ORCHESTRA_AUDIT_DB` to a local SQLite file to retain the bounded audit window across restarts; unset it to keep audit events in process memory.
@@ -69,7 +69,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
-- `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, and `anthropic`.
+- `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, `anthropic`, and `grok`.
 - `ORCHESTRA_PROVIDER_FALLBACKS`: optional comma-separated ordered fallback providers, for example `openai,anthropic`. Each listed provider needs its own API key and optional SDK extra. The primary cannot be repeated; duplicates and unknown names are rejected. Each task tries providers in order and stops at the first success. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
 - `ORCHESTRA_TASK_ROUTES`: optional deterministic task routing, e.g. `code=openai,research=gemini,writing=anthropic`. Supported task types are `general`, `code`, `research`, `writing`, `analysis`, `review`, `planner`, `reviewer`, and `writer`; each target must already be configured as the primary or a fallback. A per-request `provider` overrides this policy.
 - `ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD`: consecutive provider failures before a circuit opens (default 3; allowed 1–20).
@@ -108,7 +108,7 @@ For a stricter deployment profile, use [`compose.production.yml`](compose.produc
 
 ## Manual live provider validation
 
-The [manual live provider smoke workflow](.github/workflows/live-provider-smoke.yml) tests one selected provider with exactly one short live request. Before running it, add the relevant GitHub Actions repository secret (`GEMINI_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`) under **Settings → Secrets and variables → Actions**. Then open **Actions → Manual live provider smoke test → Run workflow**, choose the provider and a model enabled for that key, and run it deliberately. This workflow is manual-only; it is not run by pull requests or normal CI. A live request may incur provider charges. Logs contain provider/model/latency metadata, not response text or credentials.
+The [manual live provider smoke workflow](.github/workflows/live-provider-smoke.yml) tests one selected provider with exactly one short live request. Before running it, add the relevant GitHub Actions repository secret (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `XAI_API_KEY`) under **Settings → Secrets and variables → Actions**. Then open **Actions → Manual live provider smoke test → Run workflow**, choose the provider and a model enabled for that key, and run it deliberately. This workflow is manual-only; it is not run by pull requests or normal CI. A live request may incur provider charges. Logs contain provider/model/latency metadata, not response text or credentials.
 
 ## Current scope
 
