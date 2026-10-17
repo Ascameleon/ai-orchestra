@@ -40,6 +40,19 @@ def test_load_settings_rejects_empty_model_names(monkeypatch, name):
         load_settings()
 
 
+@pytest.mark.parametrize("name", ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY"])
+def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
+    monkeypatch.setenv(name, "REPLACE_WITH_A_LONG_RANDOM_SECRET")
+    settings = load_settings()
+    attribute = {
+        "GEMINI_API_KEY": "gemini_api_key",
+        "OPENAI_API_KEY": "openai_api_key",
+        "ANTHROPIC_API_KEY": "anthropic_api_key",
+        "XAI_API_KEY": "xai_api_key",
+    }[name]
+    assert getattr(settings, attribute) is None
+
+
 def test_provider_selection_is_normalized(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", " OPENAI ")
     settings = load_settings()
