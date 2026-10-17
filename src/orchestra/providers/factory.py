@@ -3,6 +3,7 @@ from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.gemini import GeminiProvider
+from orchestra.providers.grok import GrokProvider
 from orchestra.providers.openai import OpenAIProvider
 from orchestra.registry import ProviderRegistry
 
@@ -20,6 +21,10 @@ def _build_named_provider(name: str, settings: Settings):
         if not settings.anthropic_api_key:
             raise ProviderConfigurationError("ANTHROPIC_API_KEY is missing")
         return AnthropicProvider(settings)
+    if name == "grok":
+        if not settings.grok_api_key:
+            raise ProviderConfigurationError("XAI_API_KEY is missing")
+        return GrokProvider(settings)
     raise ProviderConfigurationError(f"Unsupported ORCHESTRA_PROVIDER: {name}")
 
 

@@ -381,11 +381,13 @@ finally{button.disabled=false;}
                 "gemini": bool(settings and settings.gemini_api_key),
                 "openai": bool(settings and settings.openai_api_key),
                 "anthropic": bool(settings and settings.anthropic_api_key),
+                "grok": bool(settings and settings.grok_api_key),
             },
             "models": {
                 "gemini": settings.gemini_model if settings else None,
                 "openai": settings.openai_model if settings else None,
                 "anthropic": settings.anthropic_model if settings else None,
+                "grok": settings.grok_model if settings else None,
             },
             "live_check_performed": False,
         }
