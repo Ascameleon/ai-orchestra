@@ -37,6 +37,10 @@ def test_invalid_limits_are_rejected():
     with pytest.raises(ValueError):
         CostGuard(0)
     with pytest.raises(ValueError):
+        CostGuard(True)
+    with pytest.raises(ValueError):
+        CostGuard("2")
+    with pytest.raises(ValueError):
         AuditTrail(0)
 
 
