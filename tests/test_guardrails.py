@@ -37,7 +37,13 @@ def test_invalid_limits_are_rejected():
     with pytest.raises(ValueError):
         CostGuard(0)
     with pytest.raises(ValueError):
+        CostGuard(True)
+    with pytest.raises(ValueError):
+        CostGuard("2")
+    with pytest.raises(ValueError):
         AuditTrail(0)
+    with pytest.raises(ValueError, match="capacity"):
+        AuditTrail(True)
 
 
 def test_cost_guard_is_thread_safe_under_concurrent_reservations():
@@ -87,6 +93,8 @@ def test_sqlite_audit_trail_rejects_empty_path_and_invalid_capacity(tmp_path):
         SQLiteAuditTrail(" ")
     with pytest.raises(ValueError, match="capacity"):
         SQLiteAuditTrail(str(tmp_path / "audit.sqlite3"), capacity=0)
+    with pytest.raises(ValueError, match="capacity"):
+        SQLiteAuditTrail(str(tmp_path / "audit.sqlite3"), capacity=True)
 
 
 def test_sqlite_daily_budget_persists_across_instances_and_enforces_limit(tmp_path):
@@ -172,6 +180,8 @@ def test_sqlite_daily_budget_rejects_invalid_configuration(tmp_path):
         SQLiteDailyCostGuard(" ", 1)
     with pytest.raises(ValueError, match="max_requests"):
         SQLiteDailyCostGuard(str(tmp_path / "budget.sqlite3"), 0)
+    with pytest.raises(ValueError, match="max_requests"):
+        SQLiteDailyCostGuard(str(tmp_path / "budget.sqlite3"), True)
     from datetime import datetime
 
     guard = SQLiteDailyCostGuard(
@@ -272,5 +282,7 @@ def test_redis_daily_budget_rejects_invalid_configuration():
         RedisDailyCostGuard(" ", 1, client=object())
     with pytest.raises(ValueError, match="max_requests"):
         RedisDailyCostGuard("redis://test", 0, client=object())
+    with pytest.raises(ValueError, match="max_requests"):
+        RedisDailyCostGuard("redis://test", True, client=object())
     with pytest.raises(ValueError, match="key_prefix"):
         RedisDailyCostGuard("redis://test", 1, key_prefix=" ", client=object())

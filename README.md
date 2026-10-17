@@ -1,6 +1,6 @@
 # AI ORCHESTRA
 
-AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, optional Anthropic, and optional xAI Grok adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, a process-local budget with an optional persistent UTC-day cap, and a fail-closed API-key requirement mode.
+AI ORCHESTRA is a modular Python foundation for executing provider-backed tasks through a small HTTP API. The current implementation includes Gemini, optional OpenAI, optional Anthropic, and optional xAI Grok adapters behind a typed provider contract and settings-driven registry, request metrics, bounded metadata-only audit events, a provider-call-count limit (not a monetary spending cap), with optional persistent UTC-day enforcement, and a fail-closed API-key requirement mode.
 
 ## Requirements
 
@@ -80,7 +80,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `GROK_MODEL`: xAI Grok model name (default `grok-3-mini`); select a model enabled for the configured xAI account.
 - `ORCHESTRA_MAX_INPUT_CHARS`: maximum prompt length (default 12000; allowed 1–100000).
 - `ORCHESTRA_MAX_OUTPUT_TOKENS`: output token cap (default 1024; allowed 1–8192).
-- `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts per process, including fallbacks (default 100; allowed 1–100000).
+- `ORCHESTRA_MAX_REQUESTS`: maximum provider-call attempts, including fallback attempts that reach the reservation hook (default 100; allowed 1–100000). This is a **call-count limit, not a euro/dollar spending cap**: provider prices and token usage vary, and a reserved attempt may fail after a charge. A hard €0 guarantee requires disabling all live-provider calls and using mocked/offline tests only; API keys and provider-side billing limits must be managed separately.
 - `ORCHESTRA_AUDIT_CAPACITY`: retained audit events (default 1000; allowed 1–10000).
 - `ORCHESTRA_MEMORY_DB`: optional SQLite path for durable aggregate provider outcomes. Leave unset for process-local memory. For Docker Compose, use `/data/provider-memory.sqlite3`; `/data` is a named volume. The database stores provider names, counts, and latency only—never prompts, completions, or credentials.
 - `ORCHESTRA_AUDIT_DB`: optional SQLite path for a bounded persistent audit window. For Docker Compose, use `/data/audit.sqlite3`. It stores timestamps, request IDs, provider/model names, character counts, duration, and outcome only; it never stores prompts, completions, or credentials. The audit retention capacity is controlled by `ORCHESTRA_AUDIT_CAPACITY`.
