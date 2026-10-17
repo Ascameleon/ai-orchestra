@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Optional extras: pass ORCHESTRA_EXTRAS=openai,anthropic at build time.
+# Optional extras: pass ORCHESTRA_EXTRAS=openai,anthropic,grok at build time.
 ARG ORCHESTRA_EXTRAS=""
 COPY pyproject.toml README.md ./
 COPY src ./src

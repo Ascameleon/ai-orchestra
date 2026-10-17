@@ -138,6 +138,16 @@ def test_configured_api_key_protects_metrics_too(monkeypatch):
     assert client.get("/audit", headers=headers).status_code == 200
 
 
+def test_readiness_rejects_example_provider_key(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "REPLACE_WITH_YOUR_PROVIDER_API_KEY")
+    monkeypatch.delenv("ORCHESTRA_PROVIDER_FALLBACKS", raising=False)
+    client = TestClient(create_app())
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+
+
 def test_readiness_distinguishes_missing_provider_configuration(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ORCHESTRA_PROVIDER_FALLBACKS", raising=False)
@@ -962,6 +972,17 @@ def test_api_persists_daily_budget_across_app_restarts(monkeypatch, tmp_path):
 def test_required_api_key_fails_closed_when_secret_is_missing(monkeypatch):
     monkeypatch.delenv("ORCHESTRA_API_KEY", raising=False)
     monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "true")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 503
+    assert client.get("/metrics").status_code == 503
+    assert client.post("/v1/tasks", json={"prompt": "hello"}).status_code == 503
+
+
+def test_placeholder_api_key_fails_closed_when_authentication_is_required(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "REPLACE_WITH_A_LONG_RANDOM_SECRET")
     client = TestClient(create_app(Orchestrator(StubProvider())))
 
     assert client.get("/health").status_code == 200

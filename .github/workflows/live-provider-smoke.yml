@@ -12,6 +12,7 @@ on:
           - gemini
           - openai
           - anthropic
+          - grok
       gemini_model:
         description: Gemini model ID
         type: string
@@ -27,6 +28,11 @@ on:
         type: string
         required: true
         default: claude-3-5-haiku-latest
+      grok_model:
+        description: xAI Grok model ID
+        type: string
+        required: true
+        default: grok-3-mini
 
 permissions:
   contents: read
@@ -45,9 +51,11 @@ jobs:
       GEMINI_MODEL: ${{ inputs.gemini_model }}
       OPENAI_MODEL: ${{ inputs.openai_model }}
       ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+      GROK_MODEL: ${{ inputs.grok_model }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -63,6 +71,8 @@ jobs:
             python -m pip install -e ".[openai]"
           elif [[ "$ORCHESTRA_PROVIDER" == "anthropic" ]]; then
             python -m pip install -e ".[anthropic]"
+          elif [[ "$ORCHESTRA_PROVIDER" == "grok" ]]; then
+            python -m pip install -e ".[grok]"
           else
             python -m pip install -e .
           fi
