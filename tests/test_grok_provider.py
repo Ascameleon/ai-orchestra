@@ -1,3 +1,4 @@
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -40,7 +41,7 @@ def test_grok_uses_xai_endpoint_and_returns_result(monkeypatch):
             calls["client"] = kwargs
             self.chat = SimpleNamespace(completions=FakeCompletions())
 
-    monkeypatch.setattr("openai.OpenAI", FakeClient)
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeClient))
     result = GrokProvider(settings()).generate("hi")
     assert calls["client"]["base_url"] == "https://api.x.ai/v1"
     assert calls["client"]["api_key"] == "test-key"
