@@ -5,8 +5,8 @@ from orchestra.config import load_settings
 
 def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     for name in (
-        "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
-        "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL",
+        "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "GROK_MODEL",
+        "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL",
         "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
         "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY", "ORCHESTRA_MEMORY_DB",
     ):
@@ -63,7 +63,6 @@ def test_provider_fallbacks_are_normalized_and_ordered(monkeypatch):
 @pytest.mark.parametrize("fallbacks", [
     "gemini",
     "openai,OPENAI",
-    "grok",
 ])
 def test_provider_fallbacks_reject_primary_duplicates_or_unknown_names(monkeypatch, fallbacks):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
@@ -91,3 +90,19 @@ def test_invalid_task_routes_are_rejected(monkeypatch, routes):
 def test_optional_memory_database_path_is_trimmed(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_MEMORY_DB", " /tmp/orchestra.sqlite3 ")
     assert load_settings().memory_db_path == "/tmp/orchestra.sqlite3"
+
+
+def test_grok_provider_selection_and_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "grok")
+    monkeypatch.setenv("XAI_API_KEY", "test-key")
+    monkeypatch.setenv("GROK_MODEL", "test-grok")
+    settings = load_settings()
+    assert settings.provider_name == "grok"
+    assert settings.xai_api_key == "test-key"
+    assert settings.grok_model == "test-grok"
+
+
+def test_grok_can_be_configured_as_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", "grok")
+    assert load_settings().provider_fallbacks == ("grok",)
