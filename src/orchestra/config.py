@@ -26,6 +26,12 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    def secret(name: str) -> str | None:
+        value = os.getenv(name, "").strip()
+        if not value or value.startswith("REPLACE_WITH_"):
+            return None
+        return value
+
     def positive_int(name: str, default: int, maximum: int) -> int:
         raw = os.getenv(name, str(default))
         try:
@@ -36,16 +42,16 @@ def load_settings() -> Settings:
             raise ValueError(f"{name} must be between 1 and {maximum}")
         return value
 
-    key = os.getenv("GEMINI_API_KEY", "").strip() or None
-    openai_key = os.getenv("OPENAI_API_KEY", "").strip() or None
+    key = secret("GEMINI_API_KEY")
+    openai_key = secret("OPENAI_API_KEY")
     openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
     if not openai_model:
         raise ValueError("OPENAI_MODEL cannot be empty")
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip() or None
+    anthropic_key = secret("ANTHROPIC_API_KEY")
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-latest").strip()
     if not anthropic_model:
         raise ValueError("ANTHROPIC_MODEL cannot be empty")
-    xai_key = os.getenv("XAI_API_KEY", "").strip() or None
+    xai_key = secret("XAI_API_KEY")
     grok_model = os.getenv("GROK_MODEL", "grok-3-mini").strip()
     if not grok_model:
         raise ValueError("GROK_MODEL cannot be empty")
