@@ -9,14 +9,14 @@ from orchestra.providers.grok import GrokProvider
 
 
 def settings(**overrides):
-    values = dict(
-        gemini_api_key=None,
-        gemini_model="unused",
-        max_input_chars=20,
-        max_output_tokens=32,
-        xai_api_key="test-key",
-        grok_model="test-grok",
-    )
+    values = {
+        "gemini_api_key": None,
+        "gemini_model": "unused",
+        "max_input_chars": 20,
+        "max_output_tokens": 32,
+        "xai_api_key": "test-key",
+        "grok_model": "test-grok",
+    }
     values.update(overrides)
     return Settings(**values)
 
