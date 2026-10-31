@@ -13,6 +13,8 @@ on:
           - openai
           - anthropic
           - grok
+          - kimi
+          - deepseek
       gemini_model:
         description: Gemini model ID
         type: string
@@ -33,6 +35,16 @@ on:
         type: string
         required: true
         default: grok-3-mini
+      kimi_model:
+        description: Moonshot Kimi model ID
+        type: string
+        required: true
+        default: kimi-k2.6
+      deepseek_model:
+        description: DeepSeek model ID
+        type: string
+        required: true
+        default: deepseek-flash
 
 permissions:
   contents: read
@@ -52,10 +64,15 @@ jobs:
       OPENAI_MODEL: ${{ inputs.openai_model }}
       ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
       GROK_MODEL: ${{ inputs.grok_model }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      KIMI_MODEL: ${{ inputs.kimi_model }}
+      DEEPSEEK_MODEL: ${{ inputs.deepseek_model }}
+      GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: \${{ secrets.XAI_API_KEY }}
+      KIMI_API_KEY: \${{ secrets.KIMI_API_KEY }}
+      MOONSHOT_API_KEY: \${{ secrets.MOONSHOT_API_KEY }}
+      DEEPSEEK_API_KEY: \${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -73,6 +90,10 @@ jobs:
             python -m pip install -e ".[anthropic]"
           elif [[ "$ORCHESTRA_PROVIDER" == "grok" ]]; then
             python -m pip install -e ".[grok]"
+          elif [[ "$ORCHESTRA_PROVIDER" == "kimi" ]]; then
+            python -m pip install -e ".[kimi]"
+          elif [[ "$ORCHESTRA_PROVIDER" == "deepseek" ]]; then
+            python -m pip install -e ".[deepseek]"
           else
             python -m pip install -e .
           fi
