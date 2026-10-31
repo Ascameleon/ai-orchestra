@@ -70,4 +70,6 @@ jobs:
       - name: Dependency security audit
         run: |
           python -m pip install pip-audit
-          pip-audit
+          # The repository itself is installed editable and is not published on PyPI.
+          # Skip only that local project; audit the resolved third-party dependencies.
+          pip-audit --skip-editable
