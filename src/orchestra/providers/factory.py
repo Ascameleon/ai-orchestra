@@ -4,6 +4,8 @@ from orchestra.providers.anthropic import AnthropicProvider
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.gemini import GeminiProvider
 from orchestra.providers.grok import GrokProvider
+from orchestra.providers.kimi import KimiProvider
+from orchestra.providers.deepseek import DeepSeekProvider
 from orchestra.providers.openai import OpenAIProvider
 from orchestra.registry import ProviderRegistry
 
@@ -25,6 +27,14 @@ def _build_named_provider(name: str, settings: Settings):
         if not settings.xai_api_key:
             raise ProviderConfigurationError("XAI_API_KEY is missing")
         return GrokProvider(settings)
+    if name == "kimi":
+        if not settings.kimi_api_key:
+            raise ProviderConfigurationError("KIMI_API_KEY or MOONSHOT_API_KEY is missing")
+        return KimiProvider(settings)
+    if name == "deepseek":
+        if not settings.deepseek_api_key:
+            raise ProviderConfigurationError("DEEPSEEK_API_KEY is missing")
+        return DeepSeekProvider(settings)
     raise ProviderConfigurationError(f"Unsupported ORCHESTRA_PROVIDER: {name}")
 
 
