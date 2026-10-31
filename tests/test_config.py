@@ -6,7 +6,9 @@ from orchestra.config import load_settings
 def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     for name in (
         "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY",
-        "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL",
+        "KIMI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY",
+        "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL",
+        "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL",
         "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
         "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY", "ORCHESTRA_MEMORY_DB",
     ):
@@ -33,14 +35,14 @@ def test_load_settings_rejects_invalid_limits(monkeypatch, name, value):
         load_settings()
 
 
-@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL"])
+@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL"])
 def test_load_settings_rejects_empty_model_names(monkeypatch, name):
     monkeypatch.setenv(name, "   ")
     with pytest.raises(ValueError, match="cannot be empty"):
         load_settings()
 
 
-@pytest.mark.parametrize("name", ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY"])
+@pytest.mark.parametrize("name", ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "KIMI_API_KEY", "DEEPSEEK_API_KEY"])
 def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
     monkeypatch.setenv(name, "REPLACE_WITH_A_LONG_RANDOM_SECRET")
     settings = load_settings()
@@ -49,6 +51,8 @@ def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
         "OPENAI_API_KEY": "openai_api_key",
         "ANTHROPIC_API_KEY": "anthropic_api_key",
         "XAI_API_KEY": "xai_api_key",
+        "KIMI_API_KEY": "kimi_api_key",
+        "DEEPSEEK_API_KEY": "deepseek_api_key",
     }[name]
     assert getattr(settings, attribute) is None
 
@@ -113,6 +117,33 @@ def test_grok_provider_selection_and_fallback(monkeypatch):
     assert settings.provider_name == "grok"
     assert settings.xai_api_key == "test-key"
     assert settings.grok_model == "test-grok"
+
+
+def test_kimi_provider_selection_and_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "kimi")
+    monkeypatch.setenv("KIMI_API_KEY", "test-kimi-key")
+    monkeypatch.setenv("KIMI_MODEL", "test-kimi")
+    settings = load_settings()
+    assert settings.provider_name == "kimi"
+    assert settings.kimi_api_key == "test-kimi-key"
+    assert settings.kimi_model == "test-kimi"
+
+
+def test_moonshot_api_key_is_accepted_as_kimi_alias(monkeypatch):
+    monkeypatch.delenv("KIMI_API_KEY", raising=False)
+    monkeypatch.setenv("MOONSHOT_API_KEY", "test-moonshot-key")
+    settings = load_settings()
+    assert settings.kimi_api_key == "test-moonshot-key"
+
+
+def test_deepseek_provider_selection_and_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "test-deepseek")
+    settings = load_settings()
+    assert settings.provider_name == "deepseek"
+    assert settings.deepseek_api_key == "test-deepseek-key"
+    assert settings.deepseek_model == "test-deepseek"
 
 
 def test_grok_can_be_configured_as_fallback(monkeypatch):
