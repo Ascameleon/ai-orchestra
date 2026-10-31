@@ -108,6 +108,56 @@ def test_factory_rejects_missing_xai_key():
         raise AssertionError("Missing xAI key should be rejected")
 
 
+def test_factory_registers_configured_kimi_without_live_calls(monkeypatch):
+    class FakeKimiProvider:
+        name = "kimi"
+        def __init__(self, settings):
+            self.settings = settings
+    monkeypatch.setattr(factory, "KimiProvider", FakeKimiProvider)
+    configured = Settings(gemini_api_key=None, gemini_model="unused",
+        kimi_api_key="test-kimi-key", kimi_model="test-kimi",
+        max_input_chars=12000, max_output_tokens=100, provider_name="kimi")
+    registry = factory.build_provider_registry(configured)
+    assert registry.names() == ("kimi",)
+    assert registry.get("kimi").settings.kimi_model == "test-kimi"
+
+
+def test_factory_rejects_missing_kimi_key():
+    configured = Settings(gemini_api_key=None, gemini_model="unused",
+        max_input_chars=12000, max_output_tokens=100, provider_name="kimi")
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "KIMI_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Missing Kimi key should be rejected")
+
+
+def test_factory_registers_configured_deepseek_without_live_calls(monkeypatch):
+    class FakeDeepSeekProvider:
+        name = "deepseek"
+        def __init__(self, settings):
+            self.settings = settings
+    monkeypatch.setattr(factory, "DeepSeekProvider", FakeDeepSeekProvider)
+    configured = Settings(gemini_api_key=None, gemini_model="unused",
+        deepseek_api_key="test-deepseek-key", deepseek_model="test-deepseek",
+        max_input_chars=12000, max_output_tokens=100, provider_name="deepseek")
+    registry = factory.build_provider_registry(configured)
+    assert registry.names() == ("deepseek",)
+    assert registry.get("deepseek").settings.deepseek_model == "test-deepseek"
+
+
+def test_factory_rejects_missing_deepseek_key():
+    configured = Settings(gemini_api_key=None, gemini_model="unused",
+        max_input_chars=12000, max_output_tokens=100, provider_name="deepseek")
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "DEEPSEEK_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Missing DeepSeek key should be rejected")
+
+
 def test_factory_rejects_unknown_provider():
     try:
         factory.build_provider_registry(settings("unknown"))
