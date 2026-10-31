@@ -7,7 +7,7 @@ This repository provides a Docker Compose deployment baseline for a **single hos
 1. Install Docker Engine and the Docker Compose plugin on the target host.
 2. Copy `.env.production.example` to `.env.production`.
 3. Replace `ORCHESTRA_API_KEY` with a unique, long random secret and set the API key for the selected provider.
-4. For OpenAI and/or Anthropic, set `ORCHESTRA_EXTRAS=openai` or `ORCHESTRA_EXTRAS=anthropic` (or `openai,anthropic`) so Docker installs the optional SDKs. The default image includes Gemini only.
+4. For optional providers, set `ORCHESTRA_EXTRAS` to the comma-separated SDK extras you need, e.g. `openai,anthropic,grok,kimi,deepseek`. The default image includes Gemini only. Kimi and DeepSeek use OpenAI-compatible APIs; each still requires its own provider API key and may incur separate API charges.
 5. For a shared daily quota across multiple hosts, set `ORCHESTRA_EXTRAS=redis` (or combine it with other extras) and configure `ORCHESTRA_REDIS_URL` for a reachable Redis instance. Redis takes precedence over the local SQLite budget and `/ready` checks its connectivity. Use authentication and TLS for remote Redis; never expose Redis directly to the public internet. Leave `ORCHESTRA_REDIS_URL` blank to use the local SQLite daily budget.
 5. Keep `.env.production` out of version control and restrict access to it. Do not paste secrets into issue reports or logs.
 
