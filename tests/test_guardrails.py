@@ -39,6 +39,16 @@ def test_invalid_limits_are_rejected():
     with pytest.raises(ValueError):
         AuditTrail(0)
 
+def test_budget_guards_reject_boolean_string_and_float_limits(tmp_path):
+    invalid_values = (True, "2", 1.5)
+    for value in invalid_values:
+        with pytest.raises(ValueError, match="positive integer"):
+            CostGuard(value)
+        with pytest.raises(ValueError, match="positive integer"):
+            AuditTrail(value)
+        with pytest.raises(ValueError, match="positive integer"):
+            SQLiteAuditTrail(str(tmp_path / f"audit-{type(value).__name__}.sqlite3"), capacity=value)
+
 
 def test_cost_guard_is_thread_safe_under_concurrent_reservations():
     from concurrent.futures import ThreadPoolExecutor
