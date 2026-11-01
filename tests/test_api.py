@@ -1128,7 +1128,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
     body = response.json()
     assert body["primary"] == "gemini"
     assert body["fallbacks"] == ["openai", "anthropic", "grok", "kimi", "deepseek"]
-    assert body["configured_providers"] == ["anthropic", "deepseek", "gemini", "grok", "kimi", "openai"]
+    assert body["configured_providers"] == ["gemini", "openai", "anthropic", "grok", "kimi", "deepseek"]
     assert body["adapter_registry_ready"] is True
     assert body["credentials"] == {name: True for name in secrets}
     assert body["models"] == {
