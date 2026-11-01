@@ -111,7 +111,7 @@ For a stricter deployment profile, use [`compose.production.yml`](compose.produc
 
 ## Manual live provider validation
 
-The [manual live provider smoke workflow](.github/workflows/live-provider-smoke.yml) tests one selected provider with exactly one short live request. Before running it, add the relevant GitHub Actions repository secret (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `XAI_API_KEY`) under **Settings → Secrets and variables → Actions**. Then open **Actions → Manual live provider smoke test → Run workflow**, choose the provider and a model enabled for that key, and run it deliberately. This workflow is manual-only; it is not run by pull requests or normal CI. A live request may incur provider charges. Logs contain provider/model/latency metadata, not response text or credentials.
+The [manual live provider smoke workflow](.github/workflows/live-provider-smoke.yml) tests one selected provider with exactly one short live request. Before running it, add the relevant GitHub Actions repository secret (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `KIMI_API_KEY` or `MOONSHOT_API_KEY`, and `DEEPSEEK_API_KEY`) under **Settings → Secrets and variables → Actions**. Then open **Actions → Manual live provider smoke test → Run workflow**, choose the provider and a model enabled for that key, and run it deliberately. This workflow is manual-only; it is not run by pull requests or normal CI. A live request may incur provider charges. Logs contain provider/model/latency metadata, not response text or credentials.
 
 ## Current scope
 

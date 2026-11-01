@@ -66,19 +66,38 @@ jobs:
       GROK_MODEL: ${{ inputs.grok_model }}
       KIMI_MODEL: ${{ inputs.kimi_model }}
       DEEPSEEK_MODEL: ${{ inputs.deepseek_model }}
-      GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
-      OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
-      XAI_API_KEY: \${{ secrets.XAI_API_KEY }}
-      KIMI_API_KEY: \${{ secrets.KIMI_API_KEY }}
-      MOONSHOT_API_KEY: \${{ secrets.MOONSHOT_API_KEY }}
-      DEEPSEEK_API_KEY: \${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
+      MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
+      - name: Verify selected provider credential is configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          valid=0
+          case "$ORCHESTRA_PROVIDER" in
+            gemini) [[ -n "${GEMINI_API_KEY:-}" ]] && valid=1 ;;
+            openai) [[ -n "${OPENAI_API_KEY:-}" ]] && valid=1 ;;
+            anthropic) [[ -n "${ANTHROPIC_API_KEY:-}" ]] && valid=1 ;;
+            grok) [[ -n "${XAI_API_KEY:-}" ]] && valid=1 ;;
+            kimi) [[ -n "${KIMI_API_KEY:-}" || -n "${MOONSHOT_API_KEY:-}" ]] && valid=1 ;;
+            deepseek) [[ -n "${DEEPSEEK_API_KEY:-}" ]] && valid=1 ;;
+            *) echo "Unsupported provider selected."; exit 2 ;;
+          esac
+          if [[ "$valid" -ne 1 ]]; then
+            echo "Missing API secret for the selected provider. Add the matching key under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "Selected provider credential is configured."
       - name: Install selected provider SDK
         shell: bash
         run: |
