@@ -3,6 +3,7 @@ import sqlite3
 from fastapi.testclient import TestClient
 
 from orchestra.api import create_app
+from orchestra.config import Settings
 from orchestra.core import Orchestrator
 from orchestra.memory import SQLiteProviderMemory
 from orchestra.providers.base import ProviderCallError, ProviderResult
@@ -1050,3 +1051,104 @@ def test_redis_budget_backend_unavailability_fails_readiness_and_prevents_provid
     assert response.status_code == 502
     assert "private Redis connection detail" not in response.text
     assert provider.calls == 0
+
+
+
+def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypatch):
+    import orchestra.api as api_module
+
+    secrets = {
+        "gemini": "gemini-test-secret",
+        "openai": "openai-test-secret",
+        "anthropic": "anthropic-test-secret",
+        "grok": "xai-test-secret",
+        "kimi": "kimi-test-secret",
+        "deepseek": "deepseek-test-secret",
+    }
+    settings = Settings(
+        gemini_api_key=secrets["gemini"],
+        gemini_model="gemini-test-model",
+        max_input_chars=12000,
+        max_output_tokens=1024,
+        openai_api_key=secrets["openai"],
+        openai_model="openai-test-model",
+        anthropic_api_key=secrets["anthropic"],
+        anthropic_model="anthropic-test-model",
+        xai_api_key=secrets["grok"],
+        grok_model="grok-test-model",
+        kimi_api_key=secrets["kimi"],
+        kimi_model="kimi-test-model",
+        deepseek_api_key=secrets["deepseek"],
+        deepseek_model="deepseek-test-model",
+        provider_name="gemini",
+        provider_fallbacks=("openai", "anthropic", "grok", "kimi", "deepseek"),
+        max_requests_per_process=100,
+        audit_capacity=100,
+        memory_db_path=None,
+        circuit_failure_threshold=3,
+        circuit_reset_seconds=30,
+    )
+    calls = {"provider_generate": 0}
+
+    class NamedStubProvider:
+        def __init__(self, name):
+            self.name = name
+
+        def generate(self, prompt):
+            calls["provider_generate"] += 1
+            raise AssertionError("diagnostics must never call a provider")
+
+    class FakeRegistry:
+        def __init__(self):
+            self.providers = {
+                name: NamedStubProvider(name)
+                for name in ("gemini", "openai", "anthropic", "grok", "kimi", "deepseek")
+            }
+
+        def get(self, name):
+            return self.providers[name]
+
+    monkeypatch.setattr(api_module, "load_settings", lambda: settings)
+    monkeypatch.setattr(api_module, "build_provider_registry", lambda _settings: FakeRegistry())
+    monkeypatch.setenv("ORCHESTRA_API_KEY", "diagnostics-test-api-key")
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "true")
+
+    client = TestClient(create_app())
+    assert client.get("/providers/configuration").status_code == 401
+    assert client.get(
+        "/providers/configuration",
+        headers={"X-API-Key": "wrong-key"},
+    ).status_code == 401
+
+    response = client.get(
+        "/providers/configuration",
+        headers={"X-API-Key": "diagnostics-test-api-key"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["primary"] == "gemini"
+    assert body["fallbacks"] == ["openai", "anthropic", "grok", "kimi", "deepseek"]
+    assert body["configured_providers"] == ["anthropic", "deepseek", "gemini", "grok", "kimi", "openai"]
+    assert body["adapter_registry_ready"] is True
+    assert body["credentials"] == {name: True for name in secrets}
+    assert body["models"] == {
+        "gemini": "gemini-test-model",
+        "openai": "openai-test-model",
+        "anthropic": "anthropic-test-model",
+        "grok": "grok-test-model",
+        "kimi": "kimi-test-model",
+        "deepseek": "deepseek-test-model",
+    }
+    assert body["live_check_performed"] is False
+    assert calls["provider_generate"] == 0
+    assert all(secret not in response.text for secret in secrets.values())
+    assert "diagnostics-test-api-key" not in response.text
+
+
+def test_provider_configuration_fails_closed_without_api_key(monkeypatch):
+    monkeypatch.delenv("ORCHESTRA_API_KEY", raising=False)
+    monkeypatch.setenv("ORCHESTRA_REQUIRE_API_KEY", "false")
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.get("/providers/configuration")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "API key must be configured for provider diagnostics"}
