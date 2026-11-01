@@ -69,5 +69,25 @@ jobs:
         run: docker compose --env-file .env.production.example -f compose.production.yml config --quiet
       - name: Dependency security audit
         run: |
+          python -m pip install --upgrade "setuptools>=84.1.0"
           python -m pip install pip-audit
-          pip-audit
+          python - <<'PY'
+          from importlib.metadata import distributions
+          from pathlib import Path
+
+          requirements = []
+          for distribution in distributions():
+              name = distribution.metadata.get("Name")
+              if not name:
+                  continue
+              canonical = name.lower().replace("_", "-").replace(".", "-")
+              if canonical == "ai-orchestra":
+                  continue
+              requirements.append(f"{name}=={distribution.version}")
+
+          target = Path("/tmp/requirements-audit.txt")
+          target.write_text("\n".join(sorted(set(requirements))) + "\n", encoding="utf-8")
+          print(f"Auditing {len(set(requirements))} installed third-party distributions.")
+          PY
+          # All resolved installed packages are pinned above; no editable local project is included.
+          pip-audit --no-deps --requirement /tmp/requirements-audit.txt
