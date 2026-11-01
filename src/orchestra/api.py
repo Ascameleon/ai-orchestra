@@ -366,6 +366,49 @@ finally{button.disabled=false;}
                 "audit_events": len(audit.snapshot()),
             }
 
+    @app.get("/providers/configuration")
+    def get_provider_configuration(
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    ) -> dict:
+        """Report provider configuration without exposing credentials or making calls.
+
+        Unlike the general development API policy, this diagnostics endpoint always
+        requires an explicitly configured API key because it reveals deployment
+        configuration metadata.
+        """
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="API key must be configured for provider diagnostics",
+            )
+        authorize(x_api_key)
+        if settings is None:
+            raise HTTPException(status_code=503, detail="Provider configuration diagnostics unavailable")
+
+        return {
+            "primary": settings.provider_name,
+            "fallbacks": list(settings.provider_fallbacks),
+            "configured_providers": list(orchestrator.provider_names) if orchestrator is not None else [],
+            "adapter_registry_ready": orchestrator is not None,
+            "credentials": {
+                "gemini": bool(settings.gemini_api_key),
+                "openai": bool(settings.openai_api_key),
+                "anthropic": bool(settings.anthropic_api_key),
+                "grok": bool(settings.xai_api_key),
+                "kimi": bool(settings.kimi_api_key),
+                "deepseek": bool(settings.deepseek_api_key),
+            },
+            "models": {
+                "gemini": settings.gemini_model,
+                "openai": settings.openai_model,
+                "anthropic": settings.anthropic_model,
+                "grok": settings.grok_model,
+                "kimi": settings.kimi_model,
+                "deepseek": settings.deepseek_model,
+            },
+            "live_check_performed": False,
+        }
+
     @app.get("/providers/health")
     def get_provider_health(
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
