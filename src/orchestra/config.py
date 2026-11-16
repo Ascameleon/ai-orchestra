@@ -21,6 +21,7 @@ class Settings:
     deepseek_model: str = "deepseek-flash"
     manus_api_key: str | None = None
     manus_allow_paid_calls: bool = False
+    manus_allow_agent_tools: bool = False
     manus_agent_profile: str = "lite"
     manus_timeout_seconds: int = 300
     manus_poll_interval_seconds: int = 2
@@ -77,6 +78,10 @@ def load_settings() -> Settings:
     if manus_allow_raw not in {"true", "false", "1", "0"}:
         raise ValueError("MANUS_ALLOW_PAID_CALLS must be true, false, 1, or 0")
     manus_allow_paid_calls = manus_allow_raw in {"true", "1"}
+    manus_tools_raw = os.getenv("MANUS_ALLOW_AGENT_TOOLS", "false").strip().lower()
+    if manus_tools_raw not in {"true", "false", "1", "0"}:
+        raise ValueError("MANUS_ALLOW_AGENT_TOOLS must be true, false, 1, or 0")
+    manus_allow_agent_tools = manus_tools_raw in {"true", "1"}
     manus_agent_profile = os.getenv("MANUS_AGENT_PROFILE", "lite").strip().lower()
     if manus_agent_profile not in {
         "lite", "standard", "max", "max-medium", "max-high", "max-extra", "max-ultra"
@@ -99,8 +104,13 @@ def load_settings() -> Settings:
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
         raise ValueError("Provider fallback list must be unique and exclude the primary provider")
     configured_providers = {provider_name, *provider_fallbacks}
-    if "manus" in configured_providers and not manus_allow_paid_calls:
-        raise ValueError("Manus may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in")
+    if "manus" in configured_providers:
+        if not manus_allow_paid_calls:
+            raise ValueError("Manus may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in")
+        if not manus_allow_agent_tools:
+            raise ValueError(
+                "Manus API-key tasks load enabled account skills; set MANUS_ALLOW_AGENT_TOOLS=true to acknowledge"
+            )
     allowed_tasks = {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}
     task_routes = []
     for entry in os.getenv("ORCHESTRA_TASK_ROUTES", "").split(","):
@@ -133,6 +143,7 @@ def load_settings() -> Settings:
         deepseek_model=deepseek_model,
         manus_api_key=manus_key,
         manus_allow_paid_calls=manus_allow_paid_calls,
+        manus_allow_agent_tools=manus_allow_agent_tools,
         manus_agent_profile=manus_agent_profile,
         manus_timeout_seconds=manus_timeout_seconds,
         manus_poll_interval_seconds=manus_poll_interval_seconds,
