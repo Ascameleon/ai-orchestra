@@ -61,7 +61,7 @@ export ORCHESTRA_PROVIDER=freellmapi
 export FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
 export FREELLMAPI_MODEL=auto
 read -rsp 'FreeLLMAPI unified key: ' FREELLMAPI_API_KEY
-printf '\\n'
+printf '\n'
 export FREELLMAPI_API_KEY
 ```
 
