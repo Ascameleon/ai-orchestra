@@ -75,6 +75,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_TASK_ROUTES`: optional deterministic task routing, e.g. `code=openai,research=gemini,writing=anthropic`. Supported task types are `general`, `code`, `research`, `writing`, `analysis`, `review`, `planner`, `reviewer`, and `writer`; each target must already be configured as the primary or a fallback. A per-request `provider` overrides this policy.
 - `MANUS_API_KEY`: optional Manus API v2 key. Never commit it.
 - `MANUS_ALLOW_PAID_CALLS`: must be explicitly `true` (or `1`) before Manus can be selected as primary or fallback; default `false`. Task creation may consume account credits.
+- `MANUS_ALLOW_AGENT_TOOLS`: must also be explicitly `true` (or `1`) before Manus can be selected; default `false`. API-key tasks load enabled account skills by default. `clear_connectors=true` removes default connectors but does not sandbox every built-in tool or account skill.
 - `MANUS_AGENT_PROFILE`: Manus execution profile (`lite` by default; `standard`, `max`, and documented Max thinking levels are explicit higher-cost choices).
 - `MANUS_TIMEOUT_SECONDS`: maximum synchronous wait for one Manus task (default 300; allowed 1–900). A timeout does not cancel the remote task or automatically retry it.
 - `MANUS_POLL_INTERVAL_SECONDS`: interval between Manus status polls (default 2; allowed 1–30).
