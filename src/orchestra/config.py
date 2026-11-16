@@ -11,7 +11,7 @@ class Settings:
     max_input_chars: int
     max_output_tokens: int
     openai_api_key: str | None = None
-    openai_model: str = "gpt-5.6-luna"
+    openai_model: str = "gpt-6-luna"
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-haiku-4-5-20251001"
     xai_api_key: str | None = None
@@ -58,7 +58,7 @@ def load_settings() -> Settings:
 
     key = secret("GEMINI_API_KEY")
     openai_key = secret("OPENAI_API_KEY")
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-5.6-luna").strip()
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-6-luna").strip()
     if not openai_model:
         raise ValueError("OPENAI_MODEL cannot be empty")
     anthropic_key = secret("ANTHROPIC_API_KEY")
