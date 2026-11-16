@@ -220,6 +220,7 @@ def test_factory_rejects_missing_manus_key():
         max_input_chars=12000,
         max_output_tokens=100,
         manus_allow_paid_calls=True,
+        manus_allow_agent_tools=True,
         provider_name="manus",
     )
     try:
