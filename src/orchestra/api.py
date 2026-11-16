@@ -301,8 +301,8 @@ footer{margin-top:18px;color:#8799ae;font-size:.8rem;line-height:1.55}
 <div class="grid">
 <div><label for="task_type">Type de travail</label><select id="task_type">
 <option value="general">Choix automatique</option><option value="research">Recherche</option><option value="analysis">Analyse</option><option value="code">Développement / code</option><option value="writing">Rédaction</option><option value="review">Audit / vérification</option><option value="planner">Planification</option><option value="reviewer">Relecture</option><option value="writer">Rédaction finale</option></select></div>
-<div><label for="provider">Fournisseur principal (facultatif)</label><select id="provider"><option value="">Configuration par défaut</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="grok">Grok (xAI)</option><option value="kimi">Kimi</option><option value="deepseek">DeepSeek</option></select></div>
-<div><label for="review_provider">Fournisseur de relecture indépendante</label><select id="review_provider"><option value="">Même politique que l’orchestration</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="grok">Grok (xAI)</option><option value="kimi">Kimi</option><option value="deepseek">DeepSeek</option></select></div>
+<div><label for="provider">Fournisseur principal (facultatif)</label><select id="provider"><option value="">Configuration par défaut</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="grok">Grok (xAI)</option><option value="kimi">Kimi</option><option value="deepseek">DeepSeek</option><option value="manus">Manus (opt-in, crédits)</option></select></div>
+<div><label for="review_provider">Fournisseur de relecture indépendante</label><select id="review_provider"><option value="">Même politique que l’orchestration</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="grok">Grok (xAI)</option><option value="kimi">Kimi</option><option value="deepseek">DeepSeek</option><option value="manus">Manus (opt-in, crédits)</option></select></div>
 </div>
 <label for="api_key">Clé API de votre instance (si requise)</label><input id="api_key" type="password" autocomplete="off" placeholder="Utilisée pour cette requête uniquement">
 <p class="hint">La clé n’est pas enregistrée dans le navigateur. Elle est envoyée uniquement à cette instance via l’en-tête X-API-Key. Les appels au fournisseur peuvent être payants selon votre compte et sa configuration.</p>
@@ -397,6 +397,7 @@ finally{button.disabled=false;}
                 "grok": bool(settings.xai_api_key),
                 "kimi": bool(settings.kimi_api_key),
                 "deepseek": bool(settings.deepseek_api_key),
+                "manus": bool(settings.manus_api_key),
             },
             "models": {
                 "gemini": settings.gemini_model,
@@ -405,6 +406,15 @@ finally{button.disabled=false;}
                 "grok": settings.grok_model,
                 "kimi": settings.kimi_model,
                 "deepseek": settings.deepseek_model,
+            },
+            "execution_profiles": {
+                "manus": settings.manus_agent_profile,
+            },
+            "agent_tools_opt_in": {
+                "manus": settings.manus_allow_agent_tools,
+            },
+            "paid_calls_opt_in": {
+                "manus": settings.manus_allow_paid_calls,
             },
             "live_check_performed": False,
         }

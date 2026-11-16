@@ -170,3 +170,81 @@ def test_factory_rejects_unknown_provider():
 def test_provider_call_error_is_shared_contract():
     error = ProviderCallError("provider unavailable")
     assert str(error) == "provider unavailable"
+
+
+def test_factory_registers_configured_manus_without_live_calls(monkeypatch):
+    class FakeManusProvider:
+        name = "manus"
+        def __init__(self, settings):
+            self.settings = settings
+
+    monkeypatch.setattr(factory, "ManusProvider", FakeManusProvider)
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        manus_api_key="test-manus-key",
+        manus_allow_paid_calls=True,
+        manus_allow_agent_tools=True,
+        manus_agent_profile="lite",
+        provider_name="manus",
+    )
+    registry = factory.build_provider_registry(configured)
+    assert registry.names() == ("manus",)
+    assert registry.get("manus").settings.manus_agent_profile == "lite"
+
+
+def test_factory_rejects_manus_without_paid_call_opt_in():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        manus_api_key="test-manus-key",
+        manus_allow_paid_calls=False,
+        provider_name="manus",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "MANUS_ALLOW_PAID_CALLS" in str(exc)
+    else:
+        raise AssertionError("Manus must stay disabled without explicit paid-call opt-in")
+
+
+def test_factory_rejects_missing_manus_key():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        manus_allow_paid_calls=True,
+        manus_allow_agent_tools=True,
+        provider_name="manus",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "MANUS_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Missing Manus API key should be rejected")
+
+
+def test_factory_rejects_manus_without_account_skills_acknowledgement():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        manus_api_key="test-manus-key",
+        manus_allow_paid_calls=True,
+        manus_allow_agent_tools=False,
+        provider_name="manus",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "MANUS_ALLOW_AGENT_TOOLS" in str(exc)
+    else:
+        raise AssertionError("Manus must not load account skills without explicit acknowledgement")
