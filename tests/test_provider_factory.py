@@ -186,6 +186,7 @@ def test_factory_registers_configured_manus_without_live_calls(monkeypatch):
         max_output_tokens=100,
         manus_api_key="test-manus-key",
         manus_allow_paid_calls=True,
+        manus_allow_agent_tools=True,
         manus_agent_profile="lite",
         provider_name="manus",
     )
@@ -227,3 +228,22 @@ def test_factory_rejects_missing_manus_key():
         assert "MANUS_API_KEY" in str(exc)
     else:
         raise AssertionError("Missing Manus API key should be rejected")
+
+
+def test_factory_rejects_manus_without_account_skills_acknowledgement():
+    configured = Settings(
+        gemini_api_key=None,
+        gemini_model="unused",
+        max_input_chars=12000,
+        max_output_tokens=100,
+        manus_api_key="test-manus-key",
+        manus_allow_paid_calls=True,
+        manus_allow_agent_tools=False,
+        provider_name="manus",
+    )
+    try:
+        factory.build_provider_registry(configured)
+    except ProviderConfigurationError as exc:
+        assert "MANUS_ALLOW_AGENT_TOOLS" in str(exc)
+    else:
+        raise AssertionError("Manus must not load account skills without explicit acknowledgement")
