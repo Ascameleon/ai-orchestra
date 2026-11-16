@@ -33,7 +33,7 @@ The automated tests stub the provider SDK; they do not contact Gemini or spend A
 
 ## FreeLLMAPI on Android (Termux)
 
-FreeLLMAPI is a separate local gateway, not a model or a source of unlimited free inference. It routes requests to upstream providers whose own account rules, free-tier quotas, and terms still apply. The upstream project is MIT-licensed; this repository does not copy its source code and integrates only through its OpenAI-compatible API.
+FreeLLMAPI is a separate local gateway, not a model or a source of unlimited free inference. It routes requests to upstream providers whose own account rules, free-tier quotas, and terms still apply. The upstream project is MIT-licensed; this repository does not copy its source code and integrates only through its OpenAI-compatible API. The upstream project describes itself as suitable for personal experimentation and learning, not production, and offers no SLA. Its optional paid live-catalog tier is not required for the free local install; free installs use a monthly catalog snapshot, so new model entries can arrive up to 30 days later.
 
 On Samsung/Android, the upstream Termux path is experimental and community-supported. It requires Android 7+, Termux from F-Droid, about 1 GB of free storage, and Node.js 22.13+ (Node 24 LTS is recommended). In Termux:
 
