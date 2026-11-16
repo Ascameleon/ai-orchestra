@@ -13,7 +13,7 @@ class Settings:
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.6-luna"
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-haiku-5-5"
+    anthropic_model: str = "claude-haiku-4-5-20251001"
     xai_api_key: str | None = None
     grok_model: str = "grok-3-mini"
     kimi_api_key: str | None = None
@@ -62,7 +62,7 @@ def load_settings() -> Settings:
     if not openai_model:
         raise ValueError("OPENAI_MODEL cannot be empty")
     anthropic_key = secret("ANTHROPIC_API_KEY")
-    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-5-5").strip()
+    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001").strip()
     if not anthropic_model:
         raise ValueError("ANTHROPIC_MODEL cannot be empty")
     xai_key = secret("XAI_API_KEY")
