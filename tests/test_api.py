@@ -1152,3 +1152,23 @@ def test_provider_configuration_fails_closed_without_api_key(monkeypatch):
     response = client.get("/providers/configuration")
     assert response.status_code == 503
     assert response.json() == {"detail": "API key must be configured for provider diagnostics"}
+
+def test_workbench_lists_every_supported_provider_for_task_and_review():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.get("/")
+    assert response.status_code == 200
+
+    for select_id in ("provider", "review_provider"):
+        start = response.text.index(f'<select id="{select_id}">')
+        end = response.text.index("</select>", start)
+        options = response.text[start:end]
+        for provider, label in (
+            ("gemini", "Gemini"),
+            ("openai", "OpenAI"),
+            ("anthropic", "Anthropic"),
+            ("grok", "Grok (xAI)"),
+            ("kimi", "Kimi"),
+            ("deepseek", "DeepSeek"),
+        ):
+            assert f'<option value="{provider}">{label}</option>' in options
+
