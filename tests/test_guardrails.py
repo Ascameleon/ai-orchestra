@@ -211,12 +211,13 @@ def test_redis_daily_budget_is_atomic_persistent_and_day_scoped():
         def eval(self, script, numkeys, key, limit, ttl):
             assert numkeys == 1
             assert "redis.call('INCR'" in script
+            assert "redis.call('TTL'" in script
             used = int(self.shared.get(key, 0))
             if used >= int(limit):
                 return -1
             next_used = used + 1
             self.shared[key] = str(next_used)
-            if next_used == 1:
+            if self.ttls.get(key, -1) < 0:
                 self.ttls[key] = int(ttl)
             return next_used
 
@@ -249,7 +250,7 @@ def test_redis_daily_budget_is_atomic_persistent_and_day_scoped():
     with pytest.raises(BudgetExceeded, match="Daily"):
         first.reserve()
     assert second.used == 2
-    assert first_client.ttls["ai-orchestra:provider-budget:2026-10-15"] == 35 * 24 * 60 * 60
+    assert second_client.ttls["ai-orchestra:provider-budget:2026-10-15"] == 35 * 24 * 60 * 60
 
     current[0] += timedelta(minutes=2)
     assert first.used == 0
