@@ -39,6 +39,7 @@ class ManusProvider:
             raise ProviderConfigurationError(
                 'Manus HTTP dependency is not installed; install with pip install -e ".[manus]"'
             ) from exc
+        self._httpx = httpx
         self._api_key = settings.manus_api_key
         self._profile = settings.manus_agent_profile
         self._max_input_chars = settings.max_input_chars
@@ -67,7 +68,7 @@ class ManusProvider:
             )
             response.raise_for_status()
             payload = response.json()
-        except Exception:
+        except (self._httpx.HTTPError, ValueError, TypeError, OSError):
             raise ProviderCallError("Manus request failed") from None
         if not isinstance(payload, dict) or payload.get("ok") is not True:
             raise ProviderCallError("Manus returned an unsuccessful response")
