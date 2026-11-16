@@ -18,6 +18,9 @@ def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
 
     settings = load_settings()
     assert settings.provider_name == "gemini"
+    assert settings.gemini_model == "gemini-3.8-flash"
+    assert settings.openai_model == "gpt-5.6-luna"
+    assert settings.anthropic_model == "claude-haiku-5-5"
     assert settings.gemini_api_key is None
     assert settings.openai_api_key is None
     assert settings.anthropic_api_key is None
