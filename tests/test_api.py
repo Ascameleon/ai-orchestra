@@ -1146,6 +1146,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
     }
     assert body["execution_profiles"] == {"manus": "lite"}
     assert body["paid_calls_opt_in"] == {"manus": True}
+    assert body["agent_tools_opt_in"] == {"manus": True}
     assert body["live_check_performed"] is False
     assert calls["provider_generate"] == 0
     assert all(secret not in response.text for secret in secrets.values())
