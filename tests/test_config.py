@@ -57,6 +57,7 @@ def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
         "XAI_API_KEY": "xai_api_key",
         "KIMI_API_KEY": "kimi_api_key",
         "DEEPSEEK_API_KEY": "deepseek_api_key",
+        "MANUS_API_KEY": "manus_api_key",
     }[name]
     assert getattr(settings, attribute) is None
 
@@ -159,6 +160,7 @@ def test_grok_can_be_configured_as_fallback(monkeypatch):
 def test_manus_requires_explicit_credit_opt_in(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", "manus")
     monkeypatch.setenv("MANUS_API_KEY", "test-manus-key")
+    monkeypatch.setenv("MANUS_ALLOW_PAID_CALLS", "false")
     with pytest.raises(ValueError, match="MANUS_ALLOW_PAID_CALLS"):
         load_settings()
 
