@@ -93,7 +93,7 @@ class ManusProvider:
 
     @staticmethod
     def _result_text(messages: list[dict[str, Any]]) -> str:
-        fallback = ""
+        """Return only an explicitly marked result, never progress text."""
         for message in messages:
             if message.get("type") != "assistant_message":
                 continue
@@ -101,13 +101,13 @@ class ManusProvider:
             if not isinstance(assistant, dict):
                 continue
             content = assistant.get("content")
-            if not isinstance(content, str) or not content.strip():
-                continue
-            if assistant.get("delivery_kind") == "result":
+            if (
+                assistant.get("delivery_kind") == "result"
+                and isinstance(content, str)
+                and content.strip()
+            ):
                 return content.strip()
-            if not fallback:
-                fallback = content.strip()
-        return fallback
+        return ""
 
     def generate(self, prompt: str) -> ProviderResult:
         if not isinstance(prompt, str) or not prompt.strip():
@@ -139,7 +139,8 @@ class ManusProvider:
             )
             raw_messages = response.get("messages", [])
             messages = raw_messages if isinstance(raw_messages, list) else []
-            status = self._status([m for m in messages if isinstance(m, dict)])
+            valid_messages = [m for m in messages if isinstance(m, dict)]
+            status = self._status(valid_messages)
 
             if status == "waiting":
                 raise ProviderCallError(
@@ -162,9 +163,9 @@ class ManusProvider:
                 if task_status == "error":
                     raise ProviderCallError("Manus task failed")
                 if task_status == "stopped" and task.get("has_running_background_jobs") is not True:
-                    text = self._result_text([m for m in messages if isinstance(m, dict)])
+                    text = self._result_text(valid_messages)
                     if not text:
-                        raise ProviderCallError("Manus task stopped without a text result")
+                        raise ProviderCallError("Manus task stopped without an explicit text result")
                     return ProviderResult(
                         self.name, self._profile, text, len(prompt), len(text)
                     )
