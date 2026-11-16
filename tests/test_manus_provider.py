@@ -14,6 +14,7 @@ def settings(**overrides):
         "max_output_tokens": 32,
         "manus_api_key": "test-manus-key",
         "manus_allow_paid_calls": True,
+        "manus_allow_agent_tools": True,
         "manus_agent_profile": "lite",
         "manus_timeout_seconds": 10,
         "manus_poll_interval_seconds": 1,
@@ -41,7 +42,7 @@ def test_manus_creates_private_lite_task_and_returns_result_without_live_calls()
                 "message": {"content": "Summarize this source"},
                 "agent_profile": "lite",
                 "share_visibility": "private",
-                "interactive_mode": False,
+                "interactive_mode": True,
                 "clear_connectors": True,
             }
             return httpx.Response(200, json={"ok": True, "task_id": "task-123"})
@@ -148,3 +149,8 @@ def test_manus_timeout_does_not_retry_or_create_a_second_task():
     client.close()
     assert calls.count("/v2/task.create") == 1
     assert calls.count("/v2/task.listMessages") == 2
+
+
+def test_manus_requires_explicit_account_skills_acknowledgement():
+    with pytest.raises(ProviderConfigurationError, match="MANUS_ALLOW_AGENT_TOOLS"):
+        ManusProvider(settings(manus_allow_agent_tools=False))
