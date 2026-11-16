@@ -41,6 +41,10 @@ def _build_named_provider(name: str, settings: Settings):
             raise ProviderConfigurationError(
                 "Manus tasks may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in"
             )
+        if not settings.manus_allow_agent_tools:
+            raise ProviderConfigurationError(
+                "Manus API-key tasks load enabled account skills; set MANUS_ALLOW_AGENT_TOOLS=true to acknowledge"
+            )
         if not settings.manus_api_key:
             raise ProviderConfigurationError("MANUS_API_KEY is missing")
         return ManusProvider(settings)
