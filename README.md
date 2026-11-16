@@ -61,7 +61,7 @@ export FREELLMAPI_MODEL=auto
 export FREELLMAPI_API_KEY='<unified-key-from-FreeLLMAPI>'
 ```
 
-`127.0.0.1` always refers to the machine running AI ORCHESTRA. If AI ORCHESTRA runs on another device, use a properly secured HTTPS endpoint or private VPN rather than assuming the phone's loopback address is reachable. Keep the unified key in the server environment, never in Git, browser code, or task prompts.
+`127.0.0.1` always refers to the machine running AI ORCHESTRA. If AI ORCHESTRA runs on another device, use a properly secured HTTPS endpoint reachable only over a private VPN rather than assuming the phone's loopback address is reachable. Keep the unified key in the server environment, never in Git, browser code, or task prompts.
 
 ## Browser workbench
 
