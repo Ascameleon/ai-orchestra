@@ -410,6 +410,9 @@ finally{button.disabled=false;}
             "execution_profiles": {
                 "manus": settings.manus_agent_profile,
             },
+            "agent_tools_opt_in": {
+                "manus": settings.manus_allow_agent_tools,
+            },
             "paid_calls_opt_in": {
                 "manus": settings.manus_allow_paid_calls,
             },
