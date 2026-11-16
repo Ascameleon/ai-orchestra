@@ -82,6 +82,12 @@ def load_settings() -> Settings:
         "FREELLMAPI_BASE_URL", "http://127.0.0.1:3001/v1"
     ).strip().rstrip("/")
     parsed_freellmapi_url = urlsplit(freellmapi_base_url)
+    try:
+        freellmapi_port = parsed_freellmapi_url.port
+    except ValueError as exc:
+        raise ValueError("FREELLMAPI_BASE_URL must contain a valid port") from exc
+    if freellmapi_port == 0:
+        raise ValueError("FREELLMAPI_BASE_URL port must be between 1 and 65535")
     if (
         parsed_freellmapi_url.scheme not in {"http", "https"}
         or not parsed_freellmapi_url.hostname
