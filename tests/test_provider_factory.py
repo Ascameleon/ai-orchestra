@@ -248,3 +248,4 @@ def test_factory_rejects_manus_without_account_skills_acknowledgement():
         assert "MANUS_ALLOW_AGENT_TOOLS" in str(exc)
     else:
         raise AssertionError("Manus must not load account skills without explicit acknowledgement")
+

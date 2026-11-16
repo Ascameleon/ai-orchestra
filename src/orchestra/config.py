@@ -1,6 +1,7 @@
 """Environment configuration with validated, conservative request limits."""
 import os
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,9 @@ class Settings:
     kimi_model: str = "kimi-k2.6"
     deepseek_api_key: str | None = None
     deepseek_model: str = "deepseek-flash"
+    freellmapi_api_key: str | None = None
+    freellmapi_base_url: str = "http://127.0.0.1:3001/v1"
+    freellmapi_model: str = "auto"
     manus_api_key: str | None = None
     manus_allow_paid_calls: bool = False
     manus_allow_agent_tools: bool = False
@@ -73,6 +77,31 @@ def load_settings() -> Settings:
     deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-flash").strip()
     if not deepseek_model:
         raise ValueError("DEEPSEEK_MODEL cannot be empty")
+    freellmapi_key = secret("FREELLMAPI_API_KEY")
+    freellmapi_base_url = os.getenv(
+        "FREELLMAPI_BASE_URL", "http://127.0.0.1:3001/v1"
+    ).strip().rstrip("/")
+    parsed_freellmapi_url = urlsplit(freellmapi_base_url)
+    try:
+        freellmapi_port = parsed_freellmapi_url.port
+    except ValueError as exc:
+        raise ValueError("FREELLMAPI_BASE_URL must contain a valid port") from exc
+    if freellmapi_port == 0:
+        raise ValueError("FREELLMAPI_BASE_URL port must be between 1 and 65535")
+    if (
+        parsed_freellmapi_url.scheme not in {"http", "https"}
+        or not parsed_freellmapi_url.hostname
+        or parsed_freellmapi_url.username
+        or parsed_freellmapi_url.password
+        or parsed_freellmapi_url.query
+        or parsed_freellmapi_url.fragment
+    ):
+        raise ValueError("FREELLMAPI_BASE_URL must be an absolute HTTP(S) URL without credentials, query, or fragment")
+    if parsed_freellmapi_url.scheme != "https" and parsed_freellmapi_url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        raise ValueError("FREELLMAPI_BASE_URL must use HTTPS unless it targets loopback")
+    freellmapi_model = os.getenv("FREELLMAPI_MODEL", "auto").strip()
+    if not freellmapi_model:
+        raise ValueError("FREELLMAPI_MODEL cannot be empty")
     manus_key = secret("MANUS_API_KEY")
     manus_allow_raw = os.getenv("MANUS_ALLOW_PAID_CALLS", "false").strip().lower()
     if manus_allow_raw not in {"true", "false", "1", "0"}:
@@ -96,14 +125,16 @@ def load_settings() -> Settings:
     provider_fallbacks = tuple(
         item.strip().lower() for item in fallback_raw.split(",") if item.strip()
     )
-    supported_providers = {"gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "manus"}
+    supported_providers = {"gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "freellmapi", "manus"}
     if provider_name not in supported_providers:
-        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, anthropic, grok, kimi, deepseek, or manus")
+        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, anthropic, grok, kimi, deepseek, freellmapi, or manus")
     if any(item not in supported_providers for item in provider_fallbacks):
         raise ValueError("ORCHESTRA_PROVIDER_FALLBACKS contains an unsupported provider")
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
         raise ValueError("Provider fallback list must be unique and exclude the primary provider")
     configured_providers = {provider_name, *provider_fallbacks}
+    if "freellmapi" in configured_providers and not freellmapi_key:
+        raise ValueError("FREELLMAPI_API_KEY is required when FreeLLMAPI is selected")
     if "manus" in configured_providers:
         if not manus_allow_paid_calls:
             raise ValueError("Manus may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in")
@@ -141,6 +172,9 @@ def load_settings() -> Settings:
         kimi_model=kimi_model,
         deepseek_api_key=deepseek_key,
         deepseek_model=deepseek_model,
+        freellmapi_api_key=freellmapi_key,
+        freellmapi_base_url=freellmapi_base_url,
+        freellmapi_model=freellmapi_model,
         manus_api_key=manus_key,
         manus_allow_paid_calls=manus_allow_paid_calls,
         manus_allow_agent_tools=manus_allow_agent_tools,

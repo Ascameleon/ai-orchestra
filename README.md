@@ -19,7 +19,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Set `GEMINI_API_KEY` for Gemini; install `python -m pip install -e ".[openai]"` for OpenAI, `python -m pip install -e ".[anthropic]"` for Anthropic, `python -m pip install -e ".[grok]"` for xAI Grok, `python -m pip install -e ".[kimi]"` for Kimi, `python -m pip install -e ".[deepseek]"` for DeepSeek, or `python -m pip install -e ".[manus]"` for Manus. Manus tasks may consume account credits and remain disabled unless both `MANUS_ALLOW_PAID_CALLS=true` and `MANUS_ALLOW_AGENT_TOOLS=true` are explicitly set. Manus API-key tasks load enabled account skills by default; `clear_connectors=true` clears default connectors but does not sandbox every built-in tool or account skill. The adapter uses private tasks, the `lite` profile by default, and interactive mode; it never answers questions or confirms actions automatically. Kimi accepts `KIMI_API_KEY` or `MOONSHOT_API_KEY`; DeepSeek uses `DEEPSEEK_API_KEY`. Model defaults are `kimi-k2.6` and `deepseek-flash`; override them with `KIMI_MODEL` and `DEEPSEEK_MODEL`. Never commit credentials. The app does not automatically load a `.env` file.
+Set `GEMINI_API_KEY` for Gemini; set `FREELLMAPI_API_KEY`, `FREELLMAPI_BASE_URL` (default `http://127.0.0.1:3001/v1`) and optionally `FREELLMAPI_MODEL` (default `auto`) to route through a local FreeLLMAPI gateway; install `python -m pip install -e ".[openai]"` for OpenAI and FreeLLMAPI, `python -m pip install -e ".[anthropic]"` for Anthropic, `python -m pip install -e ".[grok]"` for xAI Grok, `python -m pip install -e ".[kimi]"` for Kimi, `python -m pip install -e ".[deepseek]"` for DeepSeek, or `python -m pip install -e ".[manus]"` for Manus. Manus tasks may consume account credits and remain disabled unless both `MANUS_ALLOW_PAID_CALLS=true` and `MANUS_ALLOW_AGENT_TOOLS=true` are explicitly set. Manus API-key tasks load enabled account skills by default; `clear_connectors=true` clears default connectors but does not sandbox every built-in tool or account skill. The adapter uses private tasks, the `lite` profile by default, and interactive mode; it never answers questions or confirms actions automatically. Kimi accepts `KIMI_API_KEY` or `MOONSHOT_API_KEY`; DeepSeek uses `DEEPSEEK_API_KEY`. Model defaults are `kimi-k2.6` and `deepseek-flash`; override them with `KIMI_MODEL` and `DEEPSEEK_MODEL`. Never commit credentials. The app does not automatically load a `.env` file.
 
 ## Verify locally without provider API calls
 
@@ -30,6 +30,42 @@ python -m build
 ```
 
 The automated tests stub the provider SDK; they do not contact Gemini or spend API credits.
+
+## FreeLLMAPI on Android (Termux)
+
+FreeLLMAPI is a separate local gateway, not a model or a source of unlimited free inference. It routes requests to upstream providers whose own account rules, free-tier quotas, and terms still apply. The upstream project is MIT-licensed; this repository does not copy its source code and integrates only through its OpenAI-compatible API. The upstream project describes itself as suitable for personal experimentation and learning, not production, and offers no SLA. Its optional paid live-catalog tier is not required for the free local install; free installs use a monthly catalog snapshot, so new model entries can arrive up to 30 days later.
+
+On Samsung/Android, the upstream [Termux path](https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/02-android-termux.md) is experimental and community-supported. It requires Android 7+, Termux from F-Droid, about 1 GB of free storage, and Node.js 22.13+ (Node 24 LTS is recommended). In Termux:
+
+```bash
+pkg update
+pkg upgrade -y
+pkg install -y nodejs-lts git
+node --version  # confirm 22.13 or newer
+
+git clone https://github.com/tashfeenahmed/freellmapi.git
+cd freellmapi
+npm install --no-audit --no-fund
+npm run dev
+```
+
+On Android, the upstream guide says a warning for the optional `better-sqlite3` package is expected; if npm asks for install-script approval, approve `esbuild` and rerun the install.
+
+Open `http://localhost:5173` on the phone, add the upstream provider keys in the dashboard, and copy the unified key from its Keys page. The gateway API is `http://127.0.0.1:3001/v1`. Keep it loopback-only unless you deliberately configure a trusted private network; do not port-forward it to the public internet. Android may suspend Termux when the screen turns off; the upstream guide documents `termux-wake-lock` and battery-optimization settings.
+
+To use the gateway from an AI ORCHESTRA process on the same device, install the optional SDK and set these environment variables in that process:
+
+```bash
+python -m pip install -e '.[openai]'
+export ORCHESTRA_PROVIDER=freellmapi
+export FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
+export FREELLMAPI_MODEL=auto
+read -rsp 'FreeLLMAPI unified key: ' FREELLMAPI_API_KEY
+printf '\n'
+export FREELLMAPI_API_KEY
+```
+
+`127.0.0.1` always refers to the machine running AI ORCHESTRA. If AI ORCHESTRA runs on another device, use a properly secured HTTPS endpoint reachable only over a private VPN rather than assuming the phone's loopback address is reachable. Keep the unified key in the server environment, never in Git, browser code, or task prompts.
 
 ## Browser workbench
 
@@ -47,13 +83,13 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 - `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live provider connectivity.
 - `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`. Set `ORCHESTRA_REQUIRE_API_KEY=true` to fail closed if `ORCHESTRA_API_KEY` is missing or the requirement flag is invalid; the production Compose profile enables this automatically.
-- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"`, `"provider":"anthropic"`, `"provider":"grok"`, `"provider":"kimi"`, or `"provider":"deepseek"` / `"provider":"manus"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
+- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"`, `"provider":"anthropic"`, `"provider":"grok"`, `"provider":"kimi"`, or `"provider":"deepseek"`, `"provider":"freellmapi"`, or `"provider":"manus"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and current budget use.
 - Set `ORCHESTRA_BUDGET_DB` to a local SQLite path to persist the provider-call cap across restarts and enforce it atomically for processes sharing that same file on one host. `ORCHESTRA_MAX_REQUESTS` becomes the per-UTC-day cap; the default production profile allows 100 provider attempts per UTC day. For a shared multi-host quota, set `ORCHESTRA_REDIS_URL` and build with `ORCHESTRA_EXTRAS=redis`; Redis takes precedence over SQLite, uses atomic reservations, and is checked by `/ready`. Configure Redis authentication/TLS and network restrictions. Without either backend, the budget is process-local and resets on restart. Application budgets do not replace provider billing limits.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded. Set `ORCHESTRA_AUDIT_DB` to a local SQLite file to retain the bounded audit window across restarts; unset it to keep audit events in process memory.
 - Audit writes are best-effort: if the audit store is unavailable, a completed provider result is still returned and only the exception type is logged. Check storage health separately; this avoids masking a completed (and potentially billable) provider call.
 - `GET /providers/health` returns provider success/failure counts and accumulated latency; by default they are process-local. Set `ORCHESTRA_MEMORY_DB` to a local SQLite file to persist these aggregates across restarts. Only provider names, counts, and latency are stored—never prompts, completions, or credentials.
-- `GET /providers/configuration` requires `ORCHESTRA_API_KEY` and `X-API-Key` even when general development authentication is optional. It reports the selected primary/fallbacks, adapter readiness, credential-presence booleans and model IDs for Gemini, OpenAI, Anthropic, xAI Grok, Kimi, DeepSeek and Manus. It also reports the Manus agent profile and explicit paid-call opt-in state. It never returns secret values and never performs a live provider request.
+- `GET /providers/configuration` requires `ORCHESTRA_API_KEY` and `X-API-Key` even when general development authentication is optional. It reports the selected primary/fallbacks, adapter readiness, credential-presence booleans and model IDs for Gemini, OpenAI, Anthropic, xAI Grok, Kimi, DeepSeek, FreeLLMAPI and Manus. It also reports the Manus agent profile and explicit paid-call opt-in state. It never returns secret values and never performs a live provider request.
 - `GET /providers/circuits` reports configured providers' circuit state (`closed`, `open`, or `half_open`) and cooldown remaining; it honors `ORCHESTRA_API_KEY` when configured.
 - `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
 - `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
@@ -70,8 +106,8 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 ## Limits and safeguards
 
-- `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, `anthropic`, `grok`, `kimi`, `deepseek`, and `manus`.
-- `ORCHESTRA_PROVIDER_FALLBACKS`: optional comma-separated ordered fallback providers, for example `openai,anthropic,deepseek`. Each listed provider needs its own API key and optional SDK extra (`grok`, `kimi`, `deepseek`, or `manus` as applicable). API keys and consumer chat subscriptions are separate; configure provider-side billing limits before live use. The primary cannot be repeated; duplicates and unknown names are rejected. Each task tries providers in order and stops at the first success. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
+- `ORCHESTRA_PROVIDER`: primary provider (default `gemini`); supported values are `gemini`, `openai`, `anthropic`, `grok`, `kimi`, `deepseek`, `freellmapi`, and `manus`.
+- `ORCHESTRA_PROVIDER_FALLBACKS`: optional comma-separated ordered fallback providers, for example `openai,anthropic,deepseek`. Each listed provider needs its own API key and optional SDK extra (`grok`, `kimi`, `deepseek`, `freellmapi`, or `manus` as applicable). API keys and consumer chat subscriptions are separate; configure provider-side billing limits before live use. The primary cannot be repeated; duplicates and unknown names are rejected. Each task tries providers in order and stops at the first success. OpenAI requires the optional `openai` dependency extra and `OPENAI_API_KEY`; Anthropic requires the optional `anthropic` extra and `ANTHROPIC_API_KEY`.
 - `ORCHESTRA_TASK_ROUTES`: optional deterministic task routing, e.g. `code=openai,research=gemini,writing=anthropic`. Supported task types are `general`, `code`, `research`, `writing`, `analysis`, `review`, `planner`, `reviewer`, and `writer`; each target must already be configured as the primary or a fallback. A per-request `provider` overrides this policy.
 - `MANUS_API_KEY`: optional Manus API v2 key. Never commit it.
 - `MANUS_ALLOW_PAID_CALLS`: must be explicitly `true` (or `1`) before Manus can be selected as primary or fallback; default `false`. Task creation may consume account credits.
@@ -82,6 +118,9 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD`: consecutive provider failures before a circuit opens (default 3; allowed 1–20).
 - `ORCHESTRA_CIRCUIT_RESET_SECONDS`: cooldown before one half-open probe (default 30; allowed 1–3600).
 - `ORCHESTRA_EVIDENCE_ALLOWED_HOSTS`: comma-separated DNS hostnames allowed for evidence fetching. Exact hosts and their subdomains are accepted; IP literals and custom ports are not. Empty by default, which disables outbound evidence fetching.
+- `FREELLMAPI_API_KEY`: unified key created in the FreeLLMAPI dashboard; store it only in the server environment, never in Git or a client.
+- `FREELLMAPI_BASE_URL`: OpenAI-compatible gateway URL (default `http://127.0.0.1:3001/v1`; non-loopback URLs must use HTTPS).
+- `FREELLMAPI_MODEL`: FreeLLMAPI model ID (default `auto`, which delegates model selection to the gateway).
 - `OPENAI_MODEL`: OpenAI model name (default `gpt-4o-mini`).
 - `ANTHROPIC_MODEL`: Anthropic model name (default `claude-3-5-haiku-latest`).
 - `GROK_MODEL`: xAI Grok model name (default `grok-3-mini`); select a model enabled for the configured xAI account.
@@ -122,7 +161,7 @@ The [manual live provider smoke workflow](.github/workflows/live-provider-smoke.
 
 ## Current scope
 
-Implemented: typed provider contract and registry wired into startup, validated provider selection, task-aware and agent-role routing, opt-in Manus API v2 task adapter with private tasks, connectors cleared, no automatic confirmations, and an explicit credit opt-in, opt-in draft-review-revision and plan-execute-review-synthesis workflows, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, configurable process-local provider circuit breakers with a single half-open probe, opt-in allowlisted public-URL evidence snapshots, FastAPI endpoints, input and request limits, bounded metadata-only audit trail with optional SQLite persistence, provider outcome memory with optional SQLite persistence, optional persistent daily SQLite call budget, basic request metrics, deterministic stub-based tests, and CI packaging checks.
+Implemented: typed provider contract and registry wired into startup, optional FreeLLMAPI OpenAI-compatible gateway adapter, validated provider selection, task-aware and agent-role routing, opt-in Manus API v2 task adapter with private tasks, connectors cleared, no automatic confirmations, and an explicit credit opt-in, opt-in draft-review-revision and plan-execute-review-synthesis workflows, Gemini adapter, optional OpenAI adapter, ordered failover orchestrator with an exposed attempt count, configurable process-local provider circuit breakers with a single half-open probe, opt-in allowlisted public-URL evidence snapshots, FastAPI endpoints, input and request limits, bounded metadata-only audit trail with optional SQLite persistence, provider outcome memory with optional SQLite persistence, optional persistent daily SQLite call budget, basic request metrics, deterministic stub-based tests, and CI packaging checks.
 
 Not yet implemented: automatic evidence discovery, source-group verification, calibrated or independently validated semantic contradiction/entailment verification, and evidence-backed responses from provider output; semantic/benchmark-driven provider routing, production identity management, distributed quotas, TLS/public ingress, or evidence of live provider connectivity. The provider-assisted claim assessment is an untrusted review signal, not a verified fact. The evidence assessor is a metadata utility only and must not be treated as proof that a source is authentic or supports a claim. CI passing verifies only the checks executed by that run; it does not prove model availability, free-tier eligibility, production readiness, or performance gains.
 

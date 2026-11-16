@@ -3,6 +3,7 @@ from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.deepseek import DeepSeekProvider
+from orchestra.providers.freellmapi import FreeLLMAPIProvider
 from orchestra.providers.gemini import GeminiProvider
 from orchestra.providers.grok import GrokProvider
 from orchestra.providers.kimi import KimiProvider
@@ -36,6 +37,10 @@ def _build_named_provider(name: str, settings: Settings):
         if not settings.deepseek_api_key:
             raise ProviderConfigurationError("DEEPSEEK_API_KEY is missing")
         return DeepSeekProvider(settings)
+    if name == "freellmapi":
+        if not settings.freellmapi_api_key:
+            raise ProviderConfigurationError("FREELLMAPI_API_KEY is missing")
+        return FreeLLMAPIProvider(settings)
     if name == "manus":
         if not settings.manus_allow_paid_calls:
             raise ProviderConfigurationError(

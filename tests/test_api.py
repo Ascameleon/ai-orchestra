@@ -1064,6 +1064,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
         "grok": "xai-test-secret",
         "kimi": "kimi-test-secret",
         "deepseek": "deepseek-test-secret",
+        "freellmapi": "freellmapi-test-secret",
         "manus": "manus-test-secret",
     }
     settings = Settings(
@@ -1081,12 +1082,15 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
         kimi_model="kimi-test-model",
         deepseek_api_key=secrets["deepseek"],
         deepseek_model="deepseek-test-model",
+        freellmapi_api_key=secrets["freellmapi"],
+        freellmapi_base_url="http://127.0.0.1:3001/v1",
+        freellmapi_model="freellmapi-test-model",
         manus_api_key=secrets["manus"],
         manus_allow_paid_calls=True,
         manus_allow_agent_tools=True,
         manus_agent_profile="lite",
         provider_name="gemini",
-        provider_fallbacks=("openai", "anthropic", "grok", "kimi", "deepseek", "manus"),
+        provider_fallbacks=("openai", "anthropic", "grok", "kimi", "deepseek", "freellmapi", "manus"),
         max_requests_per_process=100,
         audit_capacity=100,
         memory_db_path=None,
@@ -1107,7 +1111,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
         def __init__(self):
             self.providers = {
                 name: NamedStubProvider(name)
-                for name in ("gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "manus")
+                for name in ("gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "freellmapi", "manus")
             }
 
         def get(self, name):
@@ -1132,8 +1136,8 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
     assert response.status_code == 200
     body = response.json()
     assert body["primary"] == "gemini"
-    assert body["fallbacks"] == ["openai", "anthropic", "grok", "kimi", "deepseek", "manus"]
-    assert body["configured_providers"] == ["gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "manus"]
+    assert body["fallbacks"] == ["openai", "anthropic", "grok", "kimi", "deepseek", "freellmapi", "manus"]
+    assert body["configured_providers"] == ["gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "freellmapi", "manus"]
     assert body["adapter_registry_ready"] is True
     assert body["credentials"] == {name: True for name in secrets}
     assert body["models"] == {
@@ -1143,6 +1147,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
         "grok": "grok-test-model",
         "kimi": "kimi-test-model",
         "deepseek": "deepseek-test-model",
+        "freellmapi": "freellmapi-test-model",
     }
     assert body["execution_profiles"] == {"manus": "lite"}
     assert body["paid_calls_opt_in"] == {"manus": True}
@@ -1177,6 +1182,7 @@ def test_workbench_lists_every_supported_provider_for_task_and_review():
             ("grok", "Grok (xAI)"),
             ("kimi", "Kimi"),
             ("deepseek", "DeepSeek"),
+            ("freellmapi", "FreeLLMAPI (gateway local)"),
             ("manus", "Manus (opt-in, crédits)"),
         ):
             assert f'<option value="{provider}">{label}</option>' in options
