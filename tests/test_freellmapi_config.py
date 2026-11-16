@@ -69,6 +69,17 @@ def test_freellmapi_rejects_additional_unsafe_base_urls(monkeypatch, url):
 
 
 @pytest.mark.parametrize("url", [
+    "http://127.0.0.1:0/v1",
+    "http://127.0.0.1:65536/v1",
+    "http://127.0.0.1:notaport/v1",
+])
+def test_freellmapi_rejects_invalid_ports(monkeypatch, url):
+    monkeypatch.setenv("FREELLMAPI_BASE_URL", url)
+    with pytest.raises(ValueError, match="FREELLMAPI_BASE_URL"):
+        load_settings()
+
+
+@pytest.mark.parametrize("url", [
     "http://127.0.0.1:3001/v1",
     "http://localhost:3001/v1",
     "http://[::1]:3001/v1",
