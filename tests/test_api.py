@@ -1083,6 +1083,7 @@ def test_provider_configuration_reports_all_adapters_without_live_calls(monkeypa
         deepseek_model="deepseek-test-model",
         manus_api_key=secrets["manus"],
         manus_allow_paid_calls=True,
+        manus_allow_agent_tools=True,
         manus_agent_profile="lite",
         provider_name="gemini",
         provider_fallbacks=("openai", "anthropic", "grok", "kimi", "deepseek", "manus"),
