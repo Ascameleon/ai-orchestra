@@ -110,6 +110,19 @@ class ManusProvider:
                 return content.strip()
         return ""
 
+    def _stop_task_best_effort(self, task_id: str) -> bool:
+        """Ask Manus to stop a timed-out task without masking the timeout."""
+        try:
+            self._request(
+                "POST",
+                "task.stop",
+                body={"task_id": task_id},
+                timeout_seconds=5.0,
+            )
+            return True
+        except ProviderCallError:
+            return False
+
     def generate(self, prompt: str) -> ProviderResult:
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("prompt must not be empty")
@@ -191,6 +204,11 @@ class ManusProvider:
             if remaining > 0:
                 self._sleep(min(self._poll_interval_seconds, remaining))
 
+        stop_accepted = self._stop_task_best_effort(task_id)
+        if stop_accepted:
+            raise ProviderCallError(
+                "Manus task timed out; a best-effort stop request was accepted"
+            )
         raise ProviderCallError(
-            "Manus task timed out; the remote task may still be running"
+            "Manus task timed out; the stop request failed and the remote task may still be running"
         )
