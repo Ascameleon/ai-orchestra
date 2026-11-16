@@ -78,7 +78,9 @@ def load_settings() -> Settings:
         raise ValueError("MANUS_ALLOW_PAID_CALLS must be true, false, 1, or 0")
     manus_allow_paid_calls = manus_allow_raw in {"true", "1"}
     manus_agent_profile = os.getenv("MANUS_AGENT_PROFILE", "lite").strip().lower()
-    if manus_agent_profile not in {"lite", "standard", "max", "max-medium", "max-high", "max-extra", "max-ultra"}:
+    if manus_agent_profile not in {
+        "lite", "standard", "max", "max-medium", "max-high", "max-extra", "max-ultra"
+    }:
         raise ValueError("MANUS_AGENT_PROFILE is unsupported")
     manus_timeout_seconds = positive_int("MANUS_TIMEOUT_SECONDS", 300, 900)
     manus_poll_interval_seconds = positive_int("MANUS_POLL_INTERVAL_SECONDS", 2, 30)
