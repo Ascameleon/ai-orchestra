@@ -19,6 +19,11 @@ class Settings:
     kimi_model: str = "kimi-k2.6"
     deepseek_api_key: str | None = None
     deepseek_model: str = "deepseek-flash"
+    manus_api_key: str | None = None
+    manus_allow_paid_calls: bool = False
+    manus_agent_profile: str = "lite"
+    manus_timeout_seconds: int = 300
+    manus_poll_interval_seconds: int = 2
     provider_name: str = "gemini"
     provider_fallbacks: tuple[str, ...] = ()
     task_routes: tuple[tuple[str, str], ...] = ()
@@ -67,6 +72,16 @@ def load_settings() -> Settings:
     deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-flash").strip()
     if not deepseek_model:
         raise ValueError("DEEPSEEK_MODEL cannot be empty")
+    manus_key = secret("MANUS_API_KEY")
+    manus_allow_raw = os.getenv("MANUS_ALLOW_PAID_CALLS", "false").strip().lower()
+    if manus_allow_raw not in {"true", "false", "1", "0"}:
+        raise ValueError("MANUS_ALLOW_PAID_CALLS must be true, false, 1, or 0")
+    manus_allow_paid_calls = manus_allow_raw in {"true", "1"}
+    manus_agent_profile = os.getenv("MANUS_AGENT_PROFILE", "lite").strip().lower()
+    if manus_agent_profile not in {"lite", "standard", "max", "max-medium", "max-high", "max-extra", "max-ultra"}:
+        raise ValueError("MANUS_AGENT_PROFILE is unsupported")
+    manus_timeout_seconds = positive_int("MANUS_TIMEOUT_SECONDS", 300, 900)
+    manus_poll_interval_seconds = positive_int("MANUS_POLL_INTERVAL_SECONDS", 2, 30)
     provider_name = os.getenv("ORCHESTRA_PROVIDER", "gemini").strip().lower()
     if not provider_name:
         raise ValueError("ORCHESTRA_PROVIDER cannot be empty")
@@ -74,14 +89,16 @@ def load_settings() -> Settings:
     provider_fallbacks = tuple(
         item.strip().lower() for item in fallback_raw.split(",") if item.strip()
     )
-    supported_providers = {"gemini", "openai", "anthropic", "grok", "kimi", "deepseek"}
+    supported_providers = {"gemini", "openai", "anthropic", "grok", "kimi", "deepseek", "manus"}
     if provider_name not in supported_providers:
-        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, anthropic, grok, kimi, or deepseek")
+        raise ValueError("ORCHESTRA_PROVIDER must be gemini, openai, anthropic, grok, kimi, deepseek, or manus")
     if any(item not in supported_providers for item in provider_fallbacks):
         raise ValueError("ORCHESTRA_PROVIDER_FALLBACKS contains an unsupported provider")
     if provider_name in provider_fallbacks or len(set(provider_fallbacks)) != len(provider_fallbacks):
         raise ValueError("Provider fallback list must be unique and exclude the primary provider")
     configured_providers = {provider_name, *provider_fallbacks}
+    if "manus" in configured_providers and not manus_allow_paid_calls:
+        raise ValueError("Manus may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in")
     allowed_tasks = {"general", "code", "research", "writing", "analysis", "review", "planner", "reviewer", "writer"}
     task_routes = []
     for entry in os.getenv("ORCHESTRA_TASK_ROUTES", "").split(","):
@@ -112,6 +129,11 @@ def load_settings() -> Settings:
         kimi_model=kimi_model,
         deepseek_api_key=deepseek_key,
         deepseek_model=deepseek_model,
+        manus_api_key=manus_key,
+        manus_allow_paid_calls=manus_allow_paid_calls,
+        manus_agent_profile=manus_agent_profile,
+        manus_timeout_seconds=manus_timeout_seconds,
+        manus_poll_interval_seconds=manus_poll_interval_seconds,
         provider_name=provider_name,
         provider_fallbacks=provider_fallbacks,
         task_routes=tuple(task_routes),
