@@ -3,8 +3,8 @@ from orchestra.config import Settings
 from orchestra.providers.anthropic import AnthropicProvider
 from orchestra.providers.base import ProviderConfigurationError
 from orchestra.providers.deepseek import DeepSeekProvider
-from orchestra.providers.gemini import GeminiProvider
 from orchestra.providers.freellmapi import FreeLLMAPIProvider
+from orchestra.providers.gemini import GeminiProvider
 from orchestra.providers.grok import GrokProvider
 from orchestra.providers.kimi import KimiProvider
 from orchestra.providers.manus import ManusProvider
