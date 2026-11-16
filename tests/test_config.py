@@ -7,7 +7,7 @@ def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     for name in (
         "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY",
         "KIMI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY", "MANUS_API_KEY",
-        "MANUS_ALLOW_PAID_CALLS", "MANUS_AGENT_PROFILE", "MANUS_TIMEOUT_SECONDS", "MANUS_POLL_INTERVAL_SECONDS",
+        "MANUS_ALLOW_PAID_CALLS", "MANUS_ALLOW_AGENT_TOOLS", "MANUS_AGENT_PROFILE", "MANUS_TIMEOUT_SECONDS", "MANUS_POLL_INTERVAL_SECONDS",
         "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL",
         "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL",
         "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
@@ -24,6 +24,7 @@ def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     assert settings.memory_db_path is None
     assert settings.manus_api_key is None
     assert settings.manus_allow_paid_calls is False
+    assert settings.manus_allow_agent_tools is False
     assert settings.manus_agent_profile == "lite"
 
 
@@ -161,10 +162,15 @@ def test_manus_requires_explicit_credit_opt_in(monkeypatch):
     monkeypatch.setenv("ORCHESTRA_PROVIDER", "manus")
     monkeypatch.setenv("MANUS_API_KEY", "test-manus-key")
     monkeypatch.setenv("MANUS_ALLOW_PAID_CALLS", "false")
+    monkeypatch.setenv("MANUS_ALLOW_AGENT_TOOLS", "false")
     with pytest.raises(ValueError, match="MANUS_ALLOW_PAID_CALLS"):
         load_settings()
 
     monkeypatch.setenv("MANUS_ALLOW_PAID_CALLS", "true")
+    with pytest.raises(ValueError, match="MANUS_ALLOW_AGENT_TOOLS"):
+        load_settings()
+
+    monkeypatch.setenv("MANUS_ALLOW_AGENT_TOOLS", "true")
     settings = load_settings()
     assert settings.provider_name == "manus"
     assert settings.manus_api_key == "test-manus-key"
@@ -190,4 +196,11 @@ def test_manus_profile_and_poll_limits_are_validated(monkeypatch):
     monkeypatch.delenv("MANUS_TIMEOUT_SECONDS")
     monkeypatch.setenv("MANUS_POLL_INTERVAL_SECONDS", "31")
     with pytest.raises(ValueError, match="MANUS_POLL_INTERVAL_SECONDS"):
+        load_settings()
+
+
+@pytest.mark.parametrize("value", ["yes", "on", "enabled", ""])
+def test_manus_agent_tools_acknowledgement_rejects_ambiguous_boolean_values(monkeypatch, value):
+    monkeypatch.setenv("MANUS_ALLOW_AGENT_TOOLS", value)
+    with pytest.raises(ValueError, match="MANUS_ALLOW_AGENT_TOOLS"):
         load_settings()
