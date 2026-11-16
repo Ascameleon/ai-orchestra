@@ -154,3 +154,27 @@ def test_manus_timeout_does_not_retry_or_create_a_second_task():
 def test_manus_requires_explicit_account_skills_acknowledgement():
     with pytest.raises(ProviderConfigurationError, match="MANUS_ALLOW_AGENT_TOOLS"):
         ManusProvider(settings(manus_allow_agent_tools=False))
+
+
+def test_manus_does_not_return_progress_as_a_completed_result():
+    def handler(request):
+        if request.url.path.endswith("/task.create"):
+            return httpx.Response(200, json={"ok": True, "task_id": "task-progress"})
+        if request.url.path.endswith("/task.listMessages"):
+            return httpx.Response(200, json={"ok": True, "messages": [
+                {"type": "status_update", "status_update": {"agent_status": "stopped"}},
+                {"type": "assistant_message", "assistant_message": {
+                    "content": "I am still working on the task.", "delivery_kind": "progress"
+                }},
+            ]})
+        if request.url.path.endswith("/task.detail"):
+            return httpx.Response(200, json={"ok": True, "task": {
+                "status": "stopped", "has_running_background_jobs": False
+            }})
+        raise AssertionError(f"Unexpected Manus endpoint: {request.url.path}")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = ManusProvider(settings(), client=client)
+    with pytest.raises(ProviderCallError, match="without an explicit text result"):
+        provider.generate("Finish this task")
+    client.close()
