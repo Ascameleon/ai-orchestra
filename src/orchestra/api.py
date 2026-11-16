@@ -413,9 +413,6 @@ finally{button.disabled=false;}
             "paid_calls_opt_in": {
                 "manus": settings.manus_allow_paid_calls,
             },
-            "models": {
-                "deepseek": settings.deepseek_model,
-            },
             "live_check_performed": False,
         }
 
