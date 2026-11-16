@@ -6,10 +6,11 @@ from orchestra.config import load_settings
 def test_load_settings_defaults_to_gemini_without_credentials(monkeypatch):
     for name in (
         "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY",
-        "KIMI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY", "MANUS_API_KEY",
+        "KIMI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY", "FREELLMAPI_API_KEY", "MANUS_API_KEY",
         "MANUS_ALLOW_PAID_CALLS", "MANUS_ALLOW_AGENT_TOOLS", "MANUS_AGENT_PROFILE", "MANUS_TIMEOUT_SECONDS", "MANUS_POLL_INTERVAL_SECONDS",
         "ORCHESTRA_PROVIDER", "ORCHESTRA_PROVIDER_FALLBACKS", "GEMINI_MODEL", "OPENAI_MODEL",
         "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL",
+        "FREELLMAPI_BASE_URL", "FREELLMAPI_MODEL",
         "ORCHESTRA_MAX_INPUT_CHARS", "ORCHESTRA_MAX_OUTPUT_TOKENS",
         "ORCHESTRA_MAX_REQUESTS", "ORCHESTRA_AUDIT_CAPACITY", "ORCHESTRA_MEMORY_DB",
     ):
@@ -40,14 +41,14 @@ def test_load_settings_rejects_invalid_limits(monkeypatch, name, value):
         load_settings()
 
 
-@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL"])
+@pytest.mark.parametrize("name", ["GEMINI_MODEL", "OPENAI_MODEL", "ANTHROPIC_MODEL", "GROK_MODEL", "KIMI_MODEL", "DEEPSEEK_MODEL", "FREELLMAPI_MODEL"])
 def test_load_settings_rejects_empty_model_names(monkeypatch, name):
     monkeypatch.setenv(name, "   ")
     with pytest.raises(ValueError, match="cannot be empty"):
         load_settings()
 
 
-@pytest.mark.parametrize("name", ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "KIMI_API_KEY", "DEEPSEEK_API_KEY"])
+@pytest.mark.parametrize("name", ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "KIMI_API_KEY", "DEEPSEEK_API_KEY", "FREELLMAPI_API_KEY"])
 def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
     monkeypatch.setenv(name, "REPLACE_WITH_A_LONG_RANDOM_SECRET")
     settings = load_settings()
@@ -58,6 +59,7 @@ def test_load_settings_treats_example_secrets_as_missing(monkeypatch, name):
         "XAI_API_KEY": "xai_api_key",
         "KIMI_API_KEY": "kimi_api_key",
         "DEEPSEEK_API_KEY": "deepseek_api_key",
+        "FREELLMAPI_API_KEY": "freellmapi_api_key",
         "MANUS_API_KEY": "manus_api_key",
     }[name]
     assert getattr(settings, attribute) is None
@@ -204,3 +206,65 @@ def test_manus_agent_tools_acknowledgement_rejects_ambiguous_boolean_values(monk
     monkeypatch.setenv("MANUS_ALLOW_AGENT_TOOLS", value)
     with pytest.raises(ValueError, match="MANUS_ALLOW_AGENT_TOOLS"):
         load_settings()
+
+
+
+def test_freellmapi_provider_selection_and_fallback(monkeypatch):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "freellmapi")
+    monkeypatch.setenv("FREELLMAPI_API_KEY", "test-unified-key")
+    monkeypatch.setenv("FREELLMAPI_MODEL", "auto:fast")
+    settings = load_settings()
+    assert settings.provider_name == "freellmapi"
+    assert settings.freellmapi_api_key == "test-unified-key"
+    assert settings.freellmapi_model == "auto:fast"
+    assert settings.freellmapi_base_url == "http://127.0.0.1:3001/v1"
+
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", "gemini")
+    monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", "freellmapi")
+    assert load_settings().provider_fallbacks == ("freellmapi",)
+
+
+@pytest.mark.parametrize("provider,fallbacks", [
+    ("freellmapi", ""),
+    ("gemini", "freellmapi"),
+])
+def test_freellmapi_requires_unified_key_when_selected_or_fallback(monkeypatch, provider, fallbacks):
+    monkeypatch.setenv("ORCHESTRA_PROVIDER", provider)
+    monkeypatch.setenv("ORCHESTRA_PROVIDER_FALLBACKS", fallbacks)
+    monkeypatch.delenv("FREELLMAPI_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="FREELLMAPI_API_KEY"):
+        load_settings()
+
+
+@pytest.mark.parametrize("value", [
+    "http://example.com/v1",
+    "http://192.168.1.20:3001/v1",
+])
+def test_freellmapi_rejects_remote_plain_http(monkeypatch, value):
+    monkeypatch.setenv("FREELLMAPI_BASE_URL", value)
+    with pytest.raises(ValueError, match="FREELLMAPI_BASE_URL"):
+        load_settings()
+
+
+@pytest.mark.parametrize("value", [
+    "ftp://localhost:3001/v1",
+    "/v1",
+    "https://user:password@example.com/v1",
+    "https://example.com/v1?token=secret",
+    "https://example.com/v1#fragment",
+])
+def test_freellmapi_rejects_unsafe_or_invalid_base_urls(monkeypatch, value):
+    monkeypatch.setenv("FREELLMAPI_BASE_URL", value)
+    with pytest.raises(ValueError, match="FREELLMAPI_BASE_URL"):
+        load_settings()
+
+
+@pytest.mark.parametrize("value", [
+    "http://127.0.0.1:3001/v1",
+    "http://localhost:3001/v1",
+    "http://[::1]:3001/v1",
+    "https://gateway.example/v1",
+])
+def test_freellmapi_accepts_loopback_http_or_remote_https(monkeypatch, value):
+    monkeypatch.setenv("FREELLMAPI_BASE_URL", value)
+    assert load_settings().freellmapi_base_url == value
