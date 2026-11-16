@@ -48,7 +48,7 @@ def test_openai_generation_uses_limits_and_configured_model():
     assert result.input_chars == 5
     assert calls[0]["model"] == "test-model"
     assert calls[0]["messages"] == [{"role": "user", "content": "hello"}]
-    assert calls[0]["max_tokens"] == 32
+    assert calls[0]["max_completion_tokens"] == 32
 
 
 def test_openai_sdk_failure_is_normalized_for_failover():
