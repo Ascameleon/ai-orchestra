@@ -29,7 +29,7 @@ class OpenAIProvider:
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=self._max_output_tokens,
+                max_completion_tokens=self._max_output_tokens,
             )
         except Exception as exc:
             raise ProviderCallError("OpenAI request failed") from exc
