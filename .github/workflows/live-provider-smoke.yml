@@ -24,12 +24,12 @@ on:
         description: OpenAI model ID
         type: string
         required: true
-        default: gpt-5.6-luna
+        default: gpt-6-luna
       anthropic_model:
         description: Anthropic model ID
         type: string
         required: true
-        default: claude-haiku-5-5
+        default: claude-haiku-4-5-20251001
       grok_model:
         description: xAI Grok model ID
         type: string
