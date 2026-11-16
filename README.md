@@ -35,7 +35,7 @@ The automated tests stub the provider SDK; they do not contact Gemini or spend A
 
 FreeLLMAPI is a separate local gateway, not a model or a source of unlimited free inference. It routes requests to upstream providers whose own account rules, free-tier quotas, and terms still apply. The upstream project is MIT-licensed; this repository does not copy its source code and integrates only through its OpenAI-compatible API. The upstream project describes itself as suitable for personal experimentation and learning, not production, and offers no SLA. Its optional paid live-catalog tier is not required for the free local install; free installs use a monthly catalog snapshot, so new model entries can arrive up to 30 days later.
 
-On Samsung/Android, the upstream Termux path is experimental and community-supported. It requires Android 7+, Termux from F-Droid, about 1 GB of free storage, and Node.js 22.13+ (Node 24 LTS is recommended). In Termux:
+On Samsung/Android, the upstream [Termux path](https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/install/02-android-termux.md) is experimental and community-supported. It requires Android 7+, Termux from F-Droid, about 1 GB of free storage, and Node.js 22.13+ (Node 24 LTS is recommended). In Termux:
 
 ```bash
 pkg update
@@ -49,6 +49,8 @@ npm install --no-audit --no-fund
 npm run dev
 ```
 
+On Android, the upstream guide says a warning for the optional `better-sqlite3` package is expected; if npm asks for install-script approval, approve `esbuild` and rerun the install.
+
 Open `http://localhost:5173` on the phone, add the upstream provider keys in the dashboard, and copy the unified key from its Keys page. The gateway API is `http://127.0.0.1:3001/v1`. Keep it loopback-only unless you deliberately configure a trusted private network; do not port-forward it to the public internet. Android may suspend Termux when the screen turns off; the upstream guide documents `termux-wake-lock` and battery-optimization settings.
 
 To use the gateway from an AI ORCHESTRA process on the same device, install the optional SDK and set these environment variables in that process:
@@ -58,7 +60,9 @@ python -m pip install -e '.[openai]'
 export ORCHESTRA_PROVIDER=freellmapi
 export FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
 export FREELLMAPI_MODEL=auto
-export FREELLMAPI_API_KEY='<unified-key-from-FreeLLMAPI>'
+read -rsp 'FreeLLMAPI unified key: ' FREELLMAPI_API_KEY
+printf '\\n'
+export FREELLMAPI_API_KEY
 ```
 
 `127.0.0.1` always refers to the machine running AI ORCHESTRA. If AI ORCHESTRA runs on another device, use a properly secured HTTPS endpoint reachable only over a private VPN rather than assuming the phone's loopback address is reachable. Keep the unified key in the server environment, never in Git, browser code, or task prompts.
