@@ -77,7 +77,7 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 - `MANUS_ALLOW_PAID_CALLS`: must be explicitly `true` (or `1`) before Manus can be selected as primary or fallback; default `false`. Task creation may consume account credits.
 - `MANUS_ALLOW_AGENT_TOOLS`: must also be explicitly `true` (or `1`) before Manus can be selected; default `false`. API-key tasks load enabled account skills by default. `clear_connectors=true` removes default connectors but does not sandbox every built-in tool or account skill.
 - `MANUS_AGENT_PROFILE`: Manus execution profile (`lite` by default; `standard`, `max`, and documented Max thinking levels are explicit higher-cost choices).
-- `MANUS_TIMEOUT_SECONDS`: maximum synchronous wait for one Manus task (default 300; allowed 1–900). A timeout does not cancel the remote task or automatically retry it.
+- `MANUS_TIMEOUT_SECONDS`: maximum synchronous wait for one Manus task (default 300; allowed 1–900). On timeout, the adapter sends a bounded best-effort `task.stop` request; remote cancellation is not guaranteed and the task is not automatically retried.
 - `MANUS_POLL_INTERVAL_SECONDS`: interval between Manus status polls (default 2; allowed 1–30).
 - `ORCHESTRA_CIRCUIT_FAILURE_THRESHOLD`: consecutive provider failures before a circuit opens (default 3; allowed 1–20).
 - `ORCHESTRA_CIRCUIT_RESET_SECONDS`: cooldown before one half-open probe (default 30; allowed 1–3600).
