@@ -120,12 +120,14 @@ def test_manus_keeps_polling_until_background_jobs_finish():
     assert detail_calls[0] == 2
 
 
-def test_manus_timeout_does_not_retry_or_create_a_second_task():
+def test_manus_timeout_bounds_each_request_and_never_retries_creation():
     calls = []
+    request_timeouts = []
     now = [0.0]
 
     def handler(request):
         calls.append(request.url.path)
+        request_timeouts.append(request.extensions["timeout"]["read"])
         if request.url.path.endswith("/task.create"):
             return httpx.Response(200, json={"ok": True, "task_id": "task-running"})
         if request.url.path.endswith("/task.listMessages"):
@@ -149,6 +151,7 @@ def test_manus_timeout_does_not_retry_or_create_a_second_task():
     client.close()
     assert calls.count("/v2/task.create") == 1
     assert calls.count("/v2/task.listMessages") == 2
+    assert request_timeouts == [2.0, 2.0, 1.0]
 
 
 def test_manus_requires_explicit_account_skills_acknowledgement():
