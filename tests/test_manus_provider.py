@@ -134,6 +134,10 @@ def test_manus_timeout_bounds_each_request_and_never_retries_creation():
             return httpx.Response(200, json={"ok": True, "messages": [
                 {"type": "status_update", "status_update": {"agent_status": "running"}}
             ]})
+        if request.url.path.endswith("/task.stop"):
+            body = __import__("json").loads(request.content)
+            assert body == {"task_id": "task-running"}
+            return httpx.Response(200, json={"ok": True, "request_id": "stop-1"})
         raise AssertionError(f"Unexpected endpoint: {request.url.path}")
 
     def advance(seconds):
@@ -151,7 +155,8 @@ def test_manus_timeout_bounds_each_request_and_never_retries_creation():
     client.close()
     assert calls.count("/v2/task.create") == 1
     assert calls.count("/v2/task.listMessages") == 2
-    assert request_timeouts == [2.0, 2.0, 1.0]
+    assert calls.count("/v2/task.stop") == 1
+    assert request_timeouts == [2.0, 2.0, 1.0, 5.0]
 
 
 def test_manus_requires_explicit_account_skills_acknowledgement():
