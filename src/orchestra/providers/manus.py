@@ -60,6 +60,7 @@ class ManusProvider:
         *,
         params: dict[str, str] | None = None,
         body: dict[str, Any] | None = None,
+        timeout_seconds: float = 20.0,
     ) -> dict[str, Any]:
         try:
             response = self._client.request(
@@ -68,7 +69,7 @@ class ManusProvider:
                 headers={"x-manus-api-key": self._api_key},
                 params=params,
                 json=body,
-                timeout=20.0,
+                timeout=timeout_seconds,
             )
             response.raise_for_status()
             payload = response.json()
@@ -115,6 +116,10 @@ class ManusProvider:
         if len(prompt) > self._max_input_chars:
             raise ValueError(f"prompt exceeds {self._max_input_chars} characters")
 
+        deadline = self._clock() + self._timeout_seconds
+        remaining = deadline - self._clock()
+        if remaining <= 0:
+            raise ProviderCallError("Manus task timed out before creation")
         created = self._request(
             "POST",
             "task.create",
@@ -125,17 +130,21 @@ class ManusProvider:
                 "interactive_mode": True,
                 "clear_connectors": True,
             },
+            timeout_seconds=min(20.0, remaining),
         )
         task_id = created.get("task_id")
         if not isinstance(task_id, str) or not task_id.strip():
             raise ProviderCallError("Manus did not return a task ID")
 
-        deadline = self._clock() + self._timeout_seconds
         while self._clock() < deadline:
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                break
             response = self._request(
                 "GET",
                 "task.listMessages",
                 params={"task_id": task_id, "order": "desc", "limit": "50"},
+                timeout_seconds=min(20.0, remaining),
             )
             raw_messages = response.get("messages", [])
             messages = raw_messages if isinstance(raw_messages, list) else []
@@ -149,8 +158,14 @@ class ManusProvider:
             if status == "error":
                 raise ProviderCallError("Manus task failed")
             if status == "stopped":
+                remaining = deadline - self._clock()
+                if remaining <= 0:
+                    break
                 detail = self._request(
-                    "GET", "task.detail", params={"task_id": task_id}
+                    "GET",
+                    "task.detail",
+                    params={"task_id": task_id},
+                    timeout_seconds=min(20.0, remaining),
                 )
                 task = detail.get("task")
                 if not isinstance(task, dict):
@@ -163,6 +178,8 @@ class ManusProvider:
                 if task_status == "error":
                     raise ProviderCallError("Manus task failed")
                 if task_status == "stopped" and task.get("has_running_background_jobs") is not True:
+                    if self._clock() >= deadline:
+                        break
                     text = self._result_text(valid_messages)
                     if not text:
                         raise ProviderCallError("Manus task stopped without an explicit text result")
