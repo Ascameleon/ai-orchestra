@@ -1172,3 +1172,17 @@ def test_workbench_lists_every_supported_provider_for_task_and_review():
         ):
             assert f'<option value="{provider}">{label}</option>' in options
 
+def test_workbench_exposes_all_supported_task_types():
+    client = TestClient(create_app(Orchestrator(StubProvider())))
+    response = client.get("/")
+    assert response.status_code == 200
+
+    start = response.text.index('<select id="task_type">')
+    end = response.text.index("</select>", start)
+    options = response.text[start:end]
+    for task_type in (
+        "general", "code", "research", "writing", "analysis", "review",
+        "planner", "reviewer", "writer",
+    ):
+        assert f'<option value="{task_type}"' in options
+
