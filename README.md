@@ -31,6 +31,38 @@ python -m build
 
 The automated tests stub the provider SDK; they do not contact Gemini or spend API credits.
 
+## FreeLLMAPI on Android (Termux)
+
+FreeLLMAPI is a separate local gateway, not a model or a source of unlimited free inference. It routes requests to upstream providers whose own account rules, free-tier quotas, and terms still apply. The upstream project is MIT-licensed; this repository does not copy its source code and integrates only through its OpenAI-compatible API.
+
+On Samsung/Android, the upstream Termux path is experimental and community-supported. It requires Android 7+, Termux from F-Droid, about 1 GB of free storage, and Node.js 22.13+ (Node 24 LTS is recommended). In Termux:
+
+```bash
+pkg update
+pkg upgrade -y
+pkg install -y nodejs-lts git
+node --version  # confirm 22.13 or newer
+
+git clone https://github.com/tashfeenahmed/freellmapi.git
+cd freellmapi
+npm install --no-audit --no-fund
+npm run dev
+```
+
+Open `http://localhost:5173` on the phone, add the upstream provider keys in the dashboard, and copy the unified key from its Keys page. The gateway API is `http://127.0.0.1:3001/v1`. Keep it loopback-only unless you deliberately configure a trusted private network; do not port-forward it to the public internet. Android may suspend Termux when the screen turns off; the upstream guide documents `termux-wake-lock` and battery-optimization settings.
+
+To use the gateway from an AI ORCHESTRA process on the same device, install the optional SDK and set these environment variables in that process:
+
+```bash
+python -m pip install -e '.[openai]'
+export ORCHESTRA_PROVIDER=freellmapi
+export FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1
+export FREELLMAPI_MODEL=auto
+export FREELLMAPI_API_KEY='<unified-key-from-FreeLLMAPI>'
+```
+
+`127.0.0.1` always refers to the machine running AI ORCHESTRA. If AI ORCHESTRA runs on another device, use a properly secured HTTPS endpoint or private VPN rather than assuming the phone's loopback address is reachable. Keep the unified key in the server environment, never in Git, browser code, or task prompts.
+
 ## Browser workbench
 
 Open the root URL of a running instance (for local development, `http://127.0.0.1:8000/`) to use the browser workbench. Enter a goal, choose a task type, optionally select a primary provider and a different provider for independent review, then run the complete plan → execute → independent review → final synthesis workflow. The interface displays only the final deliverable and execution metadata.
@@ -47,13 +79,13 @@ uvicorn orchestra.api:app --app-dir src --host 127.0.0.1 --port 8000
 
 - `GET /health` reports application liveness and whether provider configuration was accepted. It does not test live provider connectivity.
 - `GET /ready` returns `200` only when provider configuration and adapter construction succeeded; otherwise it returns `503`. Set `ORCHESTRA_REQUIRE_API_KEY=true` to fail closed if `ORCHESTRA_API_KEY` is missing or the requirement flag is invalid; the production Compose profile enables this automatically.
-- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"`, `"provider":"anthropic"`, `"provider":"grok"`, `"provider":"kimi"`, or `"provider":"deepseek"` / `"provider":"manus"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
+- `POST /v1/tasks` with JSON `{"prompt":"Explain dependency injection briefly"}` makes one request to the configured primary provider. Add `"provider":"openai"`, `"provider":"anthropic"`, `"provider":"grok"`, `"provider":"kimi"`, or `"provider":"deepseek"`, `"provider":"freellmapi"`, or `"provider":"manus"` to explicitly prefer a configured provider for that task; only providers configured in the process are accepted. If that preferred provider fails, configured fallbacks are tried in order.
 - `GET /metrics` returns process-local request counters and current budget use.
 - Set `ORCHESTRA_BUDGET_DB` to a local SQLite path to persist the provider-call cap across restarts and enforce it atomically for processes sharing that same file on one host. `ORCHESTRA_MAX_REQUESTS` becomes the per-UTC-day cap; the default production profile allows 100 provider attempts per UTC day. For a shared multi-host quota, set `ORCHESTRA_REDIS_URL` and build with `ORCHESTRA_EXTRAS=redis`; Redis takes precedence over SQLite, uses atomic reservations, and is checked by `/ready`. Configure Redis authentication/TLS and network restrictions. Without either backend, the budget is process-local and resets on restart. Application budgets do not replace provider billing limits.
 - `GET /audit` returns bounded metadata-only audit events. Prompts, completions, and credentials are not recorded. Set `ORCHESTRA_AUDIT_DB` to a local SQLite file to retain the bounded audit window across restarts; unset it to keep audit events in process memory.
 - Audit writes are best-effort: if the audit store is unavailable, a completed provider result is still returned and only the exception type is logged. Check storage health separately; this avoids masking a completed (and potentially billable) provider call.
 - `GET /providers/health` returns provider success/failure counts and accumulated latency; by default they are process-local. Set `ORCHESTRA_MEMORY_DB` to a local SQLite file to persist these aggregates across restarts. Only provider names, counts, and latency are stored—never prompts, completions, or credentials.
-- `GET /providers/configuration` requires `ORCHESTRA_API_KEY` and `X-API-Key` even when general development authentication is optional. It reports the selected primary/fallbacks, adapter readiness, credential-presence booleans and model IDs for Gemini, OpenAI, Anthropic, xAI Grok, Kimi, DeepSeek and Manus. It also reports the Manus agent profile and explicit paid-call opt-in state. It never returns secret values and never performs a live provider request.
+- `GET /providers/configuration` requires `ORCHESTRA_API_KEY` and `X-API-Key` even when general development authentication is optional. It reports the selected primary/fallbacks, adapter readiness, credential-presence booleans and model IDs for Gemini, OpenAI, Anthropic, xAI Grok, Kimi, DeepSeek, FreeLLMAPI and Manus. It also reports the Manus agent profile and explicit paid-call opt-in state. It never returns secret values and never performs a live provider request.
 - `GET /providers/circuits` reports configured providers' circuit state (`closed`, `open`, or `half_open`) and cooldown remaining; it honors `ORCHESTRA_API_KEY` when configured.
 - `orchestra.evidence.assess_evidence(...)` assesses caller-supplied evidence metadata for publication freshness, duplicate URLs, and declared source-group diversity without network access.
 - `POST /v1/evidence/assess` exposes this assessment over HTTP. It accepts at most 100 evidence records, uses no provider calls, and honors `ORCHESTRA_API_KEY` when configured. `source_group` is caller-declared metadata, not independently verified.
