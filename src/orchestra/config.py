@@ -11,9 +11,9 @@ class Settings:
     max_input_chars: int
     max_output_tokens: int
     openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    openai_model: str = "gpt-6-luna"
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-3-5-haiku-latest"
+    anthropic_model: str = "claude-haiku-4-5-20251001"
     xai_api_key: str | None = None
     grok_model: str = "grok-3-mini"
     kimi_api_key: str | None = None
@@ -58,11 +58,11 @@ def load_settings() -> Settings:
 
     key = secret("GEMINI_API_KEY")
     openai_key = secret("OPENAI_API_KEY")
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-6-luna").strip()
     if not openai_model:
         raise ValueError("OPENAI_MODEL cannot be empty")
     anthropic_key = secret("ANTHROPIC_API_KEY")
-    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-latest").strip()
+    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001").strip()
     if not anthropic_model:
         raise ValueError("ANTHROPIC_MODEL cannot be empty")
     xai_key = secret("XAI_API_KEY")
@@ -157,7 +157,7 @@ def load_settings() -> Settings:
         if any(existing_task == task for existing_task, _ in task_routes):
             raise ValueError("ORCHESTRA_TASK_ROUTES tasks must be unique")
         task_routes.append((task, provider))
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
     if not model:
         raise ValueError("GEMINI_MODEL cannot be empty")
     return Settings(
