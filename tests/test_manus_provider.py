@@ -159,6 +159,39 @@ def test_manus_timeout_bounds_each_request_and_never_retries_creation():
     assert request_timeouts == [2.0, 2.0, 1.0, 5.0]
 
 
+def test_manus_timeout_is_preserved_when_stop_request_fails():
+    calls = []
+    now = [0.0]
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path.endswith("/task.create"):
+            return httpx.Response(200, json={"ok": True, "task_id": "task-stop-fails"})
+        if request.url.path.endswith("/task.listMessages"):
+            return httpx.Response(200, json={"ok": True, "messages": [
+                {"type": "status_update", "status_update": {"agent_status": "running"}}
+            ]})
+        if request.url.path.endswith("/task.stop"):
+            return httpx.Response(503, json={"ok": False, "error": "temporarily unavailable"})
+        raise AssertionError(f"Unexpected endpoint: {request.url.path}")
+
+    def advance(seconds):
+        now[0] += seconds
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = ManusProvider(
+        settings(manus_timeout_seconds=1),
+        client=client,
+        clock=lambda: now[0],
+        sleeper=advance,
+    )
+    with pytest.raises(ProviderCallError, match="stop request failed"):
+        provider.generate("Long-running task")
+    client.close()
+    assert calls.count("/v2/task.create") == 1
+    assert calls.count("/v2/task.stop") == 1
+
+
 def test_manus_requires_explicit_account_skills_acknowledgement():
     with pytest.raises(ProviderConfigurationError, match="MANUS_ALLOW_AGENT_TOOLS"):
         ManusProvider(settings(manus_allow_agent_tools=False))
