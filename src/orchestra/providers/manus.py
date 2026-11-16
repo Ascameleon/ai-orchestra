@@ -31,6 +31,10 @@ class ManusProvider:
             raise ProviderConfigurationError(
                 "Manus tasks may consume credits; set MANUS_ALLOW_PAID_CALLS=true to opt in"
             )
+        if not settings.manus_allow_agent_tools:
+            raise ProviderConfigurationError(
+                "Manus API-key tasks load enabled account skills; set MANUS_ALLOW_AGENT_TOOLS=true to acknowledge"
+            )
         if not settings.manus_api_key:
             raise ProviderConfigurationError("MANUS_API_KEY is missing")
         try:
@@ -118,7 +122,7 @@ class ManusProvider:
                 "message": {"content": prompt},
                 "agent_profile": self._profile,
                 "share_visibility": "private",
-                "interactive_mode": False,
+                "interactive_mode": True,
                 "clear_connectors": True,
             },
         )
