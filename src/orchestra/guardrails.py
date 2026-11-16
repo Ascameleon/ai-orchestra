@@ -172,7 +172,8 @@ class RedisDailyCostGuard:
         return -1
     end
     local next_used = redis.call('INCR', KEYS[1])
-    if next_used == 1 then
+    local ttl = redis.call('TTL', KEYS[1])
+    if ttl < 0 then
         redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
     end
     return next_used
