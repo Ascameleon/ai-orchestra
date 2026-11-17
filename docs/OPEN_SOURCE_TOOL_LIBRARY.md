@@ -248,3 +248,76 @@ Pour Android, utiliser le package Maven `com.microsoft.onnxruntime:onnxruntime-a
 - GStreamer examiné puis différé, sans être compté comme outil admis.
 - Un smoke test FFmpeg réussi sur le binaire déjà présent ; aucune installation tierce persistante confirmée.
 - Le cycle suivant doit comparer tout nouvel outil à ces 19 entrées et ne pas présenter FFmpeg comme fraîchement installé.
+
+
+## 10. Cycle 4 — QA, accessibilité et sécurité (2026-11-17, 03:40 Africa/Algiers)
+
+### 10.1 Diagnostics et état des projets relus avant la recherche
+
+- Dernier résultat Cycle 1 disponible : exécution planifiée le 2026-11-16 à 22:53:41 UTC, terminée à 22:56:17 UTC. Aucun résultat Cycle 1 plus récent n'était disponible à 03:40 ; ce diagnostic est donc ancien et n'est pas présenté comme un audit frais.
+- Inventaire GitHub actuel : neuf dépôts Ascameleon accessibles, tous avec branche par défaut `main`.
+- **Torcscandz PR #5** : toujours ouverte et en brouillon. Le périmètre porte sur les permissions Bluetooth et le préflight Android ; la validation réelle sur Samsung avec adaptateur ELM327 reste nécessaire.
+- **BLUE ALERTS** : plusieurs PR visuelles restent ouvertes (#45, #47, #48, #50, #52, #53). Leurs descriptions exigent des validations exact-head desktop/mobile et une inspection des captures ; les tests browser ne valent pas essai Samsung physique.
+- **AI ORCHESTRA issue #46** : toujours ouverte dans l'API GitHub, mais son texte référence un ancien commit et un ancien workflow de lint. Elle est conservée comme signal historique à réexaminer, pas comme preuve d'un échec actuel.
+- **Constat technique directement relu sur BLUE ALERTS main** : `.github/workflows/openrts-build.yml` utilise Node 22 et installe Playwright avec `npm install --no-save --no-package-lock playwright`, sans version explicite. `scripts/validate_v94_browser.mjs` importe `chromium` depuis `playwright`. Playwright est donc déjà utilisé par le pipeline, mais sa version n'est pas épinglée dans cette étape.
+
+### 10.2 Nouveaux outils ajoutés au catalogue
+
+| Outil | Dépôt / licence | Version ou commit exact | Fonctions, coûts et exigences | Projet cible / verdict |
+|---|---|---|---|---|
+| **Playwright** | https://github.com/microsoft/playwright — Apache-2.0 (fichier LICENSE vérifié) | Release stable `v1.65.0`, commit `a1f35e1955976e84411f9c10358228a80b763ebe`, publiée le 2026-11-05. Le `main` observé est déjà en `1.66.0-next` ; ne pas utiliser cette pré-version comme référence de production. | Automatisation navigateur Chromium/Firefox/WebKit, assertions web, traces, captures et scripts pour agents. Node.js 22/24/26 recommandé par les notes de release ; le package de la release déclare Node >=20. Aucun appel IA, crédit ou abonnement requis. Les navigateurs et dépendances système doivent être téléchargés séparément ; prévoir disque, RAM et CPU sur le runner. WebGL peut dépendre du backend graphique disponible. | BLUE ALERTS / TripBoost / NIA web : **PASS comme outil QA déjà utilisé dans BLUE ALERTS**. Épingler la version dans le workflow pour éviter que le dernier `latest` change entre deux exécutions. La simulation viewport 390×844 n'est pas un test sur Samsung physique. |
+| **axe-core** | https://github.com/dequelabs/axe-core — MPL-2.0 (LICENSE vérifiée) | Release stable `v4.14.0`, commit `e797173108eadfa4355fe06af331791734e1757f`, publiée le 2026-10-05. Le package `v4.14.0` déclare `axe-core@4.14.0`. Le fichier `LICENSE-3RD-PARTY.txt` doit être conservé avec les notices MIT/ISC et autres composants tiers. | Moteur JavaScript d'audit accessibilité WCAG/ARIA pour pages HTML ; intégrable dans les tests Playwright. Aucun GPU, API ou abonnement nécessaire pour le cœur open source. L'outil ne trouve pas toutes les violations : le README annonce une moyenne d'environ 57 % de problèmes WCAG détectés automatiquement ; une revue manuelle reste indispensable. Les règles DOM ne peuvent pas auditer le contenu interne d'un canvas WebGL. Les extensions et offres Deque avancées sont distinctes et peuvent être payantes. | TripBoost et BLUE ALERTS HUD : **PASS comme candidat d'audit automatisé**, intégration et résultats projet encore à tester. Priorité aux formulaires, boutons, labels, focus clavier, contrastes et HUD HTML ; ne pas prétendre auditer la scène 3D elle-même. |
+| **Betterleaks** | https://github.com/betterleaks/betterleaks — MIT (LICENSE vérifiée) | HEAD observé `7d3d40bb411a708a525c00f2fe8f0932f255c9c4` (2026-11-16). Le README indique que `main` porte le développement v2 ; la branche `v1.x` reste en maintenance. Le guide de migration présente encore `v2.0.0-rc.1` comme une release candidate à publier, sans version stable v2 confirmée pendant ce cycle. | Scanner de secrets configurable pour fichiers et historiques Git. En mode détection local par défaut, pas de requête fournisseur ; les options `--validate` / `--analyze` font des appels HTTP et doivent rester désactivées dans le cadre zéro dépense. Le code Go du snapshot main et de la branche v1.x déclare Go 1.26.0. Les scans de sources GitHub distantes nécessitent réseau et peuvent nécessiter des accès ; préférer d'abord un clone local. | AI ORCHESTRA et tous les dépôts : **MAYBE** — intérêt élevé pour prévenir les fuites de secrets, mais toolchain Go actuelle de cet environnement (1.23.2) incompatible et v2 non stabilisée. Ne pas installer ni activer de validation réseau avant une version stable et un runner compatible. |
+
+### 10.3 Candidat examiné puis non retenu
+
+- **Gitleaks** — https://github.com/gitleaks/gitleaks, licence MIT. Son README officiel annonce explicitement que le projet est « feature complete », que les évolutions fonctionnelles sont arrêtées et que les prochaines versions seront limitées aux correctifs de sécurité, l'auteur se concentrant sur Betterleaks. Le `go.mod` actuel déclare Go 1.24.11, supérieur au Go 1.23.2 disponible dans l'environnement de ce cycle. Décision : **non retenu comme nouvelle intégration** ; préférer réévaluer Betterleaks après stabilisation de v2. Cela ne signifie pas que les installations Gitleaks existantes cessent de fonctionner.
+
+### 10.4 Procédures préparées — non exécutées dans les projets
+
+Playwright, version stable exacte utilisée par le workflow BLUE ALERTS :
+
+```bash
+npm install --no-save --no-package-lock playwright@1.65.0
+npx playwright install --with-deps chromium
+```
+
+Pour un projet qui possède un manifeste npm et un lockfile, préférer une dépendance de développement exacte et committer le lockfile plutôt que l'installation flottante actuelle.
+
+axe-core, installation de développement exacte :
+
+```bash
+npm install --save-dev --save-exact axe-core@4.14.0
+```
+
+Exemple d'intégration dans un test Playwright existant, sans dépendance MCP ni service cloud :
+
+```js
+await page.addScriptTag({ path: require.resolve('axe-core') });
+const accessibility = await page.evaluate(async () => axe.run(document));
+if (accessibility.violations.length) {
+  throw new Error(JSON.stringify(accessibility.violations));
+}
+```
+
+Betterleaks : aucune commande d'installation n'est recommandée pour l'environnement courant. Avant toute adoption, obtenir un binaire/release stable dont le checksum est vérifié, ou un runner Go >=1.26 ; lancer exclusivement un scan local en mode détection, sans `--validate` ni `--analyze`.
+
+### 10.5 Installation et tests réellement effectués pendant ce cycle
+
+- Lecture du catalogue canonique sur `main` avant toute recherche : effectuée ; aucun des trois nouveaux dépôts n'était déjà une entrée distincte.
+- Licence, README et manifeste vérifiés pour Playwright, axe-core et Betterleaks ; version stable Playwright et tag stable axe-core vérifiés séparément du HEAD de développement.
+- État local de l'environnement : Node.js `v22.16.0`, npm `10.9.2`, Go `1.23.2`.
+- Playwright et axe-core n'étaient pas installés dans l'environnement temporaire. Betterleaks/Gitleaks n'étaient pas installés.
+- Tentative de résolution npm pour `axe-core@4.14.0` : échec réseau `EAI_AGAIN registry.npmjs.org`. Aucun paquet téléchargé ; aucun import ni test axe-core réussi.
+- Aucun binaire Betterleaks/Gitleaks téléchargé ou exécuté. Aucun secret, token ou appel de validation fournisseur utilisé.
+- Playwright a été confirmé comme dépendance installée à l'exécution dans le workflow GitHub BLUE ALERTS, mais aucune installation locale supplémentaire n'a été effectuée pendant ce cycle.
+- Aucun code de production, workflow, lockfile, dépendance ou sous-module Ascameleon modifié pendant ce cycle.
+
+### 10.6 État courant du catalogue
+
+Le catalogue comprend maintenant **22 entrées documentées** : les 19 entrées des cycles précédents, plus Playwright, axe-core et Betterleaks. Gitleaks est documenté comme candidat non retenu, sans être compté dans les entrées admises.
+
+Priorités proposées aux cycles suivants :
+1. Épingler Playwright à une version stable exacte dans le workflow BLUE ALERTS, après validation par le Cycle 2.
+2. Ajouter un audit axe-core non bloquant initialement sur les écrans HTML de TripBoost et le HUD BLUE ALERTS ; traiter les violations confirmées sans appliquer aveuglément toutes les règles.
+3. Réévaluer Betterleaks seulement après disponibilité d'une release stable compatible avec un runner Go >=1.26 ; conserver les scans en détection locale sans validation réseau.
