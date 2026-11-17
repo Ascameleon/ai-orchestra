@@ -925,3 +925,82 @@ Preuves amont :
 - Statuts combinés des sept commits principaux consultés : aucun statut n'a été renvoyé par l'endpoint de statuts pour ces SHA ; cela ne vaut pas preuve d'échec ni de réussite des workflows. Ne pas annoncer ces commits comme CI verts sur cette seule base.
 
 **Résultat du cycle du 2026-11-17 :** 1 nouvel outil qualifié MAYBE (Trimesh 5.2.1) ; 1 alternative non retenue pour incompatibilité de stack (gltfjsx) ; 0 installation de la version candidate ; 1 smoke test réussi sur la version préinstallée 4.11.1 ; aucun changement applicatif ; catalogue actualisé sur `main` ; coût 0 €.
+
+
+---
+
+## 20. Cycle 14 — analyse statique locale des APK Android (2026-11-17, 12:48 Africa/Algiers)
+
+### 20.1 Diagnostics Cycle 1 et état des dépôts avant recherche
+
+- Catalogue canonique relu sur `main` avant la recherche : blob `e72fd919d5432f94da48aeca0d781939918ad22d`, 121 819 caractères. Comparaison anti-doublon effectuée : aucune entrée Androguard, MobSF ou apktool existante. Les outils Android déjà documentés (Appium, Maestro, Patrol, scrcpy et Playwright-Samsung) couvrent l'automatisation et l'observation runtime, mais ne remplacent pas une inspection statique d'un APK construit.
+- Recherche des issues ouvertes de l'organisation Ascameleon : aucune issue ouverte ne constitue un rapport Cycle 1 récent. Recherche des fichiers/termes « Cycle 1 » dans AI ORCHESTRA : aucun diagnostic exploitable retrouvé. Le dernier diagnostic formel conservé dans le catalogue reste ancien ; ne pas le présenter comme un audit frais.
+- Heads `main` revérifiés via l'historique GitHub :
+  - AI ORCHESTRA : `c6168e44d40ad58283376a8a3220cc8c89d18764`
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637`
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d`
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`
+  - Tripradar / TripBoost : `c63b52ac27a56ad97393f61d36fb8968ccce0c53`
+  - CallerID : `2c421c2efa038f80011a21b4874bb2105608ae04`
+  - NIA Studio AI : `2bb0e3ba8330350721e31c0bee4c3999eaab4552`
+  - Ruflo : `056a11ece4ca3bd234aafd6221156d24b80a9544`
+  - playwright-samsung : `842479e849ac6115500939702358b3d66a764e72`
+- PR opérationnelles revérifiées :
+  - Torcscandz #5 : ouverte, brouillon, 47 commits, 7 fichiers modifiés, mergeable=true ; head mis à jour le 2026-11-17 07:56:50 UTC. L'essai Samsung + ELM327 physique reste un critère indépendant de la CI.
+  - BLUE ALERTS #51 : ouverte, brouillon, mergeable=true ; 5 commits / 4 fichiers. Le smoke test Qwen/Blender sur le poste cible reste non effectué.
+  - BLUE ALERTS #52 : ouverte, brouillon, non mergeable ; 28 commits / 5 fichiers. Captures exact-head et inspection visuelle restent requises.
+  - BLUE ALERTS #53 : ouverte, brouillon, non mergeable ; 78 commits / 12 fichiers. La validation exacte et les captures fraîches restent requises.
+- Les branches principales ne montrent pas de nouveau diagnostic Cycle 1 ; les états PR sont des signaux opérationnels, pas un substitut à l'audit.
+
+### 20.2 Androguard 4.1.4 — inspection statique d'APK/DEX (MAYBE)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Androguard** — outil Python local d'analyse statique et de rétro-ingénierie Android (APK, DEX, AXML, ressources) |
+| Dépôt GitHub canonique | https://github.com/androguard/androguard |
+| Code source / licence | Sources publiques ; licence **Apache-2.0** explicitée dans le README du tag et fournie par `LICENCE-2.0` (texte intégral vérifié). La métadonnée de la release déclare également « Apache Licence, Version 2.0 ». Conserver le fichier de licence et les notices lors d'une redistribution. |
+| Version stable retenue | Release GitHub `v4.1.4`, publiée le **2026-06-05** ; commit exact du tag `d594fd39beb934e438a5bf8089b206d5800d81e0`. Pyproject du tag confirme `version = 4.1.4`. Release consultée : https://github.com/androguard/androguard/releases/tag/v4.1.4 |
+| État amont actuel | Dépôt non archivé. HEAD `master` observé : `581f7a3251545a97f66ee92b674dd810ee380a00`, commit du **2026-10-25 09:40:24 UTC**. Attention : le `master` actuel déclare déjà `5.0.0` et un état Beta ; ce n'est pas la release stable v4.1.4. Ne pas installer le HEAD 5.0.0 par inadvertance. |
+| Fonctions utiles | Lecture de l'APK, métadonnées package/version, permissions, AndroidManifest binaire, ressources, DEX/ODEX, classes, méthodes et chaînes ; désassemblage/décompilation en options ; recherche de références et détection de certains motifs vulnérables. CLI `androguard` et API Python. |
+| Installation reproductible | Dans un environnement hôte isolé Python 3.10–3.13 : `python -m venv .venv-android-audit`, activation, puis `python -m pip install "androguard==4.1.4"`. Contrôles préparés : `androguard --help` et `python -c "from androguard.core.apk import APK; print('Androguard APK API import OK')"`. Vérifier le numéro de version, les hashes des wheels et le lockfile avant de réutiliser le venv. Ne pas utiliser `pip install git+...@master` ni `androguard[full]` pour cette première évaluation. |
+| Dépendances | Le pyproject v4.1.4 déclare Python `>3.9.0, !=3.9.1, <4.0`, Pygments, lxml, colorama, asn1crypto, click, pydot, IPython, mutf8, dataset, loguru, apkInspector, networkx, PyYAML et cryptography >=46.0.6. Cela représente une empreinte plus lourde qu'un simple parseur de manifeste. Frida et matplotlib sont optionnels dans les évolutions récentes ; ne pas ajouter d'extras inutiles. |
+| Coûts / réseau / dépendances propriétaires | Apache-2.0, gratuit en local ; aucune clé, API, crédit, abonnement ou GPU requis pour l'analyse de base. Le téléchargement initial des paquets nécessite PyPI. Les fonctions MCP/LLM sont optionnelles et ne sont pas nécessaires ; ne pas les activer dans ce cycle. |
+| Matériel / compatibilité | Outil hôte Python sur Linux/macOS/Windows ; CPU/RAM variables selon taille APK, nombre de DEX et décompilation. Pas besoin de GPU. Compatible avec une chaîne de build Python 3.11/3.12 sur le plan de la version déclarée. Ce n'est **pas** une application Android/Samsung et ne teste pas le comportement runtime du téléphone ; copier l'APK vers un hôte autorisé avant l'analyse. |
+| Cibles Ascameleon | Torcscandz/TorcScan et CallerID : contrôle pré-release des permissions manifest, package/version, SDK cible, composants et éléments DEX/strings sur l'APK produit par CI. Peut fournir une vérification indépendante de l'artefact sans modifier le code de production. |
+| Limites / sécurité | Le README du HEAD signale que la documentation est en cours de mise à jour. La branche master 5.0.0 est une réorganisation majeure utilisant plusieurs dépendances Rust installées depuis des dépôts Git distincts ; ne pas la confondre avec v4.1.4 ni avec le package PyPI. Issue ouverte #1184 (2026-11-05) : certains APK valides avec ressources localisées peuvent échouer lors de l'extraction de `android:label` ; en cas d'erreur, utiliser `aapt dump badging`/Android SDK comme contrôle indépendant. L'outil n'est pas une preuve d'absence de vulnérabilité et ne remplace ni Play Integrity, ni tests dynamiques, ni test Samsung/OBD2. N'analyser que des APK détenus ou explicitement autorisés. |
+| Verdict | **MAYBE** — pertinent comme étape QA statique indépendante pour TorcScan et CallerID, mais installation et test bloqués par DNS dans cet environnement. Ne pas ajouter comme dépendance runtime ni bloquer la release avant un essai sur un APK de test autorisé. |
+
+Preuves amont :
+- Dépôt et README : https://github.com/androguard/androguard
+- Release stable v4.1.4 : https://github.com/androguard/androguard/releases/tag/v4.1.4
+- Commit exact du tag : https://github.com/androguard/androguard/commit/d594fd39beb934e438a5bf8089b206d5800d81e0
+- Licence Apache-2.0 du tag : https://github.com/androguard/androguard/blob/v4.1.4/LICENCE-2.0
+- Manifeste v4.1.4 : https://github.com/androguard/androguard/blob/v4.1.4/pyproject.toml
+- README v4.1.4 : https://github.com/androguard/androguard/blob/v4.1.4/README.md
+- HEAD master observé : https://github.com/androguard/androguard/commit/581f7a3251545a97f66ee92b674dd810ee380a00
+- Issue de parsing des labels localisées : https://github.com/androguard/androguard/issues/1184
+
+### 20.3 Alternative examinée — MobSF (non admise séparément dans ce cycle)
+
+- Dépôt : https://github.com/MobSF/Mobile-Security-Framework-MobSF
+- Candidat plus large de sécurité mobile (analyse statique/dynamique, rapports), mais empreinte opérationnelle nettement supérieure et dépendances de service/VM ou Docker selon le mode.
+- Pas de version, commit, licence exacte et procédure complète qualifiés pendant ce passage ; aucune entrée PASS/MAYBE n'est créée sur une simple recherche par nom. À réévaluer si un besoin d'audit de sécurité Android complet est confirmé, après qualification de sa licence et de ses composants embarqués.
+
+### 20.4 Installation et tests réellement effectués
+
+- Environnement hôte contrôlé : Python 3.13.5, pip 25.1.1 ; module `androguard` absent avant tentative.
+- Tentative réelle et isolée : `python -m pip install --disable-pip-version-check --no-cache-dir --target /tmp/ascameleon-androguard-4.1.4 "androguard==4.1.4"`.
+- Résultat : échec avant téléchargement, résolution DNS de `pypi.org` impossible (`Temporary failure in name resolution`). Aucun paquet installé, aucun import, `androguard --help` ou scan APK réussi.
+- Aucune APK de Torcscandz/CallerID n'a été téléchargée ni analysée dans ce cycle. Aucun fichier de production, workflow, lockfile ou dépendance projet modifié.
+- Aucune clé, aucun service externe payant, aucun appel IA/API, aucune dépense : **0 €**.
+
+### 20.5 Décisions et priorités suivantes
+
+1. Quand PyPI est accessible, installer exactement `androguard==4.1.4` dans un venv temporaire, vérifier version et hashes, puis importer `androguard.core.apk.APK`.
+2. Utiliser un APK de test appartenant au projet ou explicitement autorisé ; produire un rapport limité au package, versionCode/versionName, min/target SDK, permissions, composants exportés, signature et présence des DEX. Masquer les chaînes potentiellement sensibles.
+3. Comparer les permissions extraites avec les permissions attendues dans le manifeste source ; toute différence doit être revue manuellement, pas corrigée automatiquement.
+4. Tester le cas de labels localisés signalé par l'issue #1184 ; si l'analyse échoue, consigner le défaut et utiliser `aapt dump badging` comme contrôle secondaire.
+5. Ne pas intégrer Androguard 5.0.0 depuis `master` tant que sa sortie stable, ses dépendances Git/Rust et sa compatibilité complète n'ont pas été qualifiées.
+6. Torcscandz #5 : maintenir le brouillon jusqu'à la synchronisation de branche et au test Samsung + ELM327. BLUE ALERTS #51/#52/#53 : garder les critères MCP et captures exact-head ; aucun changement n'est justifié par l'ajout d'Androguard.
+
+**Résultat du cycle 14 :** 1 nouvel outil qualifié MAYBE (Androguard v4.1.4) ; 1 alternative non admise faute de qualification suffisante (MobSF) ; 0 installation ; 0 smoke test réussi ; aucun changement de production ; catalogue mis à jour sur `main` ; coût 0 €.
