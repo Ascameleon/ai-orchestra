@@ -204,7 +204,7 @@ Le dernier résultat Cycle 1 disponible dans l'automatisation est encore celui d
 
 | Candidat | Licence / snapshot | Décision et motif |
 |---|---|---|
-| GStreamer — https://github.com/GStreamer/gstreamer | LGPL-2.1-or-later pour le cœur ; snapshot consulté `ac94d5ab7eb9b9210bdd5fcaa1907f336c6b63a1`. Le README exige Meson >=1.4 et Ninja ; plusieurs plugins ont des dépendances et licences propres, certains plugins dépendent de composants GPL/AGPL activés explicitement. | **DIFFÉRÉ, pas intégré au catalogue actif** : excellent framework de pipelines temps réel et streaming, mais aucun besoin actuel de capture/live-streaming n'a été confirmé dans NIA ou les autres projets. FFmpeg couvre mieux les besoins batch immédiats avec moins de complexité. Réévaluer seulement si une vraie fonction streaming/capture apparaît. |
+| GStreamer — https://github.com/GStreamer/gstreamer | LGPL-2.1 vérifiée dans subprojects/gstreamer/COPYING et subprojects/gst-plugins-base/COPYING pour les composants concernés ; ne pas étendre cette licence à tous les plugins. HEAD observé b45c483edc7c7e4671d24a5ac4228835c7b029f3 (2026-11-17 04:42 UTC) ; release stable 1.28.9 (2026-11-06), version confirmée dans subprojects/gst-plugins-base/meson.build. Meson >=1.4 et Ninja ; le README précise que les bugs/merge requests sont suivis sur GitLab. | **DIFFÉRÉ, pas intégré au catalogue actif** : le cœur/default minimal est LGPL-2.1, mais les plugins optionnels peuvent être GPL ou soumis à des brevets/codecs ; vérifier gst-inspect-1.0 plugin par plugin. Le SDK Android publié sur la page officielle était encore 1.28.8 au contrôle du 2026-11-17, alors que la dernière release stable générale est 1.28.9 ; GStreamer >=1.28 cible Android API 24 et utilise NDK r25c. Le projet NIA n'a pas encore de besoin confirmé de capture/live-streaming ni de pipeline natif Android ; FFmpeg couvre mieux les traitements batch immédiats. Réévaluer seulement après spécification d'une fonction de streaming/capture ou d'un pipeline temps réel. |
 
 ### 9.3 Installations et tests réellement effectués dans ce cycle
 
@@ -575,3 +575,56 @@ Preuves consultées :
   2. CallerID : même usage éventuel pour inspection visuelle d'un appareil Android réel ; les tests de backend et de sécurité restent séparés.
   3. Ne pas ajouter un autre outil de mirroring tant qu'un besoin distinct n'est pas démontré ; Appium, Maestro et Patrol couvrent déjà l'automatisation UI.
   4. Cycle 1 : produire un nouveau diagnostic à partir des derniers commits et runs, car aucun rapport Cycle 1 frais n'a été retrouvé pendant ce passage.
+
+
+## 15. Cycle 9 — réévaluation des pipelines média et état actuel des dépôts (2026-11-17, 08:46 Africa/Algiers)
+
+### 15.1 Diagnostics Cycle 1 et dépôts relus avant recherche
+
+- Lecture du catalogue canonique sur main avant recherche : commit du fichier 4473671efd9cf4ba3c3694745e34b5d7a7ac9b7a, 578 lignes. Les entrées FFmpeg, MoviePy, OpenTimelineIO, OpenTelemetry, glTF Transform, glTF Validator, Patrol, Appium, Maestro, scrcpy, etc. ont été comparées avant sélection ; aucun doublon n'est ajouté.
+- Recherches GitHub d'issues org:Ascameleon is:issue is:open et org:Ascameleon "Cycle 1" : aucun résultat exploitable. Le dernier diagnostic Cycle 1 explicitement documenté dans ce catalogue reste celui du 2026-11-16 à 22:53 UTC ; il est ancien et n'est pas présenté comme un audit frais.
+- Dépôts Ascameleon relus directement sur leur branche par défaut main : AI ORCHESTRA 897bc690a8c6a963c8eaf2e537b4d292fdf00aed, Torcscandz 1c98135210eecb314ac67e526000d37ca3f99637, BLUE ALERTS e1b629197ee93435d1c8616927bb452ccfc2854d, Gameforge-3D 83ff2cd33c6380a63843a39ee3bed882e9a3c11f, Tripradar 7b36e7fbfc9afeafc9bfee32cec1f43640cea67b, Callerid 2c421c2efa038f80011a21b4874bb2105608ae04, Nia-studio-Ai c957672e70d4df34a9ced1912c3e4839d4face6c, playwright-samsung 842479e849ac6115500939702358b3d66a764e72. Le nom GitHub réel du projet de voyage est Tripradar (README produit : TripBoost), pas TripBoost.
+- PR ouvertes observées : Torcscandz #5 toujours en brouillon ; BLUE ALERTS #52 et #53 toujours en brouillon et mergeable=false, #51 toujours en brouillon. Ne pas assimiler ces PR à des changements intégrés à main.
+- Besoins actuels : QA Android TorcScan encore dépendante d'un Samsung et d'un adaptateur ELM327 physiques ; assets GLB de Gameforge/BLUE ALERTS déjà couverts par glTF Transform, glTF Validator et meshoptimizer ; AI ORCHESTRA dispose déjà d'une entrée OpenTelemetry ; NIA Studio AI possède déjà FFmpeg/MoviePy/Whisper/Piper dans le catalogue, mais aucune fonction réelle de capture/live-streaming n'est spécifiée dans son README.
+
+### 15.2 Réévaluation du candidat GStreamer — toujours différé
+
+| Champ | Vérification |
+|---|---|
+| Dépôt officiel | https://github.com/GStreamer/gstreamer — dépôt public, non archivé. Le README indique que le suivi des bugs et merge requests est sur GitLab : GitHub ne constitue donc pas le tracker amont de référence. |
+| Licence exacte | subprojects/gstreamer/COPYING et subprojects/gst-plugins-base/COPYING contiennent LGPL version 2.1. La documentation officielle précise que l'installation minimale est LGPL, mais que des plugins optionnels peuvent être GPL ou brevetés. Ne pas annoncer une licence unique pour tous les plugins ni redistribuer un bundle sans inventaire. |
+| Version et activité | Release stable 1.28.9 publiée le 2026-11-06 ; version 1.28.9 confirmée dans subprojects/gst-plugins-base/meson.build. HEAD du dépôt observé : b45c483edc7c7e4671d24a5ac4228835c7b029f3, commit du 2026-11-17 à 04:42:03 UTC. |
+| Fonctions | Framework de pipelines audio/vidéo : lecture, capture, conversion, filtres, streaming, WebRTC, synchronisation, édition et analytics. CLI gst-launch-1.0 et inspection gst-inspect-1.0. C'est un moteur local et non une API de génération hébergée. |
+| Installation source | git clone --depth 1 --branch 1.28.9 https://github.com/GStreamer/gstreamer.git, puis meson setup builddir et meson compile -C builddir. Prérequis documentés : Python 3.8+, Meson >=1.4, Ninja, compilateur C et dépendances GLib ; la compilation complète est lourde. Préférer les SDK binaires officiels pour un simple usage. |
+| Android / Samsung | La page de téléchargement consultée le 2026-11-17 publiait encore l'archive Android Universal 1.28.8, pas 1.28.9. Les binaires 1.28.x ciblent Android API 24+ et NDK r25c, avec armv7/arm64/x86/x86_64. L'intégration requiert SDK/NDK, JNI et choix précis des plugins ; ce n'est pas un paquet Flutter prêt à ajouter. Aucun test sur Samsung n'a été fait. |
+| Coût et dépendances cachées | Aucun abonnement, crédit ou appel API requis pour l'usage local. Attention aux codecs brevetés selon pays et distribution, aux plugins GPL et aux dépendances optionnelles ; contrôler les licences effectives des plugins avec gst-inspect-1.0. |
+| Matériel | CPU seul possible ; accélération matérielle facultative selon plateforme et codecs. Les résolutions élevées et pipelines multiples peuvent consommer beaucoup de RAM/CPU/disque. Aucun GPU dédié n'est une exigence générale. |
+| Projet cible / verdict | NIA Studio AI : **MAYBE / DIFFÉRÉ**. Ne pas intégrer tant qu'une fonction réelle de capture, streaming, WebRTC ou pipeline temps réel n'est pas spécifiée. FFmpeg reste le choix existant pour les traitements batch et conversions simples. |
+
+Preuves amont consultées :
+- Dépôt et guide de build : https://github.com/GStreamer/gstreamer
+- Documentation des licences et plugins : https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html
+- Releases officielles : https://gstreamer.freedesktop.org/releases/
+- Téléchargements et SDK Android : https://gstreamer.freedesktop.org/download/
+- Prérequis Android / NDK : https://gstreamer.freedesktop.org/documentation/installing/for-android-development.html
+
+### 15.3 Installation et tests réellement effectués
+
+- Contrôle de l'environnement temporaire : Linux x86_64 ; ninja et cc présents ; gst-launch-1.0, gst-inspect-1.0, Meson, ADB, Flutter et Dart absents.
+- Aucun clone, binaire ou SDK GStreamer installé. Aucun pipeline audio/vidéo ni test d'import exécuté. Aucun test Android/Samsung revendiqué.
+- Aucun nouvel outil admis dans le catalogue pendant ce passage ; GStreamer reste une entrée différée, et sa version/licence/statut ont été actualisés ci-dessus.
+- Aucun code, dépendance, sous-module ou workflow de production Ascameleon n'a été modifié pour GStreamer. Aucun coût, secret, service cloud ou API payante utilisé.
+
+### 15.4 Changement séparé sur la branche de travail Torcscandz
+
+- Sur la PR existante #5 uniquement, un défaut de cohérence du finaliseur a été corrigé : le script écrivait le manifeste avant de valider complètement torqscan-patch-report.json. Un rapport mal formé ou sans hash valide pouvait donc laisser un manifeste modifié malgré l'échec du finaliseur.
+- Commit aa06c10afc3d42f4354a92da0acfb4c91e513a25 : validation du rapport et du SHA-256 avant écriture du manifeste.
+- Commit a227e6940241424b2eb2fe4cbfe2dfa9df1d985b : tests de non-régression pour JSON invalide, hash manquant et hash mal formé ; ils vérifient que le manifeste et le rapport restent inchangés en cas de rejet.
+- Les deux workflows sur ce head sont terminés avec succès : Android APK Build run 44042628651 (#196) et TorqScan PR validation run 44042628636 (#61). L'APK de test est construite et vérifiée par la CI ; cela ne prouve pas la connexion physique à un ELM327.
+- La branche PR #5 est toujours en brouillon, 47 commits en avance et 2 en retard sur main au dernier compare ; aucun merge n'a été effectué. La validation Samsung + ELM327/ECU reste obligatoire.
+
+### 15.5 Résultat et priorités
+
+- **0 nouvel outil admis** ; 1 candidat déjà différé (GStreamer) requalifié avec release, HEAD, licence, statut Android et preuves actualisés.
+- **0 installation GStreamer** ; **0 smoke test GStreamer** ; aucun coût.
+- Priorités : (1) actualiser le diagnostic Cycle 1 sur les derniers commits/runs ; (2) conserver TorcScan #5 en brouillon jusqu'au test matériel et synchroniser sa branche avec main avant toute fusion ; (3) ne réévaluer GStreamer que si NIA Studio AI ajoute une exigence réelle de capture/streaming temps réel.
