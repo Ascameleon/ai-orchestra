@@ -782,3 +782,81 @@ Preuves amont :
 4. Cycle 1 : produire un diagnostic récent ; aucun rapport récent n'a été trouvé dans les issues ouvertes consultées.
 
 **Résultat de ce cycle :** 0 nouvel outil admis PASS ; 2 nouveaux candidats examinés et documentés en MAYBE/différé ; 0 installation ; 0 smoke test d'outil réussi ; aucun changement de production ; coût 0 €.
+
+
+## 18. Cycle 12 — audit de sécurité et de conformité des workflows GitHub Actions (2026-11-17, 10:41 Africa/Algiers)
+
+### 18.1 Diagnostics Cycle 1 et état des dépôts relus avant recherche
+
+- Catalogue canonique relu sur `main` avant la recherche : blob `1319aa19614db7b1e9b0ecea83934ee25e09dfc7`, 785 lignes. Contrôle anti-doublon : `jactionlint`, `zizmor` et le fork `kjanat/actionlint` ne figuraient pas comme entrées distinctes. Le catalogue contient déjà les outils de QA applicative et de détection de secrets ; le besoin non couvert est une analyse cohérente des workflows GitHub Actions (syntaxe, expressions, sécurité et règles de politique).
+- Recherche GitHub des issues ouvertes `org:Ascameleon is:open` et des issues contenant `"Cycle 1"` : aucune issue/rapport Cycle 1 récent exploitable retrouvé. La recherche de fichiers ne révèle pas de nouveau rapport Cycle 1 ; le dernier diagnostic explicitement daté reste celui du 2026-11-16 à 22:53 UTC, déjà signalé comme ancien. Ne pas le présenter comme un audit frais.
+- Heads `main` les plus récents vérifiés par historique GitHub au 2026-11-17 10:41 (heure locale) :
+  - AI ORCHESTRA : `8a4d9242b096f4e53dd246ed85b58ebe085f6903` (2026-11-17 08:46:38 UTC).
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637` (2026-11-16 19:18:35 UTC).
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d` (2026-11-17 04:57:38 UTC).
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f` (2026-11-16 19:10:37 UTC).
+  - Tripradar / produit TripBoost : `c63b52ac27a56ad97393f61d36fb8968ccce0c53` (2026-11-17 08:58:26 UTC ; commit de fusion de la PR #22).
+  - CallerID : `2c421c2efa038f80011a21b4874bb2105608ae04` (2026-11-16 20:27:25 UTC).
+  - NIA Studio AI : `c957672e70d4df34a9ced1912c3e4839d4face6c` (2026-11-17 06:08:29 UTC ; fusion de la PR #13).
+  - ruflo : `056a11ece4ca3bd234aafd6221156d24b80a9544` (2026-10-21 21:56:09 UTC).
+  - playwright-samsung : `842479e849ac6115500939702358b3d66a764e72` (2026-11-16 22:08:02 UTC).
+- PR ouvertes observées :
+  - Torcscandz #5 : encore ouverte et annoncée comme brouillon dans sa description ; l'essai Samsung + adaptateur OBD2 physique reste un critère de fusion. Les validations CI ne remplacent pas cet essai.
+  - BLUE ALERTS #51 : le smoke test MCP Qwen/Blender sur le poste cible reste explicitement en attente.
+  - BLUE ALERTS #52 et #53 : les descriptions exigent encore l'inspection de captures visuelles fraîches et la validation du head exact ; ne pas fusionner sur la seule base de captures historiques.
+  - Tripradar #22 est fusionnée dans `main` (commit ci-dessus) ; NIA Studio AI #13 est fusionnée dans `main`.
+- Les statuts combinés de commit retournés par l'API GitHub pour les heads `main` contrôlés étaient vides dans cette consultation ; aucun nouveau statut CI vert/rouge n'est revendiqué sur cette seule base.
+- Besoin retenu : audit hors ligne des workflows des dépôts Ascameleon, sans modifier les fichiers, sans télécharger d'action, sans activer de contrôle en ligne et sans exécuter les workflows.
+
+### 18.2 Nouvel outil — jactionlint (MAYBE, candidat d'audit hors ligne)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **jactionlint** — linter GitHub Actions : syntaxe, expressions, sécurité et politiques CI/CD |
+| Dépôt GitHub exact | https://github.com/jdx/jactionlint |
+| Source et licence | Code source public ; `LICENSE.txt` du tag v2.6.0 vérifié : MIT. `NOTICE.md` conserve l'attribution à rhysd/actionlint et documente les sources de règles (dont zizmor, CodeQL, poutine et ghalint). Conserver ces deux fichiers avec toute redistribution. |
+| Version stable épinglable | Release `v2.6.0`, publiée le 2026-11-12 ; commit de release `72c00452809bcca05b8bc12acdcf15dd7a9c1c5e`. HEAD amont observé `2964d0e78d7f0c50d9d213a771ff4e96687d9a52` (2026-11-15 15:59:59 UTC). Ne pas utiliser `latest` dans une installation reproductible. |
+| Fonctions vérifiées | Validation de la syntaxe YAML Actions, types et propriétés des expressions `${{ }}`, inputs/outputs d'actions, contrats des reusable workflows, dépendances `needs`, cron et globs ; analyses de scripts shell et Python ; détection de script injection, permissions excessives, triggers dangereux, cache poisoning, credentials persistants, actions non épinglées et règles de timeout/concurrency. Baselines et profils permettent une adoption progressive. |
+| Mode réseau / confidentialité | Le README indique « no network unless you ask » : les contrôles GitHub distants ne s'activent qu'avec `--online` (ou `JACTIONLINT_ONLINE`). Le mode local par défaut peut auditer les fichiers déjà présents sans envoyer le code. Pour les dépôts privés, utiliser seulement le checkout local ; ne pas fournir `GH_TOKEN`, `JACTIONLINT_TOKEN` ou autre secret pour ce cycle. |
+| Dépendances / toolchain | Le `go.mod` du tag v2.6.0 déclare `go 1.26.0` et `toolchain go1.27.4`; dépendances Go épinglées dans le manifeste, dont `mvdan.cc/sh/v3`. La compilation depuis les sources n'est pas compatible avec le Go 1.23.2 de l'environnement temporaire. Le README documente aussi une distribution PyPI (`uvx`) et des binaires de release ; utiliser un artefact précompilé versionné plutôt que compiler avec une toolchain plus ancienne. Les intégrations ShellCheck/Pyflakes sont documentées ; l'image Docker officielle les inclut, mais Docker n'est pas requis pour le lint local de base. |
+| Installation préparée | Après vérification de la provenance et du hash du paquet : `uvx --from "jactionlint==2.6.0" jactionlint --version`, puis depuis une copie locale du dépôt : `jactionlint --no-online`. Alternative source, non compatible avec le Go actuel : `go install github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0` avec Go 1.26+ et toolchain 1.27.4. |
+| Coûts / dépendances propriétaires | MIT, gratuit en local ; aucun abonnement, crédit, GPU ou API fournisseur. Les contrôles en ligne solliciteraient GitHub et nécessiteraient un token pour certaines fonctions privées : ils restent désactivés. Les téléchargements de release/PyPI nécessitent un accès réseau et consomment du trafic/disque. |
+| Matériel / plateformes | CLI hôte Linux/macOS/Windows via wheels ou binaires publiés ; charge CPU/RAM modérée pour des fichiers YAML/JSON et scripts, aucun GPU. Ce n'est pas un outil Android et il ne pilote pas directement un Samsung. Pour la compilation depuis source, Go 1.26+ et toolchain 1.27.4 ; pour la distribution binaire, vérifier l'architecture et la compatibilité libc de l'artefact exact. |
+| Limites / garde-fous | La version 2.6.0 ajoute des règles qui peuvent faire apparaître des findings auparavant absents ; commencer par un audit informatif et un baseline, sans bloquer la CI. Ne pas exécuter `--fix`, `update --apply` ni `run` dans les dépôts existants pendant la qualification : ces modes peuvent modifier les workflows, changer des références d'actions ou exécuter des étapes de workflow. Le mode `run` doit faire l'objet d'un audit sandbox séparé. |
+| Projets cibles / verdict | Tous les dépôts Ascameleon avec `.github/workflows`, priorité AI ORCHESTRA, Torcscandz, BLUE ALERTS, Gameforge-3D, Tripradar, CallerID et NIA Studio AI. **MAYBE** : source, licence, release et utilité confirmées ; installation et smoke test bloqués par DNS, et binaire/checksum de v2.6.0 non vérifiés dans cet environnement. Aucun ajout de workflow ni de dépendance projet autorisé à ce stade. |
+
+Preuves amont :
+- Dépôt et README : https://github.com/jdx/jactionlint
+- Licence MIT du tag : https://github.com/jdx/jactionlint/blob/v2.6.0/LICENSE.txt
+- NOTICE et provenance des règles : https://github.com/jdx/jactionlint/blob/v2.6.0/NOTICE.md
+- Release v2.6.0 / commit : https://github.com/jdx/jactionlint/commit/72c00452809bcca05b8bc12acdcf15dd7a9c1c5e
+- Dernier commit amont observé : https://github.com/jdx/jactionlint/commit/2964d0e78d7f0c50d9d213a771ff4e96687d9a52
+- Documentation d'installation et vérification des binaires : https://jactionlint.jdx.dev/install
+
+### 18.3 Alternatives examinées mais non ajoutées comme entrées séparées
+
+| Candidat | Éléments vérifiés | Décision |
+|---|---|---|
+| zizmor | https://github.com/zizmorcore/zizmor ; MIT ; release v1.32.0, commit `21bd300700d43d9ba04b0c1fce72a89391ac80b4` ; HEAD `7d0f219e13696b02e593f9544ffd620fcd97741f` observé le 2026-11-17 02:01 UTC ; rust-toolchain du tag `1.97.0`. Audit statique GitHub Actions, offline natif, mais toolchain source plus récente et recouvrement important avec les règles sécurité intégrées à jactionlint. | **Non ajouté séparément** pour éviter de doubler la même couverture ; reste une alternative autonome si l'on choisit ultérieurement un scanner sécurité pur. |
+| rhysd/actionlint (upstream original) | MIT ; dernière release stable affichée v1.7.12 (2026-03-30), commit de release court `914e7df` ; `go.mod` de ce tag exige Go 1.25.0. Issue ouverte #719 (2026-08-06) rapporte l'inactivité du mainteneur ; activité upstream observée jusqu'au 2026-04-19 seulement. | **FAIL pour adoption directe dans ce cycle** : maintenance amont incertaine et retard sur les nouvelles syntaxes GitHub Actions. Ne pas utiliser `@latest` ni une action tierce mutable. |
+| kjanat/actionlint (fork maintenu) | MIT indiqué par pkg.go.dev ; v1.17.1 publié le 2026-11-09 ; HEAD observé le 2026-11-17 ; `go.mod` du tag exige Go 1.26 et toolchain 1.27.3. | **MAYBE / non retenu** : fork actif et pertinent, mais jactionlint offre une couverture combinée syntaxe/sécurité/politique et une distribution documentée ; ne pas compiler ce fork avec Go 1.23.2. |
+
+### 18.4 Installation et tests réellement effectués
+
+- Environnement temporaire contrôlé : Python 3.13.5, uv présent, Go 1.23.2, Node 22.16.0 ; aucun binaire `jactionlint`, `zizmor`, `actionlint`, aucun Rust/Cargo, aucun Docker.
+- Tentative réelle et isolée : `UV_CACHE_DIR=/tmp/ascameleon-jactionlint-uv-cache uvx --from 'jactionlint==2.6.0' jactionlint --version`.
+- Résultat : échec avant téléchargement, résolution DNS de `pypi.org` impossible (`Temporary failure in name resolution`). Aucun paquet ni binaire installé ; aucun `--version`, import ou scan des dépôts réussi.
+- Le même environnement ne peut pas compiler jactionlint v2.6.0 depuis le tag : Go 1.23.2 est inférieur à Go 1.26.0 et au toolchain 1.27.4 déclaré. Aucun contournement par mise à niveau de toolchain n'a été effectué.
+- Aucun workflow, fichier source, lockfile, action ou dépendance Ascameleon modifié. Aucun audit de workflow exécuté ; aucun finding de sécurité revendiqué.
+- Aucun token GitHub, secret, fournisseur, API payante ou service cloud utilisé ; coût : 0 €.
+
+### 18.5 Décisions et priorités suivantes
+
+1. Quand le DNS/PyPI ou les assets GitHub sont accessibles, récupérer jactionlint v2.6.0 dans un répertoire temporaire, vérifier signature/provenance et SHA-256 de l'artefact exact, puis exécuter uniquement `jactionlint --no-online` sur une copie locale des workflows.
+2. Commencer par un rapport informatif et un baseline ; ne pas ajouter de job bloquant avant tri manuel des findings existants. Ne pas utiliser `--fix`, `update --apply`, `--online` ou `run` pendant le premier audit.
+3. Si jactionlint révèle des findings réels, corriger uniquement les workflows concernés sur une branche séparée et ajouter une validation non régressive ; vérifier les faux positifs avant toute PR.
+4. Torcscandz #5 : maintenir la PR en brouillon jusqu'à la mise à jour de branche et l'essai Samsung + ELM327 physique.
+5. BLUE ALERTS #51/#52/#53 : ne pas fusionner sans smoke test MCP réel et preuves visuelles fraîches sur les heads exacts.
+6. Cycle 1 : générer un diagnostic actuel à partir des commits/workflows récents ; aucun rapport Cycle 1 récent n'a été retrouvé dans les issues consultées.
+
+**Résultat du cycle 12 :** 1 nouvel outil documenté en MAYBE (jactionlint) ; 2 alternatives comparées/non ajoutées séparément (zizmor et actionlint forks/upstream) ; 0 installation ; 0 smoke test réussi ; aucun changement de production ; catalogue mis à jour uniquement sur `main` ; coût 0 €.
