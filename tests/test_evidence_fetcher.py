@@ -286,3 +286,23 @@ def test_self_closing_svg_does_not_hide_following_html(monkeypatch):
 
     assert result.content == "Visible"
 
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (b"<html><body><p>Visible &amp", "Visible &"),
+        (b"<html><body><p>Visible</p><script>hidden &amp", "Visible"),
+    ],
+)
+def test_html_parser_close_flushes_trailing_data_without_exposing_ignored_content(monkeypatch, body, expected):
+    sock = FakeSocket()
+    response = FakeResponse(body=body)
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/article"])[0]
+
+    assert result.content == expected
