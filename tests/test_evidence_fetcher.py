@@ -212,8 +212,8 @@ def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
 @pytest.mark.parametrize(
     "body",
     [
-        b"<html><script>hidden</style>script-secret</script><p>Visible</p></html>",
-        b"<html><style>hidden</script>style-secret</style><p>Visible</p></html>",
+        b"<html><svg>hidden</template>svg-secret</svg><p>Visible</p></html>",
+        b"<html><template>hidden</svg>template-secret</template><p>Visible</p></html>",
     ],
 )
 def test_mismatched_ignored_end_tag_does_not_expose_hidden_text(monkeypatch, body):
