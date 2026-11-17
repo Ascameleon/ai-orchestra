@@ -321,3 +321,76 @@ Priorités proposées aux cycles suivants :
 1. Épingler Playwright à une version stable exacte dans le workflow BLUE ALERTS, après validation par le Cycle 2.
 2. Ajouter un audit axe-core non bloquant initialement sur les écrans HTML de TripBoost et le HUD BLUE ALERTS ; traiter les violations confirmées sans appliquer aveuglément toutes les règles.
 3. Réévaluer Betterleaks seulement après disponibilité d'une release stable compatible avec un runner Go >=1.26 ; conserver les scans en détection locale sans validation réseau.
+
+## 11. Cycle 5 — tests Flutter, optimisation GLB et performance web (2026-11-17, 04:49 Africa/Algiers)
+
+### 11.1 Diagnostics et état des projets relus avant la recherche
+
+- Lecture du présent catalogue sur `main` avant toute recherche : effectuée. Les dépôts `leancodepl/patrol`, `zeux/meshoptimizer` et `GoogleChrome/lighthouse-ci` n'étaient pas déjà des entrées distinctes ; aucun doublon exact trouvé parmi les 22 entrées précédentes.
+- Aucun rapport Cycle 1 plus récent n'a été retrouvé dans les issues GitHub consultables pendant cette exécution. Le dernier diagnostic Cycle 1 cité dans le catalogue reste celui du 2026-11-16 à 22:53:41 UTC ; il est ancien et n'est pas présenté comme un audit frais. Les états ci-dessous proviennent des branches et PR GitHub relues à 04:49.
+- HEAD `main` relevés : `Torcscandz` `1c98135210eecb314ac67e526000d37ca3f99637` ; `ai-orchestra` `c6060145e20b4bfd3c6f52672fc2bb62fe84c1e9` ; `Tripradar` `7b36e7fbfc9afeafc9bfee32cec1f43640cea67b` ; `Blue-alert` `d700eeca20787fbe146f927b89ddd1272cefdc10` ; `Gameforge-3D` `83ff2cd33c6380a63843a39ee3bed882e9a3c11f` ; `Nia-studio-Ai` `029fb01e40fd784e62787a1b519880346ccf002a` ; `Callerid` `2c421c2efa038f80011a21b4874bb2105608ae04` ; `playwright-samsung` `842479e849ac6115500939702358b3d66a764e72` ; `ruflo` `056a11ece4ca3bd234aafd6221156d24b80a9544`.
+- **Torcscandz** : README `main` confirme que les sources Flutter sont conservées dans `DzTorqscan_v1.4.0_complete.zip` et extraites par le workflow ; la racine n'a pas de `pubspec.yaml`. Le workflow documenté utilise Java 17 et Flutter 3.35.7. PR #5 reste ouverte et en brouillon ; la validation Samsung + adaptateur OBD2 reste une barrière physique.
+- **BLUE ALERTS** : le workflow `openrts-build.yml` installe Playwright sans version fixe (`npm install --no-save --no-package-lock playwright`). PR #52 et #53 sont ouvertes et leurs critères demandent des captures fraîches du head exact ; la PR #52 précise que les captures de son prédécesseur avaient été jugées trop subtiles. Les captures 390×844 sont de l'émulation navigateur, pas un essai Samsung.
+- **Gameforge-3D** : README `main` décrit 11 assets procéduraux, export GLB, runtime Three.js 0.160.1 local et usage navigateur sans backend. Il n'y a pas de `package.json` à la racine ; un optimiseur natif doit donc rester un outil de pipeline facultatif, pas une dépendance runtime.
+- **TripBoost** : README `main` décrit une PWA map-first sans build frontend obligatoire ; le serveur API exige Node.js 24+ et des identifiants Amadeus pour les recherches live. Un audit Lighthouse local peut tester le shell statique sans clé Amadeus ni appel fournisseur.
+
+### 11.2 Nouveaux outils qualifiés
+
+| Outil | Dépôt / licence | Version ou commit exact | Fonction, coûts et exigences | Projet cible / verdict |
+|---|---|---|---|---|
+| **Patrol** | https://github.com/leancodepl/patrol — Apache-2.0 (`LICENSE` vérifiée) | HEAD `afd136cfd7f27458a5987b96f52711b3434a6f92` (2026-11-10) ; package `patrol` `4.11.0`, package CLI `patrol_cli` `4.9.0` dans les `pubspec.yaml` ; tags GitHub publiés le 2026-11-02 | Framework Flutter-first de tests UI/E2E avec interactions natives (permissions, notifications, WebView, paramètres système). Core utilisable localement, sans API ni cloud obligatoire ; services de support/valeur ajoutée du mainteneur séparés. Exige Flutter >=3.32.0, Dart >=3.8.0, Android SDK/JDK/ADB et émulateur ou appareil autorisé. | Torcscandz : **MAYBE — candidat prioritaire**. Le Flutter 3.35.7 déclaré par le workflow dépasse le minimum du package. Les sources étant archivées, l'intégration doit être faite dans l'arbre extrait par CI ou dans l'archive source après revue ; aucun `pubspec.yaml` racine n'existe. Patrol peut vérifier les flux de permissions et l'UI, mais ne prouve pas à lui seul le dialogue réel avec un ECU/ELM327. |
+| **meshoptimizer / gltfpack** | https://github.com/zeux/meshoptimizer — MIT (`LICENSE.md` vérifiée) | Release stable `v1.3` publiée le 2026-09-25 ; HEAD `f0a684f11ead064e176775c9b796f82a55910e92` (2026-10-14). Archive Linux officielle `gltfpack-ubuntu.zip`, SHA-256 `0666d9dc40d60fe5b9a45f3fc24f8e6ca87112974bd5de9ca57152aa13d06017`. | Bibliothèque C/C++ d'optimisation de maillages et outil natif `gltfpack` pour optimiser les fichiers glTF/GLB, index/vertex buffers, simplification et compression. Pas de GPU ni d'API nécessaires ; compilation CMake ou binaire précompilé selon OS. Prévoir CPU et conserver les originaux : simplification/quantification peut modifier l'apparence ou les animations. | Gameforge-3D / BLUE ALERTS : **PASS comme outil de pipeline candidat** ; il complète mais chevauche partiellement glTF Transform. N'adopter qu'après comparaison A/B sur copies d'assets (taille, géométrie, matériaux, animations et rendu desktop/mobile). Ne pas l'ajouter au runtime navigateur. |
+| **Lighthouse CI** | https://github.com/GoogleChrome/lighthouse-ci — Apache-2.0 (`LICENSE` vérifiée) | Release GitHub `v0.16.1` publiée le 2026-11-11 ; HEAD `99fc5efd774fcf85548a3b11ba019c3484ebe2a0` (2026-11-12). Le README recommande `@lhci/cli@0.16.x`. Le manifeste `packages/cli/package.json` du `main` consulté déclare `engines.node >=22.19.0` et une version interne `0.1.0` : vérifier le package publié/tag avant verrouillage de dépendance, cette différence de métadonnées mérite une vérification. | Collecte et assertions Lighthouse automatisées : performance, accessibilité, SEO, PWA/offline, budgets d'assets et régressions. CLI locale et GitHub Actions sans service payant requis. L'option d'upload `filesystem` garde les rapports dans `.lighthouseci/` ; éviter `temporary-public-storage` et le serveur partagé pour les données privées. Chrome/Chromium, Node >=22.19.0, CPU/RAM et espace pour navigateur requis ; pas de GPU obligatoire. | TripBoost / NIA Studio AI : **MAYBE — utile pour un audit de shell web local**. Le runtime de ce cycle est Node 22.16.0, donc inférieur au minimum actuel du manifeste ; un runner Node 24 est préférable. Commencer non bloquant et avec upload `filesystem` uniquement. |
+
+### 11.3 Procédures reproductibles préparées — non exécutées
+
+Patrol, dans le dossier Flutter extrait du ZIP Torcscandz, après vérification du `pubspec.yaml` et de la version Dart réellement extraite :
+
+```bash
+flutter pub add --dev patrol:^4.11.0
+dart pub global activate patrol_cli 4.9.0
+patrol test
+```
+
+meshoptimizer, en privilégiant le binaire Linux officiel épinglé et son checksum publié :
+
+```bash
+curl -L -o gltfpack-ubuntu.zip https://github.com/zeux/meshoptimizer/releases/download/v1.3/gltfpack-ubuntu.zip
+echo '0666d9dc40d60fe5b9a45f3fc24f8e6ca87112974bd5de9ca57152aa13d06017  gltfpack-ubuntu.zip' | sha256sum -c -
+unzip gltfpack-ubuntu.zip -d gltfpack-v1.3
+./gltfpack-v1.3/gltfpack -i original.glb -o optimized.glb
+```
+
+Comparer ensuite les rapports d'inspection glTF, le nombre de primitives/triangles, les matériaux, animations, taille finale et captures identiques avant de promouvoir un asset optimisé.
+
+Lighthouse CI, après lancement du shell TripBoost sur un port local (sans renseigner de secret Amadeus pour l'audit statique) :
+
+```bash
+npx --yes @lhci/cli@0.16.1 collect --url=http://127.0.0.1:4173/
+npx --yes @lhci/cli@0.16.1 assert
+npx --yes @lhci/cli@0.16.1 upload --target=filesystem
+```
+
+Le serveur LHCI, les tokens GitHub et les stockages publics ne sont pas nécessaires pour cette première évaluation. Épingler Node 24 sur le runner si le manifeste de la version publiée confirme le minimum Node 22.19.
+
+### 11.4 Installation et tests réellement effectués pendant ce cycle
+
+- Lecture du catalogue canonique sur `main` et comparaison des trois dépôts : effectuées ; aucun doublon distinct trouvé.
+- Vérification GitHub des métadonnées, branches, commits, licences, README, versions de packages/releases et exigences techniques : effectuée pour les trois candidats.
+- Inspection directe de `Torcscandz/README.md`, de la racine et du workflow de build documenté : confirme les sources Flutter en ZIP, Flutter 3.35.7 et Java 17. La récupération directe de `pubspec.yaml` à la racine a renvoyé 404, cohérente avec l'organisation en archives ; aucun fichier source embarqué n'a été modifié.
+- Inspection directe de `Gameforge-3D/README.md` et de la racine : confirme le générateur procédural navigateur et l'export GLB ; aucun manifeste npm racine trouvé.
+- Inspection directe du workflow BLUE ALERTS : confirme l'installation Playwright sans version épinglée dans le job de rendu navigateur.
+- Environnement local contrôlé : Node.js `v22.16.0`, npm `10.9.2`, CMake `3.31.6`, Go `1.23.2` ; Flutter, Dart et ADB absents.
+- Aucun outil nouveau installé. Aucun test d'import, de compilation Patrol, de traitement GLB avec gltfpack ou de collecte Lighthouse n'a été exécuté. Les commandes ci-dessus sont des procédures préparées, pas des tests réussis.
+- Motif des blocages : absence de Flutter/Dart/ADB pour Patrol ; aucun checkout/asset GLB de projet disponible pour un benchmark meshoptimizer ; Node 22.16.0 inférieur au minimum 22.19.0 du manifeste Lighthouse CI. Aucun téléchargement de binaire ni script distant exécuté.
+- Aucun code de production, workflow, lockfile, sous-module ou archive source Ascameleon modifié pendant ce cycle. Aucun secret lu ou utilisé, aucune API fournisseur payante appelée, aucune dépense.
+
+### 11.5 Candidat examiné puis différé
+
+- **KTX-Software** — https://github.com/KhronosGroup/KTX-Software — Apache-2.0 pour le cœur, avec notices et dépendances tierces à conserver. La release `v4.3.2` fournit les outils KTX2 et une voie Java/JNI, mais le pipeline actuel Gameforge/BLUE ALERTS ne documente pas encore de besoin confirmé de textures KTX2/Basis. Différé pour éviter d'ajouter un second pipeline de textures avant un benchmark ; ne pas confondre la licence du cœur avec celles des composants tiers et des codecs/actifs.
+
+### 11.6 État du catalogue après ce cycle
+
+- **25 entrées documentées** : 22 entrées précédentes + Patrol, meshoptimizer/gltfpack et Lighthouse CI. KTX-Software est différé et n'est pas compté comme entrée admise.
+- Priorités proposées : (1) intégrer un test Patrol dans le workflow qui extrait TorcScan, d'abord sur émulateur, puis sur Samsung autorisé ; (2) comparer gltfpack v1.3 à glTF Transform sur des copies d'assets Gameforge/BLUE ALERTS ; (3) faire un audit Lighthouse CI local de TripBoost avec Node 24 et stockage filesystem.
+- Le cycle suivant doit relire ce fichier sur `main`, actualiser les commits/licences et ne pas annoncer d'installation avant un smoke test réellement exécuté.
