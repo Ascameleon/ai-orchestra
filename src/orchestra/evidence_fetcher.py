@@ -50,6 +50,16 @@ class _VisibleTextParser(HTMLParser):
         if normalized_tag in _IGNORED_TAGS:
             self._ignored_stack.append(normalized_tag)
 
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag in {"script", "style", "noscript", "template"} and "svg" not in self._ignored_stack:
+            # In HTML syntax, the self-closing flag does not close these non-void
+            # elements. Keep their contents hidden until an explicit end tag.
+            self.handle_starttag(tag, attrs)
+            return
+        # SVG foreign-content elements may legitimately use self-closing syntax.
+        super().handle_startendtag(tag, attrs)
+
     def handle_endtag(self, tag: str) -> None:
         normalized_tag = tag.lower()
         if normalized_tag not in _IGNORED_TAGS:
