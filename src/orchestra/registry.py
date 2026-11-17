@@ -17,7 +17,7 @@ class ProviderRegistry:
     @staticmethod
     def _normalize_name(name: str) -> str:
         if not isinstance(name, str):
-            raise ValueError("provider name must be a string")
+            raise TypeError("provider name must be a string")
         normalized = name.strip().lower()
         if not normalized:
             raise ValueError("provider name cannot be empty")
@@ -43,7 +43,7 @@ class ProviderRegistry:
     def get(self, name: str) -> Provider:
         try:
             normalized = self._normalize_name(name)
-        except ValueError:
+        except (TypeError, ValueError):
             raise UnknownProviderError("provider is not configured: <invalid name>") from None
         try:
             return self._providers[normalized]
