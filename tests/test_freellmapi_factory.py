@@ -3,8 +3,13 @@ from orchestra.providers import factory
 from orchestra.providers.base import ProviderConfigurationError
 
 
+class FactoryProviderStub:
+    def generate(self, prompt: str):
+        raise AssertionError("factory construction tests must not call providers")
+
+
 def test_factory_registers_freellmapi_without_live_calls(monkeypatch):
-    class FakeFreeLLMAPIProvider:
+    class FakeFreeLLMAPIProvider(FactoryProviderStub):
         name = "freellmapi"
 
         def __init__(self, settings):

@@ -21,5 +21,7 @@ class ProviderResult:
 
 
 class Provider(Protocol):
+    name: str
+
     def generate(self, prompt: str) -> ProviderResult:
         """Generate one response or raise a provider-specific exception."""
