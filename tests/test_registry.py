@@ -39,7 +39,7 @@ def test_registry_rejects_empty_name():
 
 @pytest.mark.parametrize("name", [None, 1])
 def test_registry_rejects_non_string_names(name):
-    with pytest.raises(ValueError, match="must be a string"):
+    with pytest.raises(TypeError, match="must be a string"):
         ProviderRegistry().register(name, StubProvider())  # type: ignore[arg-type]
 
 
