@@ -394,3 +394,61 @@ Le serveur LHCI, les tokens GitHub et les stockages publics ne sont pas nécessa
 - **25 entrées documentées** : 22 entrées précédentes + Patrol, meshoptimizer/gltfpack et Lighthouse CI. KTX-Software est différé et n'est pas compté comme entrée admise.
 - Priorités proposées : (1) intégrer un test Patrol dans le workflow qui extrait TorcScan, d'abord sur émulateur, puis sur Samsung autorisé ; (2) comparer gltfpack v1.3 à glTF Transform sur des copies d'assets Gameforge/BLUE ALERTS ; (3) faire un audit Lighthouse CI local de TripBoost avec Node 24 et stockage filesystem.
 - Le cycle suivant doit relire ce fichier sur `main`, actualiser les commits/licences et ne pas annoncer d'installation avant un smoke test réellement exécuté.
+
+## 12. Cycle 6 — gestion reproductible des dépendances Python (2026-11-17, 05:43 Africa/Algiers)
+
+### 12.1 Diagnostics et état des projets relus avant la recherche
+
+- Le catalogue canonique a été lu sur `main` avant la recherche. `astral-sh/uv` n'y figurait pas : aucun doublon exact.
+- Aucun nouveau rapport Cycle 1 n'a été retrouvé dans les issues recherchées d'`Ascameleon/ai-orchestra`. Le dernier diagnostic Cycle 1 documenté dans le catalogue reste celui du 2026-11-16 à 22:53:41 UTC ; il est ancien et n'est pas présenté comme un diagnostic frais.
+- Dépôts existants contrôlés via GitHub : neuf dépôts accessibles, tous avec `main` comme branche par défaut. Les derniers heads documentés au cycle précédent restent les références de travail : ai-orchestra `9668220f8cdf7248ddb499bd123416c4bf2af60b`, BLUE ALERTS `d700eeca20787fbe146f927b89ddd1272cefdc10`, Torcscandz `1c98135210eecb314ac67e526000d37ca3f99637`, Tripradar `7b36e7fbfc9afeafc9bfee32cec1f43640cea67b`, Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`, NIA Studio AI `029fb01e40fd784e62787a1b519880346ccf002a`, CallerID `2c421c2efa038f80011a21b4874bb2105608ae04`.
+- **AI ORCHESTRA** : `pyproject.toml` définit des plages de versions compatibles (FastAPI, Uvicorn, Pydantic, Google GenAI, extras fournisseurs) et le dépôt ne contient pas de `uv.lock`. `.github/workflows/ci.yml`, `nightly-audit.yml` et `continuous-engineering.yml` installent les dépendances avec `pip install -e ".[dev]"` ; Docker utilise aussi pip. Il existe donc un besoin concret de reproductibilité, mais aucune migration de gestionnaire n'est autorisée par ce cycle.
+- **BLUE ALERTS** : PR #65 est toujours ouverte sur la branche `fix/blue-alerts-pin-playwright-1.65.1-20261117`, commit `b54b7c90619f9bc9a17fad3cf8a7163f418265a3`. Le workflow exact-head #557 (run `44014390431`) est terminé avec succès : toutes les étapes, y compris le rendu 3D desktop/mobile, le build OpenRTS et les tests natifs sélection/déplacement/attaque, sont vertes. Cependant, le workflow de `main` relu sur `d700eec` installe encore Playwright sans version fixe ; la correction n'est pas intégrée tant que la PR reste ouverte.
+- Aucun besoin neuf d'outil génératif local n'a été confirmé dans les autres dépôts pendant ce passage ; aucun outil image/vidéo/3D/Android supplémentaire n'est admis uniquement pour augmenter le nombre d'entrées.
+
+### 12.2 Nouvel outil qualifié
+
+| Outil | Dépôt / licence | Version ou commit exact | Fonction, coûts et exigences | Projet cible / verdict |
+|---|---|---|---|---|
+| **uv** | https://github.com/astral-sh/uv — dual licence MIT ou Apache-2.0 ; `LICENSE-MIT`, `LICENSE-APACHE` et champ `license = "MIT OR Apache-2.0"` vérifiés dans le manifeste du tag. | Release stable `0.13.8`, publiée le 2026-11-12 ; commit signé `3d97a6aad5ad989c1b4fc89406d54f0dce370b72`. `pyproject.toml` du tag confirme `version = "0.13.8"`. | Gestionnaire de projets/environnements Python écrit en Rust : résolution, lockfile universel `uv.lock`, synchronisation exacte, exécution, outils Python et export de lockfile. Utilisation locale sans API, crédit, abonnement ni cloud propriétaire. Les installations de paquets nécessitent un index réseau (PyPI ou miroir) et peuvent exécuter le code de build des distributions source ; examiner les sources et dépendances, éviter les index non fiables. Binaire précompilé pour Linux x86_64/ARM64, macOS et Windows ; aucun GPU requis, consommation CPU/RAM faible pour la gestion mais stockage et réseau proportionnels aux dépendances. Aucun support Android/Samsung natif revendiqué : outil de poste/CI, pas application mobile. | AI ORCHESTRA : **PASS comme candidat de reproductibilité CI/desktop**. Le dépôt possède déjà un `pyproject.toml` mais pas de lockfile ; évaluer d'abord une branche expérimentale ou un job CI non bloquant. Ne pas remplacer pip/Docker ou modifier les plages de dépendances avant comparaison complète des résolutions Python 3.11 et 3.12. |
+
+### 12.3 Procédure d'installation et d'évaluation — non exécutée dans le dépôt
+
+Installation d'une version Python publiée :
+
+```bash
+python -m pip install --user uv==0.13.8
+uv --version
+```
+
+Alternative : télécharger l'archive binaire correspondant à l'architecture depuis la release GitHub `0.13.8`, vérifier le SHA-256 indiqué sur cette page avant extraction, puis placer le binaire `uv` dans un répertoire utilisateur. La release documente aussi la vérification d'attestation GitHub avec `gh attestation verify`. Pour compiler depuis la source, utiliser le tag exact `0.13.8` et une toolchain Rust compatible ; cette compilation n'a pas été nécessaire pour le smoke test.
+
+Pour AI ORCHESTRA, procédure d'évaluation proposée dans une branche isolée (ne pas exécuter sur `main` sans revue) :
+
+```bash
+uv lock
+uv lock --check
+uv sync --locked --all-extras
+uv run --locked --python 3.11 pytest
+uv run --locked --python 3.12 pytest
+```
+
+Le dépôt possède plusieurs extras fournisseurs ; avant `--all-extras`, vérifier que leur résolution n'introduit pas de dépendance fournisseur inutilisée ou de contrainte incompatible. Le job de production doit rester sur son chemin pip actuel tant que les deux matrices Python et la construction Docker n'ont pas été comparées.
+
+### 12.4 Installation et tests réellement effectués pendant ce cycle
+
+- Lecture du catalogue sur `main) et comparaison anti-doublon : effectuées ; `uv` n'était pas présent.
+- Vérification du dépôt original, README, manifestes `pyproject.toml`, `LICENSE-MIT`, `LICENSE-APACHE`, `SECURITY.md`, tag/release `0.13.8` et commit signé : effectuée.
+- État du dépôt AI ORCHESTRA : `pyproject.toml` relu ; absence de `uv.lock` confirmée par réponse GitHub 404 ; usages de pip repérés dans README, Dockerfile et workflows CI/nightly/engineering.
+- Environnement temporaire : un binaire préexistant `uv 0.10.0` a été trouvé. Il n'a pas été mis à jour ni remplacé. Un projet minimal sans dépendances, créé dans un répertoire temporaire puis supprimé, a passé `uv lock --offline`, `uv lock --check`, `uv sync --offline --no-install-project` et `uv run --offline python -c ...` ; sortie finale : `uv smoke test: ok`. Ce test valide seulement le binaire préexistant 0.10.0 et le flux minimal de lock/sync, pas la release 0.13.8 ni AI ORCHESTRA.
+- Aucun téléchargement ou installation de `uv 0.13.8`, aucune création de `uv.lock` dans AI ORCHESTRA et aucune modification de dépendance ou de workflow Ascameleon n'ont été effectués.
+- Aucun coût, aucune API payante, aucun secret et aucun changement de production.
+
+### 12.5 État du catalogue et priorités suivantes
+
+- **26 entrées documentées** : 25 entrées précédentes + `uv`. Aucun autre candidat n'a été ajouté pendant ce cycle.
+- Le smoke test local de `uv 0.10.0` est consigné séparément du candidat `0.13.8` ; aucune installation nouvelle n'est revendiquée.
+- Priorités :
+  1. Cycle 2 : intégrer la PR BLUE ALERTS #65 seulement après contrôle final, car son exact-head workflow #557 est vert mais `main` utilise encore une installation Playwright flottante.
+  2. Cycle 2 : évaluer `uv 0.13.8` dans une branche non bloquante d'AI ORCHESTRA ; générer le lockfile sans changer les contraintes, comparer les résolutions Python 3.11/3.12 et vérifier Docker.
+  3. Cycle 1 : rafraîchir le diagnostic des dépôts, car le dernier rapport retrouvé est daté du 2026-11-16.
