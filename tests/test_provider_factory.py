@@ -3,6 +3,11 @@ from orchestra.providers import factory
 from orchestra.providers.base import ProviderCallError, ProviderConfigurationError
 
 
+class FactoryProviderStub:
+    def generate(self, prompt: str):
+        raise AssertionError("factory construction tests must not call providers")
+
+
 def settings(provider_name: str, api_key: str | None = "test-key") -> Settings:
     return Settings(
         gemini_api_key=api_key,
@@ -14,7 +19,7 @@ def settings(provider_name: str, api_key: str | None = "test-key") -> Settings:
 
 
 def test_factory_registers_configured_gemini_without_live_calls(monkeypatch):
-    class FakeGeminiProvider:
+    class FakeGeminiProvider(FactoryProviderStub):
         name = "gemini"
         def __init__(self, settings):
             self.settings = settings
@@ -34,7 +39,7 @@ def test_factory_rejects_missing_gemini_key():
 
 
 def test_factory_registers_configured_openai(monkeypatch):
-    class FakeOpenAIProvider:
+    class FakeOpenAIProvider(FactoryProviderStub):
         name = "openai"
         def __init__(self, settings):
             self.settings = settings
@@ -59,7 +64,7 @@ def test_factory_rejects_missing_openai_key():
 
 
 def test_factory_registers_configured_anthropic(monkeypatch):
-    class FakeAnthropicProvider:
+    class FakeAnthropicProvider(FactoryProviderStub):
         name = "anthropic"
         def __init__(self, settings):
             self.settings = settings
@@ -84,7 +89,7 @@ def test_factory_rejects_missing_anthropic_key():
 
 
 def test_factory_registers_grok_without_live_calls(monkeypatch):
-    class FakeGrokProvider:
+    class FakeGrokProvider(FactoryProviderStub):
         name = "grok"
         def __init__(self, settings):
             self.settings = settings
@@ -109,7 +114,7 @@ def test_factory_rejects_missing_xai_key():
 
 
 def test_factory_registers_configured_kimi_without_live_calls(monkeypatch):
-    class FakeKimiProvider:
+    class FakeKimiProvider(FactoryProviderStub):
         name = "kimi"
         def __init__(self, settings):
             self.settings = settings
@@ -134,7 +139,7 @@ def test_factory_rejects_missing_kimi_key():
 
 
 def test_factory_registers_configured_deepseek_without_live_calls(monkeypatch):
-    class FakeDeepSeekProvider:
+    class FakeDeepSeekProvider(FactoryProviderStub):
         name = "deepseek"
         def __init__(self, settings):
             self.settings = settings
@@ -173,7 +178,7 @@ def test_provider_call_error_is_shared_contract():
 
 
 def test_factory_registers_configured_manus_without_live_calls(monkeypatch):
-    class FakeManusProvider:
+    class FakeManusProvider(FactoryProviderStub):
         name = "manus"
         def __init__(self, settings):
             self.settings = settings
