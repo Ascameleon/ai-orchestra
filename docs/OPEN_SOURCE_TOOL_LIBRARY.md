@@ -1386,3 +1386,102 @@ Preuves officielles :
 5. Le catalogue passe de **29 à 30 entrées distinctes** avec l'ajout de JADX ; Betterleaks est une réévaluation d'une entrée existante. Aucun outil n'est déclaré installé.
 
 **Résultat du cycle 19 :** 1 nouvel outil qualifié (JADX v1.5.6, MAYBE, non installé), 1 entrée existante actualisée (Betterleaks v1.10.1 stable / v2 rc.8), prérequis Java vérifié, 0 installation et 0 test APK ; état AI ORCHESTRA mis à jour après fusion de PR #62 ; aucun changement applicatif ; coût 0 €.
+
+
+## 26. Cycle 20 — SBOM multi-écosystèmes et analyse de licences du code source (2026-11-17, 18:40 Africa/Algiers)
+
+### 26.1 Diagnostics Cycle 1 et état actuel des dépôts avant sélection
+
+- Catalogue canonique lu sur `main` avant la recherche ; blob observé : `e79777b6cc57aff57d0b6d5e501757db088b4d94`. Recherche anti-doublon effectuée dans le fichier complet : **Syft** et **ScanCode Toolkit** n'y figuraient pas. OSV-Scanner est déjà documenté : il recherche des vulnérabilités à partir des manifests/lockfiles ; Syft génère un inventaire SBOM ; ScanCode détecte plus finement les licences, avis de copyright et manifestes. Ces outils ne sont donc pas considérés comme des doublons.
+- Aucun rapport Cycle 1 plus récent n'a été retrouvé dans les issues/fichiers consultables. Le dernier diagnostic formel conservé reste daté du 2026-11-16 à 22:53 UTC ; il est ancien et n'est pas présenté comme un audit frais. La recherche `org:Ascameleon is:open` n'a retourné aucune issue ouverte pendant ce passage ; les PR ouvertes sont contrôlées séparément.
+- AI ORCHESTRA : `main` est au commit `124afa5f6b33439ad19ee7dce8a99a2d66db2a2d` (2026-11-17 17:01:16 UTC), fusion de PR #63. Le parseur traite désormais les balises HTML non vides auto-fermantes `script/style/noscript/template` comme restant ouvertes, tout en préservant la fermeture SVG ; les tests de non-régression correspondants sont dans le commit. PR #62 est fermée/fusionnée ; la correction des descendants ignorés reste présente dans l'historique.
+- Tripradar/TripBoost : `main` est au commit `2b048f8198f068ff1dd8719cc5c83e0d5de2e0b0` (2026-11-17 17:01:20 UTC), fusion de PR #25. L'itérateur du corps HTTP intercepte maintenant les déconnexions client et un test TCP brut vérifie que l'API reste saine après une requête interrompue.
+- Torcscandz : `main` `1c98135210eecb314ac67e526000d37ca3f99637`. PR #5 reste ouverte et en brouillon ; la validation physique Samsung + ELM327 (pairing, RFCOMM, lecture ECU) n'est toujours pas remplacée par la CI.
+- BLUE ALERTS : `main` `e1b629197ee93435d1c8616927bb452ccfc2854d`. PR #51 reste ouverte (connexion Qwen/Blender locale non testée) ; PR #52 et #53 restent ouvertes, avec validation visuelle exacte des captures V94 à effectuer. Aucun résultat visuel ou test Samsung physique n'est revendiqué.
+- CallerID : `main` `2c421c2efa038f80011a21b4874bb2105608ae04`. Le README confirme que l'archive source récupérée ne contient pas de fichier `LICENSE` et qu'aucune licence de redistribution n'est affirmée. L'APK debug CI n'est pas une release signée. Besoin retenu : inventaire des dépendances et détection des notices/licences présentes dans les sources, sans attribuer une licence au projet à la place du propriétaire.
+- Autres HEAD `main` relus : Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`, NIA Studio AI `2bb0e3ba8330350721e31c0bee4c3999eaab4552`, Ruflo `056a11ece4ca3bd234aafd6221156d24b80a9544`, Playwright-Samsung `842479e849ac6115500939702358b3d66a764e72`.
+- Besoin choisi : produire un SBOM local réutilisable sur les dépôts multi-langages (Python, Go, Gradle/Java, Node et Dart/Flutter), puis disposer d'une détection de licences/copyrights plus précise pour examiner le snapshot CallerID. Les scans initiaux doivent cibler des copies de répertoires source, jamais des archives ou binaires non fiables.
+
+### 26.2 Nouvel outil — Syft v1.57.2 (MAYBE, non installé)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Syft** — générateur local de Software Bill of Materials (SBOM), CLI et bibliothèque Go. |
+| Dépôt GitHub exact | https://github.com/anchore/syft |
+| Source et licence | Code source public ; fichier `LICENSE` vérifié au dépôt : **Apache-2.0**. Le logo du projet est séparément CC-BY-4.0. |
+| Version et preuve | Release stable `v1.57.2`, publiée le 2026-11-16 20:05 UTC ; release GitHub immuable. Commit exact `1a72047fd46c72e0a12ee77e24b23d2316753d08`, signé et marqué vérifié par GitHub. Le même SHA est le dernier commit `main` observé le 2026-11-16 19:32:58 UTC. |
+| Fonctions utiles | Scan de répertoires, systèmes de fichiers, archives et images de conteneurs ; détection de dizaines d'écosystèmes ; sorties CycloneDX, SPDX et Syft JSON ; attestations SBOM in-toto. La documentation actuelle expose un catalogueur Dart pour `pubspec.yaml` et `pubspec.lock` (dépendances directes et transitives), en plus de Go, Python, Java et JavaScript. |
+| Installation reproductible depuis GitHub | Pour l'hôte Linux x86_64, télécharger directement `https://github.com/anchore/syft/releases/download/v1.57.2/syft_1.57.2_linux_amd64.tar.gz` (30 MB), vérifier SHA-256 `ad92bd3ec1b94a3df01d4d0aec199afa9c42b72e86da436ff5f837914d32706b`, extraire dans un répertoire temporaire isolé puis exécuter `./syft version`. Exemple de scan non destructif : `./syft dir:/chemin/vers/cop ie-source -o cyclonedx-json=sbom.cdx.json` (remplacer le chemin par une copie locale en lecture seule). Le fichier de checksums de release est lui-même accompagné d'un bundle Sigstore ; la signature du bundle n'a pas été vérifiée dans cet environnement faute de téléchargement. |
+| Dépendances / coûts | Binaire Linux précompilé autonome, aucun GPU, API, clé, abonnement, crédit ou service cloud requis pour un scan de répertoire local. Le `go.mod` du tag déclare `go 1.26.8` : compilation source non compatible avec le Go 1.23.2 de l'environnement observé ; utiliser le binaire précompilé plutôt que contourner la toolchain. |
+| Matériel / plateformes | Linux x86_64, macOS et Windows via releases ; charge CPU, RAM et disque variable avec la taille du dépôt, des binaires et des fichiers indexés. Pas une application Android/Samsung ; l'usage recommandé est un runner CI ou hôte de développement. Ne pas déduire la compatibilité du binaire Linux avec Android/Termux. |
+| Sécurité / limites | Les advisories `GHSA-rjcw-vg7j-m9rc` (nettoyage des fichiers temporaires, corrigé en v1.42.3) et `GHSA-mw2c-m758-9v5q` (allocations mémoire non bornées, corrigé en v1.52.0) sont antérieurs à v1.57.2. La politique amont ne maintient que la dernière release. Restent des limites ouvertes : #5562 documente une dépendance Go `github.com/blakesmith/ar` non maintenue et un cas de panic récupéré lors de la lecture de certains `.deb/.ipk` ; #5593 rapporte des coordonnées Maven incorrectes pour un artefact OpenTelemetry ; #5594 indique que les dépendances transitives GitHub Actions via `actions.lock` ne sont pas encore cataloguées. Ne pas scanner des archives/binaires non fiables pour ce premier usage ; vérifier manuellement les coordonnées Maven et ne pas considérer un SBOM comme preuve d'exhaustivité. |
+| Projet cible / verdict | **AI ORCHESTRA, Torcscandz, CallerID, Tripradar et NIA Studio AI : MAYBE** comme étape d'inventaire non bloquante et séparée. Particulièrement utile pour `go.mod`, Python, Gradle/Maven, npm et `pubspec.lock`. Ne remplace pas OSV-Scanner et ne constitue pas une analyse juridique de licence. |
+
+Preuves officielles :
+- README, fonctions et licence : https://github.com/anchore/syft
+- Licence Apache-2.0 : https://github.com/anchore/syft/blob/v1.57.2/LICENSE
+- Release v1.57.2, date, signature, immutabilité, taille et SHA-256 : https://github.com/anchore/syft/releases/tag/v1.57.2
+- Commit exact : https://github.com/anchore/syft/commit/1a72047fd46c72e0a12ee77e24b23d2316753d08
+- `go.mod` du tag : https://github.com/anchore/syft/blob/v1.57.2/go.mod
+- Catalogueur Dart : https://oss.anchore.com/docs/capabilities/dart/
+- Cataloguers et sélection des dépendances : https://oss.anchore.com/docs/guides/sbom/catalogers/
+- Advisory mémoire GHSA-mw2c-m758-9v5q : https://github.com/anchore/syft/security/advisories/GHSA-mw2c-m758-9v5q
+- Advisory fichiers temporaires GHSA-rjcw-vg7j-m9rc : https://github.com/anchore/syft/security/advisories/GHSA-rjcw-vg7j-m9rc
+- Issues #5562, #5593 et #5594 : https://github.com/anchore/syft/issues/5562 ; https://github.com/anchore/syft/issues/5593 ; https://github.com/anchore/syft/issues/5594
+
+### 26.3 Nouvel outil — ScanCode Toolkit v32.5.0 (MAYBE, non installé)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **ScanCode Toolkit** — scanner local de licences, avis de copyright, manifestes de paquets et dépendances. |
+| Dépôt GitHub exact | https://github.com/aboutcode-org/scancode-toolkit |
+| Source et licence | Code source public. `NOTICE` et `setup.cfg` du tag vérifiés : expression globale `Apache-2.0 AND CC-BY-4.0 AND LicenseRef-scancode-other-permissive AND LicenseRef-scancode-other-copyleft`. Le logiciel ScanCode est Apache-2.0 ; les données/règles de licences sont CC-BY-4.0 ; des composants tiers ont leurs propres licences permissives ou copyleft et sont documentés par des fichiers `.ABOUT`. Conserver `NOTICE`, les deux textes de licence et les notices tierces de l'archive. |
+| Version et preuve | Dernière release stable observée : `v32.5.0`, publiée le 2026-01-15 23:39 UTC ; commit de tag `abd87fb81609ea4a29ab4cdda755c188b8be3601`, signé et vérifié par GitHub. `setup.cfg` déclare la version 32.5.0 et Python >=3.10. Le dernier commit de la branche `develop` observé est `e423b48a1fdbff26219fbeafe7e9bdef293b91fc`, daté du 2026-11-02 22:19:51 UTC. Une préversion `v33.0.0rc1` existe depuis le 2026-05-19, mais elle n'est pas retenue comme version stable. |
+| Fonctions utiles | Détection par comparaison de textes de licences et règles, attribution copyright, détection de manifestes/paquets, dépendances directes, export JSON/YAML/HTML/CycloneDX/SPDX et génération d'attributions. Complémentaire à Syft : ScanCode approfondit l'analyse de notices et fichiers sources ; il ne décide pas quelle licence le propriétaire souhaite attribuer au projet. |
+| Installation reproductible depuis GitHub | Release Linux Python 3.13 : `https://github.com/aboutcode-org/scancode-toolkit/releases/download/v32.5.0/scancode-toolkit-v32.5.0_py3.13-linux.tar.gz` (224 MB), SHA-256 publié `f9f83ffcf90577a74b61a30ebc4632a1fc89f026b438f597b18206babb964e28`. Télécharger, vérifier le hash, extraire dans un répertoire temporaire et lancer `./scancode --help`. Pour un scan de copie en lecture seule : `./scancode --license --copyright --package --processes 1 --json-pp scancode.json /chemin/vers/copie-source`. Ne pas lancer `configure` ou un script distant opaque. |
+| Dépendances / coûts | Exécution CLI locale sans API, abonnement, crédits, GPU ni service cloud. L'archive embarque une distribution Python et des dépendances ; installation source plus complexe (Python 3.10–3.14 et bibliothèques système Linux telles que bzip2, xz, zlib, libxml2/libxslt et libpopt). L'archive Linux Python 3.13 fait 224 MB. |
+| Matériel / plateformes | Linux/macOS/Windows x86_64 ; Python 3.13.5 de l'environnement compatible. Scan CPU intensif et RAM sensible au nombre de processus. La documentation historique de prérequis recommande au moins 8 GB RAM ; l'environnement temporaire n'en expose que 5.8 GiB au total (environ 4.7 GiB disponibles), donc pas de test ici. Pas d'application Android/Samsung ; utiliser un runner/ordinateur hôte. |
+| Sécurité / maintenance / limites | Branche `develop` active avec commit observé le 2026-11-02 et suite amont annoncée de 30 000+ tests, non exécutée par ce cycle. Issue #5039 signale une fausse classification GPL-2.0-only en GPL-3.0-plus ; toute détection doit être relue avant décision de conformité. Issue #4709 signale une hausse de mémoire/temps sous Python 3.14 ; préférer le paquet Linux Python 3.13 épinglé. La provenance PyPI de la version 32.5.0 est incomplète pour un des six fichiers publiés ; privilégier l'archive GitHub officielle avec SHA-256, sans prétendre que le hash a été vérifié tant que l'archive n'est pas téléchargée. |
+| Projet cible / verdict | **CallerID : MAYBE** pour examiner les licences/copyrights présents dans la copie du snapshot récupéré et inventorier les dépendances tierces. **AI ORCHESTRA, Torcscandz, Tripradar, NIA Studio AI : MAYBE** pour une revue ponctuelle de notices et manifests. Aucun ajout automatique de `LICENSE`, aucune conclusion légale automatique et aucune intégration runtime. |
+
+Preuves officielles :
+- Dépôt et README : https://github.com/aboutcode-org/scancode-toolkit
+- Release stable v32.5.0, signature, date, archive Linux Python 3.13 et SHA-256 : https://github.com/aboutcode-org/scancode-toolkit/releases/tag/v32.5.0
+- Commit du tag : https://github.com/aboutcode-org/scancode-toolkit/commit/abd87fb81609ea4a29ab4cdda755c188b8be3601
+- Dernier commit develop observé : https://github.com/aboutcode-org/scancode-toolkit/commit/e423b48a1fdbff26219fbeafe7e9bdef293b91fc
+- `NOTICE` : https://github.com/aboutcode-org/scancode-toolkit/blob/v32.5.0/NOTICE
+- `setup.cfg` : https://github.com/aboutcode-org/scancode-toolkit/blob/v32.5.0/setup.cfg
+- Installation officielle : https://github.com/aboutcode-org/scancode-toolkit/blob/v32.5.0/INSTALL.rst
+- Documentation des prérequis : https://scancode-toolkit.readthedocs.io/en/stable/getting-started/installation/index.html
+- Issue fausse classification GPL #5039 : https://github.com/aboutcode-org/scancode-toolkit/issues/5039
+- Issue mémoire Python 3.14 #4709 : https://github.com/aboutcode-org/scancode-toolkit/issues/4709
+
+### 26.4 Candidat examiné mais non retenu — FSFE REUSE Tool
+
+- Dépôt GitHub : https://github.com/fsfe/reuse-tool ; le dépôt GitHub précise qu'il s'agit d'un miroir du dépôt canonique Codeberg et que le développement/contribution se déroule sur Codeberg.
+- Release v6.2.0 publiée le 2025-10-27, tag et commit signés/vérifiés ; code GPL-3.0-or-later, documentation CC-BY-SA-4.0, certains fichiers/configurations CC0-1.0 et composants empruntés Apache-2.0.
+- Le CLI `reuse lint` vérifie la conformité à la spécification REUSE et les déclarations SPDX par fichier ; il ne découvre pas à lui seul la licence que le propriétaire entend accorder à CallerID. L'outil pourrait être utile après une décision de licence et une normalisation des notices, mais ScanCode est plus adapté à la découverte initiale des notices existantes. Non ajouté comme entrée distincte dans ce cycle pour éviter de traiter un miroir GitHub comme dépôt de développement canonique et de confondre conformité REUSE avec attribution de licence.
+
+Preuves :
+- Miroir et politique de contribution : https://github.com/fsfe/reuse-tool
+- Release v6.2.0 : https://github.com/fsfe/reuse-tool/releases/tag/v6.2.0
+- Conformité REUSE du dépôt : https://api.reuse.software/info/git%40github.com/fsfe/reuse-tool
+
+### 26.5 Installation et tests réellement effectués
+
+- Environnement hôte observé : Linux x86_64, Python 3.13.5, Go 1.23.2, mémoire totale 5.8 GiB (environ 4.7 GiB disponibles), espace libre `/tmp` environ 30 GiB.
+- Vérification des exécutables : `syft` absent ; `scancode` absent ; aucun paquet `scancode-toolkit` installé.
+- Tentative réelle de téléchargement de l'archive officielle Syft v1.57.2 : échec avant transfert, `curl: (6) Could not resolve host: github.com`. `container.download` a également échoué. Aucun fichier d'archive n'a été reçu.
+- ScanCode : aucun téléchargement, aucune installation, aucun import, aucun scan de sources ; le prérequis Python 3.13 est satisfait, mais la mémoire disponible est inférieure à la recommandation historique de 8 GB.
+- Syft : aucun binaire, aucune vérification SHA-256, aucun import/version, aucun SBOM produit. Le hash publié n'est pas déclaré vérifié.
+- Aucun fichier, dépendance, lockfile, workflow, APK, source applicative ou code de production Ascameleon modifié. Aucun secret, aucune API payante, aucun service cloud ; coût **0 €**.
+
+### 26.6 Décisions et suites
+
+1. Quand le DNS est disponible, télécharger Syft v1.57.2 depuis sa release GitHub, vérifier le SHA-256, puis exécuter `version` et un scan SBOM sur une copie en lecture seule de AI ORCHESTRA, Torcscandz, CallerID et Tripradar. Vérifier les cataloguers réellement utilisés dans le JSON ; conserver le rapport comme artefact CI et non comme dépendance runtime.
+2. Pour Torcscandz, vérifier explicitement que le cataloguer `dart-pubspec-lock-cataloger` a été exécuté et qu'il a trouvé les entrées de `pubspec.lock`. Ne pas inférer la couverture complète du code Dart AOT.
+3. Réserver ScanCode à une machine/runner disposant d'au moins 8 GB RAM ; démarrer avec un processus et une copie du snapshot CallerID. Revoir manuellement chaque détection de licence/copyright, notamment les licences GPL et les fichiers ambigus.
+4. Ne pas ajouter de fichier `LICENSE` à CallerID tant que le propriétaire n'a pas décidé explicitement la licence du projet. Ne pas utiliser REUSE pour fabriquer cette décision.
+5. Le catalogue passe de **30 à 32 entrées distinctes** : Syft v1.57.2 (MAYBE, non installé) et ScanCode Toolkit v32.5.0 (MAYBE, non installé). REUSE Tool est documenté comme candidat non retenu, sans être déclaré abandonné.
+
+**Résultat du cycle 20 :** 2 nouveaux outils qualifiés MAYBE ; 1 candidat comparé mais non admis ; 0 installation ; 0 smoke test ; 0 SBOM et 0 scan de licences produits ; 2 commits Ascameleon récents relus (AI ORCHESTRA PR #63 et Tripradar PR #25 fusionnées) ; aucun changement applicatif ; catalogue actualisé sur `main` ; coût 0 €.
