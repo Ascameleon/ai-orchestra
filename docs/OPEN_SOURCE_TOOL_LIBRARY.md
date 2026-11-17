@@ -387,7 +387,7 @@ Le serveur LHCI, les tokens GitHub et les stockages publics ne sont pas nécessa
 
 ### 11.5 Candidat examiné puis différé
 
-- **KTX-Software** — https://github.com/KhronosGroup/KTX-Software — Apache-2.0 pour le cœur, avec notices et dépendances tierces à conserver. La release `v4.3.2` fournit les outils KTX2 et une voie Java/JNI, mais le pipeline actuel Gameforge/BLUE ALERTS ne documente pas encore de besoin confirmé de textures KTX2/Basis. Différé pour éviter d'ajouter un second pipeline de textures avant un benchmark ; ne pas confondre la licence du cœur avec celles des composants tiers et des codecs/actifs.
+- **KTX-Software** — https://github.com/KhronosGroup/KTX-Software — dernière release stable vérifiée `v4.4.2` (2025-10-04), commit signé `4d6fc70eaf62ad0558e63e8d97eb9766118327a6`. La pré-version `v5.0.0-rc2` n'est pas retenue. `LICENSE.md` indique que les fichiers propres au dépôt sont généralement Apache-2.0, mais précise que `lib/etcdec.cxx` est **non open source** (licence Ericsson) ; le dépôt contient aussi des composants tiers à licences distinctes. Le pipeline Ascameleon ne charge pas encore de textures KTX2 en runtime ; KTX-Software reste **MAYBE / différé**, sans installation, tant qu'une nomenclature de licences par fichier et un benchmark ne justifient pas ce SDK plus large. Le codec Basis Universal autonome est évalué séparément ci-dessous.
 
 ### 11.6 État du catalogue après ce cycle
 
@@ -1080,3 +1080,76 @@ Preuves officielles consultées :
 - Conserver les PR opérationnelles en l'état : TripBoost #23 attend la revue/fusion ; TorcScan #5 attend le test Samsung/OBD2 ; BLUE ALERTS #51 attend le smoke test MCP local et #52/#53 leurs validations visuelles exact-head.
 
 **Résultat du cycle 15 :** 1 nouvel outil qualifié MAYBE (OSV-Scanner v2.7.1) ; 0 installation ; 0 import/smoke test réussi ; 0 scan de projet ; aucun changement applicatif ; catalogue actualisé sur `main` ; coût 0 €.
+
+
+---
+
+## 22. Cycle 16 — Basis Universal pour la compression locale des textures KTX2 (2026-11-17, 14:43 Africa/Algiers)
+
+### 22.1 Diagnostics Cycle 1 et état réel des dépôts avant recherche
+
+- Catalogue canonique relu sur `main` avant toute recherche : blob `a632d93caaa23f77aa69f7970d2a6c07d2e2ec43`, 146218 caractères. Recherche anti-doublon effectuée : aucune entrée autonome `BinomialLLC/basis_universal`. Le catalogue contient déjà glTF Transform, glTF Validator, meshoptimizer/gltfpack et Trimesh ; ces outils couvrent respectivement transformation, conformité, optimisation de géométrie et inspection de maillage. Basis Universal est un encodeur/transcodeur de textures, pas un doublon de ces outils.
+- `KTX-Software` figurait seulement comme candidat différé. Sa licence et sa release ont été recontrôlées : stable `v4.4.2`, commit `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` (2025-10-04) ; `LICENSE.md` signale un fichier non open source, `lib/etcdec.cxx`, sous licence Ericsson. La pré-version `v5.0.0-rc2` n'est pas choisie pour un pipeline reproductible. L'entrée différée précédente a été corrigée ci-dessus.
+- Dernier diagnostic Cycle 1 autonome retrouvé dans l'historique consultable : 2026-11-16 à 22:53:41 UTC. Aucune issue ouverte n'a été retournée dans les neuf dépôts Ascameleon consultés et aucune nouvelle pièce Cycle 1 autonome n'a été trouvée ; ce diagnostic ancien n'est pas présenté comme un audit frais.
+- HEAD `main` revérifiés :
+  - AI ORCHESTRA : `8861991f457e51511234bf90bf64cfb16b0ef964` (catalogue, parent du présent commit).
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637`.
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d`.
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`.
+  - Tripradar/TripBoost : `643308afd9ce947cbfa4946e977a4c61868e3b59`.
+  - CallerID : `2c421c2efa038f80011a21b4874bb2105608ae04`.
+  - NIA Studio AI : `2bb0e3ba8330350721e31c0bee4c3999eaab4552`.
+  - Ruflo : `056a11ece4ca3bd234aafd6221156d24b80a9544`.
+  - Playwright-Samsung : `842479e849ac6115500939702358b3d66a764e72`.
+- PR récentes revérifiées : TripBoost #23 est **fusionnée** (merge `643308a`, 4 commits conservés) ; BLUE ALERTS #64 est **fusionnée** (merge `d700eec`, correctif de timeouts de captures, sans changement du runtime) ; TorcScan #5 reste ouverte et en brouillon (47 commits, 7 fichiers, mergeable selon GitHub, mais test Samsung + ELM327 physique requis) ; BLUE ALERTS #51 reste ouverte et en brouillon (5 commits, 4 fichiers, smoke test MCP local Qwen/Blender requis) ; BLUE ALERTS #52 et #53 restent ouvertes, en brouillon et non mergeables (respectivement 28 commits/5 fichiers et 78 commits/12 fichiers).
+- Besoin étudié : les branches V94 de BLUE ALERTS ajoutent des maps PBR, mais le head de PR #52 génère albedo, normal et roughness en `THREE.DataTexture` dans le navigateur ; les fichiers sont procéduraux et non des images statiques pré-bakées. La branche utilise Three.js `0.160.0`. La documentation Three.js r160 expose `KTX2Loader`, qui lit KTX2 Basis Universal et utilise un transcoder WebAssembly après `detectSupport(renderer)`. Toutefois, le runtime actuel n'instancie pas ce loader et le PR #52 n'est ni fusionné ni mergeable. Une intégration immédiate demanderait d'abord un pipeline d'export/baking des DataTextures et une comparaison visuelle/performance : elle n'est pas justifiée dans ce cycle.
+
+### 22.2 Nouvel outil — Basis Universal v2.50 (MAYBE, moteur local d'encodage/transcodage)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Basis Universal** — encodeur/transcodeur C/C++ de textures GPU LDR/HDR ; CLI native `basisu`, bibliothèque C/C++, transcoder WebAssembly/WASI et bindings optionnels. |
+| Dépôt GitHub exact | https://github.com/BinomialLLC/basis_universal |
+| Source et licence | Source publique. `LICENSE` et les en-têtes README du tag indiquent **Apache-2.0** pour la bibliothèque de référence encodeur/transcodeur, sauf fichiers explicitement signalés autrement. Conserver `LICENSE` et les notices ; les composants tiers/vendored doivent être vérifiés par fichier avant redistribution. Ce dépôt autonome n'hérite pas du fichier Ericsson `lib/etcdec.cxx` propre à KTX-Software. |
+| Version stable épinglée | Release/tag `v2_50` (version annoncée v2.5 / 2.50), publiée le **2026-08-03** ; commit exact du tag `9bebe16726b3a61c8c213eeee3b7cffb462ef34e`. HEAD amont observé le **2026-11-17** : `073eb6a0a34a23d77e75e54f41dcd9653a52da83`. Pour un build reproductible, épingler le tag `v2_50`, pas `master`. |
+| Fonctions utiles | Encode les images PNG/QOI/TGA/JPEG/DDS vers `.ktx2` ou `.basis` ; modes ETC1S, UASTC LDR/HDR, ASTC et nouveaux modes XUASTC/XUBC7 ; mipmaps, cubemaps et arrays ; transcodage vers formats GPU selon la cible. UASTC LDR 4x4 convient aux maps de normales et aux textures où la qualité prime ; ETC1S offre une compression plus forte mais une qualité inférieure. |
+| Installation depuis GitHub | Checkout source épinglé : `git clone --depth 1 --branch v2_50 https://github.com/BinomialLLC/basis_universal.git`, puis `cd basis_universal`. Build natif : `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBASISU_SSE=TRUE -DBASISU_OPENCL=FALSE -DBASISU_BUILD_PYTHON=OFF`, puis `cmake --build build --parallel 2`. Le README place la CLI compilée dans `bin/basisu`. Vérification préparée : `./bin/basisu -test`. Exemple de fixture, une fois une image disponible : `./bin/basisu -uastc -linear normal.png` pour une map de normales linéaire ; pour l'albedo sRGB, `./bin/basisu -uastc albedo.png`. Ne pas exécuter de conversion sur un asset source : écrire vers une copie et comparer taille, rendu et canaux. |
+| Dépendances / licence des composants | CMake 3.20 minimum selon le manifeste, compilateur C++17 ; le README indique que l'encodeur et la CLI n'ont pas de dépendance tierce obligatoire absente du dépôt. Zstd est activé par défaut et fourni dans l'arbre source ; Wuffs est le lecteur LDR par défaut ; Python bindings désactivés par défaut ; OpenCL optionnel désactivé par défaut. Le build natif ne requiert ni modèle, ni GPU, ni SDK propriétaire. |
+| Coûts / réseau | Logiciel open source local, sans abonnement, crédits, clé secrète, API commerciale ou cloud GPU. Le téléchargement initial du dépôt est volumineux ; l'encodage consomme du CPU et du disque, et le coût dépend de la résolution, des mipmaps et du mode/effort. Aucun appel fournisseur n'est requis. |
+| Matériel / compatibilité | Hôte Linux x86_64, macOS ou Windows ; CPU généraliste, C++17 et CMake ; aucun GPU nécessaire pour encoder. SSE 4.1 est optionnel et accélère ETC1S d'environ 15–30 % selon le README. OpenCL est optionnel et reste désactivé. Les exécutables WASM WASI fournis dans le dépôt sont pratiques pour de petites images ; la documentation signale une limite mémoire 32-bit d'environ 4 mégapixels pour ASTC/XUASTC LDR. Pas une application Android/Samsung : exécuter l'encodeur sur l'hôte de build, puis charger le KTX2 dans le navigateur/appareil. |
+| Compatibilité Three.js | Three.js r160 possède `KTX2Loader` et son transcoder Basis WASM ; il faut appeler `detectSupport(renderer)` et servir les fichiers transcoder localement. Ne pas présumer que les nouveaux modes v2.50 XUASTC/XUBC7 sont acceptés par le transcoder ancien de Three.js r160. Pour une première expérimentation, limiter les fixtures aux modes Basis historiques **UASTC/ETC1S** et vérifier sur le renderer cible ; les normales doivent rester en espace linéaire. |
+| Limites / issues ouvertes | Issue #476 : accumulateur float32 dans l'encodeur ETC1S peut mal moyenner de très grands clusters lumineux avec mipmaps (exemple >16,8 M pixels). Éviter ETC1S pour les textures géantes/bright+mipmaps ; UASTC utilise un chemin différent, mais doit être mesuré. Issue #472 : un KTX2 malformé peut déclencher un assert en build debug pendant le transcodage UASTC/HDR ; ne pas traiter des KTX2 non fiables sans validation/isolement. Issue #60 : résultats d'encodage non déterministes entre plateformes à cause d'une map non ordonnée ; ne pas exiger un hash binaire identique entre Windows et Linux sans normaliser l'environnement. |
+| Projet cible / bénéfice | **BLUE ALERTS** : futur pipeline d'assets si les maps PBR de la branche V94 sont pré-bakées en PNG/KTX2 ; **Gameforge-3D** : compression des textures d'assets GLB exportés. Bénéfice attendu : réduire transfert et mémoire GPU sur matériel supportant les formats compressés, mais le gain réel doit être mesuré avec les textures du projet. |
+| Verdict | **MAYBE** — moteur d'encodage libre/local crédible, compatible avec un pipeline hôte et le format KTX2 ; pas d'intégration immédiate, car le runtime BLUE ALERTS génère encore ses maps en DataTexture et aucun asset source représentatif n'a été benchmarké. Ne pas ajouter de dépendance au runtime ni modifier les projets avant un essai A/B sur copies. |
+
+Preuves officielles :
+- Dépôt / README : https://github.com/BinomialLLC/basis_universal
+- Licence Apache-2.0 : https://github.com/BinomialLLC/basis_universal/blob/v2_50/LICENSE
+- Release/tag : https://github.com/BinomialLLC/basis_universal/releases/tag/v2_50
+- Commit exact du tag : https://github.com/BinomialLLC/basis_universal/commit/9bebe16726b3a61c8c213eeee3b7cffb462ef34e
+- HEAD observé : https://github.com/BinomialLLC/basis_universal/commit/073eb6a0a34a23d77e75e54f41dcd9653a52da83
+- CMake / options de build : https://github.com/BinomialLLC/basis_universal/blob/v2_50/CMakeLists.txt
+- Problème ETC1S #476 : https://github.com/BinomialLLC/basis_universal/issues/476
+- KTX2 malformé #472 : https://github.com/BinomialLLC/basis_universal/issues/472
+- Non-déterminisme #60 : https://github.com/BinomialLLC/basis_universal/issues/60
+- Three.js KTX2Loader : https://threejs.org/docs/pages/KTX2Loader.html ; source r160 : https://github.com/mrdoob/three.js/blob/r160/examples/jsm/loaders/KTX2Loader.js
+- KTX-Software v4.4.2 : https://github.com/KhronosGroup/KTX-Software/releases/tag/v4.4.2 ; exception de licence : https://github.com/KhronosGroup/KTX-Software/blob/v4.4.2/LICENSE.md
+
+### 22.3 Installation et tests réellement effectués
+
+- Environnement hôte vérifié : Linux x86_64, CMake 3.31.6, GCC 14.2, Python 3.13.5, Node 22.16.0 ; environ 4,8 GiB de RAM disponibles au contrôle. `wasmtime` n'est pas installé. Le compilateur et CMake satisfont les prérequis de build natif annoncés ; aucun GPU n'est requis.
+- Tentative réelle de lecture du tag avec `git ls-remote https://github.com/BinomialLLC/basis_universal.git refs/tags/v2_50` : échec avant transfert, DNS `Could not resolve host: github.com`.
+- Aucun clone, aucune source téléchargée, aucun build CMake, aucun binaire `basisu`, aucun import, aucun encodage KTX2 et aucun smoke test réussi. La commande `basisu -test` reste préparée, non exécutée.
+- Le test de compatibilité Three.js est documentaire : source r160 de `KTX2Loader` vérifiée, mais aucun fichier KTX2 de projet ni navigateur WebGL n'a été utilisé pendant ce cycle.
+- Aucun fichier de production, modèle GLB, image, workflow, dépendance ou lockfile Ascameleon modifié. Aucun secret, API payante ou service cloud utilisé ; coût **0 €**.
+
+### 22.4 Décisions et suites
+
+1. Conserver Basis Universal v2.50 en **MAYBE** et attendre un accès GitHub pour compiler dans un dossier isolé, exécuter `basisu -test`, puis encoder deux petites fixtures (albedo sRGB et normal linéaire) en UASTC.
+2. Pour BLUE ALERTS, ne pas convertir les `DataTexture` procédurales du PR #52 tant qu'un export/baking reproductible n'existe pas. Si ce besoin est confirmé, ajouter d'abord un script de baking séparé et des tests de checksum des pixels, color-space, taille et mipmaps ; comparer PNG vs KTX2 sur le même head desktop et 390×844.
+3. Pour Three.js r160, ne pas activer XUASTC/XUBC7 sans mise à niveau explicite du transcoder et fixtures exactes ; commencer avec UASTC/ETC1S.
+4. Garder KTX-Software différé tant que l'exception de licence `lib/etcdec.cxx` et la nomenclature des composants ne sont pas résolues. Ne pas déclarer tout le dépôt entièrement libre.
+5. Maintenir les PR TorcScan #5 et BLUE ALERTS #51/#52/#53 sans fusion prématurée ; PR TripBoost #23 et BLUE ALERTS #64 sont déjà fusionnées.
+6. Le catalogue contient maintenant **26 entrées admises/documentées** ; KTX-Software reste une piste différée, non comptée séparément.
+
+**Résultat du cycle 16 :** 1 nouvel outil qualifié MAYBE (Basis Universal v2.50) ; 1 candidat précédemment différé réévalué (KTX-Software v4.4.2, conservé en MAYBE/différé avec exception de licence documentée) ; 0 installation ; 0 build ; 0 encodage/smoke test ; aucun changement applicatif ; catalogue mis à jour sur `main` ; coût 0 €.
