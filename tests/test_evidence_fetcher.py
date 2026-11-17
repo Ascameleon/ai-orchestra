@@ -206,3 +206,28 @@ def test_non_ascii_path_and_query_are_percent_encoded(monkeypatch):
 
     assert b"GET /caf%C3%A9?q=%C3%A9 HTTP/1.1" in sock.request
     assert result.url == "http://example.com/caf%C3%A9?q=%C3%A9"
+
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"<html><script>hidden</style>script-secret</script><p>Visible</p></html>",
+        b"<html><style>hidden</script>style-secret</style><p>Visible</p></html>",
+    ],
+)
+def test_mismatched_ignored_end_tag_does_not_expose_hidden_text(monkeypatch, body):
+    sock = FakeSocket()
+    response = FakeResponse(body=body)
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/article"])[0]
+
+    assert result.content == "Visible"
+    assert "hidden" not in result.content
+    assert "secret" not in result.content
