@@ -43,18 +43,27 @@ class _VisibleTextParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
-        self._ignored_depth = 0
+        self._ignored_stack: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() in _IGNORED_TAGS:
-            self._ignored_depth += 1
+        normalized_tag = tag.lower()
+        if normalized_tag in _IGNORED_TAGS:
+            self._ignored_stack.append(normalized_tag)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag.lower() in _IGNORED_TAGS and self._ignored_depth:
-            self._ignored_depth -= 1
+        normalized_tag = tag.lower()
+        if normalized_tag not in _IGNORED_TAGS:
+            return
+        # Only a matching ignored end tag may leave the hidden region. A
+        # malformed </template> inside <svg>, for example, must not expose
+        # the remaining SVG contents as evidence text.
+        for index in range(len(self._ignored_stack) - 1, -1, -1):
+            if self._ignored_stack[index] == normalized_tag:
+                del self._ignored_stack[index:]
+                break
 
     def handle_data(self, data: str) -> None:
-        if not self._ignored_depth:
+        if not self._ignored_stack:
             self.parts.append(data)
 
 
