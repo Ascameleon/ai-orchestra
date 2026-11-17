@@ -517,3 +517,61 @@ Avant de mettre le contrôle en CI, définir un budget d'exemples/durée et une 
   3. Cycle 1 : produire un nouveau diagnostic à partir des derniers commits et workflows, car aucun rapport Cycle 1 récent n'a été trouvé dans les issues consultées.
   4. Cycle 3 : continuer la recherche seulement sur les besoins non couverts ; ne pas ajouter Hypothesis séparément, puisqu'il est déjà une dépendance centrale de Schemathesis.
 
+
+
+## 14. Cycle 8 — mirroring et contrôle manuel d'appareils Android pour QA (2026-11-17, 07:45 Africa/Algiers)
+
+### 14.1 Diagnostics et état des projets relus avant la recherche
+
+- Le catalogue canonique a été relu sur `main` avant la recherche ; aucune entrée `Genymobile/scrcpy` n'existait. Les outils Appium, Maestro et Patrol sont déjà présents : scrcpy est un complément de capture/contrôle manuel, pas un doublon de framework de tests.
+- Recherche des diagnostics Cycle 1 : aucun rapport récent autonome ni issue Cycle 1 ouverte n'a été retrouvé dans les dépôts accessibles. Le dernier diagnostic Cycle 1 explicitement documenté dans ce catalogue reste celui du 2026-11-16 à 22:53 UTC ; il est ancien et n'est pas présenté comme un audit frais.
+- Heads `main` relus via GitHub : ai-orchestra `2c78d4a8752ced799eac43f5bd01fcf5cb95861e`, Torcscandz `1c98135210eecb314ac67e526000d37ca3f99637`, BLUE ALERTS `e1b629197ee93435d1c8616927bb452ccfc2854d`, Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`, Tripradar `7b36e7fbfc9afeafc9bfee32cec1f43640cea67b`, CallerID `2c421c2efa038f80011a21b4874bb2105608ae04`, NIA Studio AI `c957672e70d4df34a9ced1912c3e4839d4face6c`.
+- Torcscandz PR #5 est toujours ouverte et en brouillon, head `421f03d334f8b98100986628fda51e025b1e2eb5`. Son descriptif confirme que la validation finale dépend d'un Samsung physique et d'un adaptateur OBD2 appairé. Le besoin de capture/inspection manuelle est réel, mais le matériel et un hôte PC ne sont pas disponibles dans cet environnement.
+- BLUE ALERTS PR #52 et #53 restent ouvertes en brouillon ; les commentaires de #52 signalent que la branche est très en retard et divergente. Elles ne sont pas considérées comme des validations récentes ni comme une autorisation de fusion.
+- AI ORCHESTRA ne présente aucune issue ou PR ouverte dans les recherches courantes. Les autres dépôts prioritaires n'ont pas révélé de nouveau blocage d'outillage plus urgent que la validation physique Android.
+
+### 14.2 Nouvel outil qualifié — scrcpy
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **scrcpy** — miroir d'écran, contrôle et enregistrement Android depuis un hôte |
+| Dépôt officiel | https://github.com/Genymobile/scrcpy (le README indique explicitement que ce dépôt est la seule source officielle) |
+| Licence | Apache-2.0 ; fichier `LICENSE` intégral relu. Le code source est public. |
+| Version | Release stable `v5.0.1`, publiée le 2026-10-08 à 06:44:27 UTC ; tag annoncé comme signé et vérifié par GitHub. |
+| Commit de tête observé | `a60891aea193d92e7e5c3942700eca63f9d19a5f`, 2026-10-08 06:41:27 UTC, message « Update links to 5.0.1 ». Le commit actualise les liens et SHA-256 des binaires de la release. |
+| Fonctions | Mirroring vidéo/audio, saisie clavier/souris, enregistrement, presse-papiers, écran virtuel, caméra selon version Android, USB ou TCP/IP. Aucun root et aucune application permanente à installer sur le téléphone ; un serveur temporaire correspondant à la version du client est poussé via ADB. |
+| Compatibilité Android | Android API 21+ ; transfert audio API 30+ (Android 11+). Le protocole de connexion exige ADB et l'autorisation de débogage USB ou sans fil. |
+| Dépendances hôte | Client Linux/Windows/macOS ; ADB/platform-tools, FFmpeg, SDL3 et libusb selon la méthode d'installation. Les archives officielles Windows incluent les dépendances nécessaires ; les instructions Linux documentent un binaire statique x86_64. |
+| Coût / réseau | Logiciel gratuit, sans compte, publicité, API ni service cloud. Le mirroring USB ne requiert pas Internet. Le mode TCP/IP utilise le réseau local ; le téléchargement initial de la release vient de GitHub. |
+| Matériel | Hôte PC requis ; CPU et décodage vidéo influencent la fluidité. Le projet annonce 30–120 fps selon l'appareil et conseille de réduire la résolution (`--max-size=1024`) pour améliorer les performances. GPU utile pour certains chemins de décodage, mais aucun GPU dédié n'est une condition générale annoncée. Le stockage d'enregistrement dépend du codec, du débit et de la durée. |
+| Sécurité | N'autoriser ADB que sur un hôte de confiance ; révoquer les autorisations de débogage et couper le débogage sans fil après la session. Télécharger uniquement depuis le dépôt officiel, vérifier SHA-256 et signature. Ne pas laisser ADB TCP/IP exposé sur un réseau non fiable. |
+| Limites Samsung | Compatibilité générale Android ne garantit pas toutes les variantes Samsung. Issue upstream #7169 documente un crash scrcpy-server 5.0.1 sur Galaxy A50 / Android 11 / Exynos 9610 ; vérifier le modèle et la version Android exacts avant validation. |
+| Installation épinglée | Windows x64 : télécharger `scrcpy-win64-v5.0.1.zip` depuis la release officielle, vérifier SHA-256 `b12a2c4ee8be317422451fc7dcf8ee20a71b5ea7ef9ad73ddd825a25316227a5`, extraire, puis utiliser `adb devices` et `scrcpy --serial=<serial>`. Linux x86_64 : archive `scrcpy-linux-x86_64-v5.0.1.tar.gz`, SHA-256 `9f969d30cc574816077edecda65719c1c70b0aee1df1ba5fa00779ac07b8fd6e`. Ne pas exécuter de script d'installation distant non inspecté. |
+| Cible / verdict | Torcscandz et CallerID : **MAYBE** — bon complément pour filmer et inspecter manuellement les écrans pendant un test réel ; ne remplace pas Appium/Maestro/Patrol et ne produit pas de assertions automatisées. Pas utilisable directement comme application autonome sur Samsung. |
+
+Preuves consultées :
+- README et fonctionnalités : https://github.com/Genymobile/scrcpy
+- Release officielle et tag signé : https://github.com/Genymobile/scrcpy/releases/tag/v5.0.1
+- Documentation connexion USB/TCP-IP : https://github.com/Genymobile/scrcpy/blob/master/doc/connection.md
+- Instructions de compilation et dépendances hôte : https://github.com/Genymobile/scrcpy/blob/master/doc/build.md
+- Binaire Windows x64 et checksum officiel : https://github.com/Genymobile/scrcpy/releases/download/v5.0.1/scrcpy-win64-v5.0.1.zip
+- Issue Samsung Galaxy A50 / Android 11 : https://github.com/Genymobile/scrcpy/issues/7169
+
+### 14.3 Installation et tests réellement effectués
+
+- Recherche GitHub de dépôts de mirroring Android et comparaison anti-doublon : effectuées.
+- Vérification du dépôt officiel, README, licence Apache-2.0, documentation de connexion, instructions de compilation, release `v5.0.1`, tag signé, assets et checksums : effectuée.
+- Contrôle d'activité : commit `a60891a...` daté du 2026-10-08 ; release publiée le même jour. Le dépôt n'est pas archivé.
+- Contrôle d'issues Samsung : l'issue #7169 signale un crash sur un modèle précis (Galaxy A50, Android 11) ; cette limite est consignée et ne doit pas être généralisée à tous les Samsung.
+- Aucun client scrcpy installé : un hôte PC Linux/Windows/macOS et ADB sont nécessaires ; aucun poste hôte ni appareil Samsung/OBD2 autorisé n'est présent dans cet environnement.
+- Aucun test de connexion, de mirroring ou d'enregistrement n'a été exécuté. Aucun test physique Samsung n'est revendiqué.
+- Aucun code, dépendance ou workflow de production Ascameleon modifié. Aucun coût, secret, appel API payant ou service cloud utilisé.
+
+### 14.4 État du catalogue et priorités
+
+- **28 entrées documentées** : 27 précédentes + scrcpy. L'entrée est classée MAYBE et son absence d'installation est explicite.
+- Priorités :
+  1. Torcscandz : utiliser scrcpy uniquement lorsqu'un hôte PC et le Samsung/ELM327 autorisés seront disponibles ; compléter par le test applicatif réel, sans confondre capture et test automatisé.
+  2. CallerID : même usage éventuel pour inspection visuelle d'un appareil Android réel ; les tests de backend et de sécurité restent séparés.
+  3. Ne pas ajouter un autre outil de mirroring tant qu'un besoin distinct n'est pas démontré ; Appium, Maestro et Patrol couvrent déjà l'automatisation UI.
+  4. Cycle 1 : produire un nouveau diagnostic à partir des derniers commits et runs, car aucun rapport Cycle 1 frais n'a été retrouvé pendant ce passage.
