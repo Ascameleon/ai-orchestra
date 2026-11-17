@@ -180,3 +180,71 @@ Comparaison effectuée avec les 11 entrées déjà présentes : les cinq dépôt
 4. NIA Studio AI : évaluer MoviePy sur un clip court, mesurer RAM, durée et synchronisation audio avant tout branchement.
 
 Le catalogue compte désormais **16 entrées documentées** (11 précédentes + 5 candidats examinés). Les nouveaux statuts restent MAYBE jusqu'aux tests d'intégration.
+
+## 9. Nouveaux outils examinés — cycle du 2026-11-17 (02:47, Africa/Algiers)
+
+### Contexte des projets et diagnostics relus avant recherche
+
+Le dernier résultat Cycle 1 disponible dans l'automatisation est encore celui du 2026-11-16 à 22:53 UTC ; il est donc antérieur aux derniers changements et ne doit pas être présenté comme un audit frais. Contrôle GitHub direct effectué pour actualiser les points bloquants :
+
+- **AI ORCHESTRA — PR #57** reste ouverte sur `docs/clarify-provider-request-cap-not-spend-20261117`, head `3aef7144f446cc42e148392ee9828cd3d40a8d2e`. Les workflows « Continuous graduated engineering » #1107 et « Python CI » #1138 sont maintenant terminés avec succès : lint, tests sans appels fournisseurs, distributions, image conteneur, smoke test sans secrets et audit de dépendances. La PR n'est pas fusionnée.
+- **BLUE ALERTS — PR #64** est fermée et fusionnée ; les PR artistiques #49 à #53 restent ouvertes. Ne pas confondre leur statut avec la validation du gameplay de chaque branche.
+- **Torcscandz — PR #5** reste ouverte/brouillon ; le workflow Android APK #190 et le workflow de validation #55 sont réussis, y compris extraction de l'archive, préflight, permissions manifest et tests Dart. La validation réelle sur Samsung avec adaptateur ELM327 reste un contrôle physique séparé.
+- Le catalogue canonique a été relu avant de retenir les candidats ci-dessous ; aucun des trois dépôts n'était déjà enregistré comme entrée distincte.
+
+### 9.1 Nouveaux candidats qualifiés
+
+| Outil | Dépôt / licence | Version ou snapshot vérifié | Utilité, dépendances et coûts | Cible / verdict |
+|---|---|---|---|---|
+| **FFmpeg** | https://github.com/FFmpeg/FFmpeg — code principalement LGPL-2.1-or-later ; certains composants optionnels GPL-2-or-later et quelques fichiers sous licences tierces. Le dépôt GitHub est un miroir du dépôt officiel ; les PR GitHub sont explicitement ignorées par les mainteneurs. | Snapshot miroir consulté : `82d767e969d30f9f6db24ef67576890cf3f487ba`. Release stable officielle consultée : `9.0.2`, publiée le 2026-09-18. Source canonique : https://git.ffmpeg.org/ffmpeg.git. | Outils `ffmpeg`, `ffprobe`, `ffplay` et bibliothèques de traitement/transcodage, extraction, muxing, sous-titres, filtres et audio. CPU utilisable ; accélération matérielle facultative. Pas d'API, de crédits ni d'abonnement requis. La configuration de compilation change les obligations : `--enable-gpl` active des composants GPL ; codecs, bibliothèques externes, brevets et conditions de redistribution doivent être contrôlés séparément. | NIA Studio AI / PixiPop : **PASS comme moteur local de traitement média isolé** ; **MAYBE pour l'embarquer ou redistribuer un binaire**, tant que sa configuration et les codecs ne sont pas audités. Ne remplace pas MoviePy : FFmpeg est le moteur bas niveau, MoviePy une API Python de composition. |
+| **OpenTimelineIO** | https://github.com/AcademySoftwareFoundation/OpenTimelineIO — Apache-2.0, fichier `LICENSE.txt` vérifié. | Snapshot main : `bad7ab5a40ac1a95d9d78a87c95a688d8b57cf28`. Version stable documentée : `v0.18.0` ; `v0.18.1` est une pré-version publiée le 2026-11-09, non retenue comme version stable. | Modèle/API d'échange de timelines de montage : ordre, durée et références vers des médias externes ; ce n'est ni un conteneur média ni un moteur de rendu. README annonce Python 3.9 à 3.15. Installation candidate : `python -m pip install OpenTimelineIO==0.18.0`. Depuis v0.16, plusieurs adaptateurs (AAF, EDL, FCP XML, etc.) sont séparés dans `OpenTimelineIO-Plugins` et des dépôts distincts. Aucun service cloud ou GPU requis ; construction native C++ possible si aucun wheel adapté. | NIA Studio AI : **MAYBE** — intéressant si NIA reçoit un éditeur de timeline multi-format ; pas de besoin de timeline non linéaire confirmé aujourd'hui. Ne réalise pas l'encodage : associer à FFmpeg uniquement si une fonctionnalité de montage est réellement développée. |
+| **ONNX Runtime** | https://github.com/microsoft/onnxruntime — MIT, fichier `LICENSE` vérifié. | Snapshot main : `01713b72cf4f929ea9c5d7ca4addcfe25e24a313`. Release GitHub affichée lors de la consultation : `v1.30.0`. | Moteur d'inférence local multiplateforme pour modèles au format ONNX. CPU par défaut ; providers d'exécution optionnels selon matériel. Android : package `onnxruntime-android` publié sur Maven ; NNAPI demande Android 8.1+ (Android 9+ recommandé), XNNPACK est aussi disponible dans le package Android. Pas d'API cloud obligatoire. Les poids ONNX et datasets ont leurs propres licences ; modèle, RAM, taille de l'AAR et support des opérateurs doivent être validés individuellement. | NIA Studio AI / futurs composants Android : **MAYBE** — utile pour exécuter localement des modèles ONNX légers (vision, classification, détection ou audio), mais ne remplace pas llama.cpp pour les modèles GGUF et ne rend pas automatiquement disponibles des modèles génératifs. Mesurer sur Samsung avant décision. |
+
+### 9.2 Candidat étudié mais différé
+
+| Candidat | Licence / snapshot | Décision et motif |
+|---|---|---|
+| GStreamer — https://github.com/GStreamer/gstreamer | LGPL-2.1-or-later pour le cœur ; snapshot consulté `ac94d5ab7eb9b9210bdd5fcaa1907f336c6b63a1`. Le README exige Meson >=1.4 et Ninja ; plusieurs plugins ont des dépendances et licences propres, certains plugins dépendent de composants GPL/AGPL activés explicitement. | **DIFFÉRÉ, pas intégré au catalogue actif** : excellent framework de pipelines temps réel et streaming, mais aucun besoin actuel de capture/live-streaming n'a été confirmé dans NIA ou les autres projets. FFmpeg couvre mieux les besoins batch immédiats avec moins de complexité. Réévaluer seulement si une vraie fonction streaming/capture apparaît. |
+
+### 9.3 Installations et tests réellement effectués dans ce cycle
+
+- **FFmpeg** était déjà présent dans l'environnement de travail sous forme de binaire système Debian : `ffmpeg 7.1.5-0+deb13u1`, avec `ffprobe` disponible. Test synthétique non destructif exécuté : génération d'une mire noire de 16×16 pendant 0,25 s via lavfi et sortie `null` ; résultat **PASS**. Ce n'est pas une installation depuis GitHub, ni une intégration à NIA. Attention : `ffmpeg -buildconf` révèle `--enable-gpl` et de nombreuses bibliothèques externes ; ne pas redistribuer ce binaire comme une build LGPL sans audit.
+- **OpenTimelineIO 0.18.0** : tentative d'installation isolée avec `pip --target /tmp/ascameleon-otio-smoke` échouée avant téléchargement, à cause d'une résolution DNS indisponible dans l'environnement. Import Python ensuite absent. Statut : **NON INSTALLÉ, aucun smoke test**.
+- **ONNX Runtime** : import Python contrôlé ; paquet absent. Aucune installation ni test d'inférence effectué.
+- Aucun dépôt tiers n'a été cloné dans un dépôt de production ; aucun modèle, poids, binaire, clé ou service payant n'a été utilisé. Aucune dépendance Ascameleon ni aucun workflow n'a été modifié.
+
+### 9.4 Commandes préparées — non exécutées sur les projets
+
+FFmpeg (source officielle, compilation séparée ; choisir explicitement la politique de licence et auditer les codecs avant toute redistribution) :
+
+```bash
+git clone https://git.ffmpeg.org/ffmpeg.git
+cd ffmpeg
+./configure --disable-gpl --disable-nonfree
+make -j2
+```
+
+OpenTimelineIO (environnement virtuel isolé ; les adaptateurs additionnels sont séparés) :
+
+```bash
+python -m venv .venv-otio
+. .venv-otio/bin/activate
+python -m pip install 'OpenTimelineIO==0.18.0'
+python -c 'import opentimelineio as otio; print(otio.__version__)'
+```
+
+ONNX Runtime Python :
+
+```bash
+python -m pip install 'onnxruntime==1.30.0'
+python -c 'import onnxruntime as ort; print(ort.__version__, ort.get_available_providers())'
+```
+
+Pour Android, utiliser le package Maven `com.microsoft.onnxruntime:onnxruntime-android` avec la version alignée sur le SDK retenu ; ne pas ajouter de dépendance Gradle à TorcScan ou CallerID avant un cas d'usage ONNX concret et un test de taille/performance.
+
+### 9.5 État de la bibliothèque après ce cycle
+
+- 16 entrées actives précédentes + **3 nouvelles entrées qualifiées ou conditionnelles** = **19 entrées documentées**.
+- GStreamer examiné puis différé, sans être compté comme outil admis.
+- Un smoke test FFmpeg réussi sur le binaire déjà présent ; aucune installation tierce persistante confirmée.
+- Le cycle suivant doit comparer tout nouvel outil à ces 19 entrées et ne pas présenter FFmpeg comme fraîchement installé.
