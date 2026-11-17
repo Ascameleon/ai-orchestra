@@ -231,3 +231,21 @@ def test_mismatched_ignored_end_tag_does_not_expose_hidden_text(monkeypatch, bod
     assert result.content == "Visible"
     assert "hidden" not in result.content
     assert "secret" not in result.content
+
+
+def test_closing_ignored_ancestor_does_not_expose_nested_ignored_text(monkeypatch):
+    sock = FakeSocket()
+    body = b"<html><svg><template>hidden</svg>template-secret</template><p>Visible</p></html>"
+    response = FakeResponse(body=body)
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/article"])[0]
+
+    assert result.content == "Visible"
+    assert "hidden" not in result.content
+    assert "secret" not in result.content

@@ -59,7 +59,8 @@ class _VisibleTextParser(HTMLParser):
         # the remaining SVG contents as evidence text.
         for index in range(len(self._ignored_stack) - 1, -1, -1):
             if self._ignored_stack[index] == normalized_tag:
-                del self._ignored_stack[index:]
+                # Keep still-open ignored descendants hidden after a malformed ancestor close.
+                del self._ignored_stack[index]
                 break
 
     def handle_data(self, data: str) -> None:
