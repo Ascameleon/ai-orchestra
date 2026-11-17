@@ -249,3 +249,40 @@ def test_closing_ignored_ancestor_does_not_expose_nested_ignored_text(monkeypatc
     assert result.content == "Visible"
     assert "hidden" not in result.content
     assert "secret" not in result.content
+
+
+@pytest.mark.parametrize("tag", ["script", "style", "noscript", "template"])
+def test_self_closing_non_void_html_elements_remain_hidden(monkeypatch, tag):
+    sock = FakeSocket()
+    body = (
+        f"<html><body><p>Before</p><{tag}/>secret</{tag}>"
+        "<p>After</p></body></html>"
+    ).encode()
+    response = FakeResponse(body=body)
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/article"])[0]
+
+    assert result.content == "Before After"
+    assert "secret" not in result.content
+
+
+def test_self_closing_svg_does_not_hide_following_html(monkeypatch):
+    sock = FakeSocket()
+    response = FakeResponse(body=b"<html><body><svg/>Visible</body></html>")
+    monkeypatch.setattr(http.client, "HTTPResponse", lambda unused: response)
+    fetcher = EvidenceFetcher(
+        ["example.com"],
+        resolver=public_resolver,
+        connector=lambda address, timeout: sock,
+    )
+
+    result = fetcher.fetch_many(["http://example.com/article"])[0]
+
+    assert result.content == "Visible"
+
