@@ -452,3 +452,68 @@ Le dépôt possède plusieurs extras fournisseurs ; avant `--all-extras`, vérif
   1. Cycle 2 : intégrer la PR BLUE ALERTS #65 seulement après contrôle final, car son exact-head workflow #557 est vert mais `main` utilise encore une installation Playwright flottante.
   2. Cycle 2 : évaluer `uv 0.13.8` dans une branche non bloquante d'AI ORCHESTRA ; générer le lockfile sans changer les contraintes, comparer les résolutions Python 3.11/3.12 et vérifier Docker.
   3. Cycle 1 : rafraîchir le diagnostic des dépôts, car le dernier rapport retrouvé est daté du 2026-11-16.
+
+## 13. Cycle 7 — tests contractuels et fuzzing des API FastAPI (2026-11-17, 06:43 Africa/Algiers)
+
+### 13.1 Diagnostics et état des projets relus avant la recherche
+
+- Lecture du catalogue canonique sur `main` avant la recherche : effectuée. `schemathesis/schemathesis` ne figurait pas parmi les 26 entrées documentées ; aucun doublon exact trouvé.
+- Recherche des diagnostics Cycle 1 : aucune issue ouverte ou résultat correspondant à « Cycle 1 » n'a été trouvé dans `Ascameleon/ai-orchestra`. Le dépôt ne contient pas de rapport Cycle 1 récent dans son arbre `docs` ; le diagnostic historique le plus récent documenté dans ce catalogue reste celui du 2026-11-16 à 22:53 UTC. Il est ancien et n'est pas présenté comme un audit actuel.
+- État GitHub rafraîchi avant sélection : `ai-orchestra/main` = `c0123151e7e6b57d37e3a0de0b4dd248c2e64fde` ; PR ouvertes AI ORCHESTRA = aucune ; issues ouvertes AI ORCHESTRA = aucune. Les workflows Python CI et Continuous graduated engineering sur ce commit sont terminés avec succès (runs `44019425816` et `44019425831`).
+- `Blue-alert/main` inclut maintenant le commit `e1b629197ee93435d1c8616927bb452ccfc2854d`. La PR #65 est fusionnée le 2026-11-17 à 04:57:38 UTC ; le workflow post-fusion `44020714781` est terminé avec succès.
+- `Torcscandz/main` reste au commit `1c98135210eecb314ac67e526000d37ca3f99637`. PR #5 est toujours ouverte et en brouillon sur `421f03d334f8b98100986628fda51e025b1e2eb5`; l'essai Samsung + adaptateur ELM327 n'est pas remplacé par les tests de CI.
+- `Gameforge-3D`, `Nia-studio-Ai` et `Callerid` ont des workflows récents terminés avec succès sur leurs derniers commits connus. Aucune issue ouverte n'a été trouvée dans les dépôts prioritaires consultés. Les succès CI ne démontrent pas l'inférence locale de NIA ni le fonctionnement sur un Samsung physique.
+
+### 13.2 Nouvel outil qualifié
+
+| Outil | Dépôt / licence | Version ou commit exact | Fonctions, dépendances, coûts et exigences | Projet cible / verdict |
+|---|---|---|---|---|
+| **Schemathesis** | https://github.com/schemathesis/schemathesis — MIT ; texte intégral de `LICENSE` vérifié sur le tag. | Release stable `v4.33.4`, publiée le 2026-11-12 ; tag annoté signé et vérifié ; commit cible `c570c690cdbfc70e9d79f04fac1025ecfb23711f`. `pyproject.toml` du tag confirme `version = 4.33.4` et `requires-python = >=3.11`. Dépôt actif : dernier push observé 2026-11-17T00:32:04Z. | Tests génératifs d'API à partir d'OpenAPI, GraphQL et gRPC ; génère des entrées limites, vérifie conformité des réponses et peut enchaîner des opérations stateful. CLI locale, plugin pytest, rapports HTML hors ligne et JUnit/JSON ; aucune API, clé, GPU, souscription ou cloud n'est nécessaire pour le moteur de base. Dépendances déclarées : Hypothesis, hypothesis_graphql, jsonschema_rs, pytest, requests, anyio, PyYAML et autres bibliothèques Python. Python >=3.11, donc compatible avec la matrice AI ORCHESTRA 3.11/3.12. CPU/RAM variables selon le schéma et le nombre d'exemples ; pas de GPU. La fonction de test envoie de vraies requêtes HTTP et peut créer, modifier ou supprimer des données : exécution uniquement sur une instance locale de test avec base jetable et données synthétiques. Les fonctions Schemathesis Cloud/SaaS sont distinctes et inutiles pour l'usage local. | AI ORCHESTRA : **PASS comme candidat de test contractuel local ; MAYBE pour intégration CI** tant qu'une allowlist d'opérations sans fournisseur payant, un serveur local isolé et un premier run reproductible n'ont pas été validés. Ne jamais cibler production. Ne pas exposer les secrets d'authentification dans les rapports. Hypothesis est une dépendance de Schemathesis et n'est pas compté comme une entrée séparée dans ce cycle. |
+
+Preuves principales :
+- Dépôt : https://github.com/schemathesis/schemathesis
+- Release : https://github.com/schemathesis/schemathesis/releases/tag/v4.33.4
+- Licence : https://github.com/schemathesis/schemathesis/blob/v4.33.4/LICENSE
+- Manifeste et contraintes Python/dépendances : https://github.com/schemathesis/schemathesis/blob/v4.33.4/pyproject.toml
+- Politique de sécurité : https://github.com/schemathesis/schemathesis/blob/v4.33.4/SECURITY.md
+- Documentation : https://schemathesis.readthedocs.io/en/stable/
+
+### 13.3 Procédure d'installation préparée — non exécutée
+
+Installation épinglée dans un environnement isolé, jamais dans l'environnement de production :
+
+```bash
+python -m venv .venv-schemathesis
+. .venv-schemathesis/bin/activate
+python -m pip install "schemathesis==4.33.4"
+st --version
+```
+
+Pour AI ORCHESTRA, lancer d'abord une instance de test sur `127.0.0.1`, sans clé fournisseur, sans secrets réels et avec une base de données jetable. Construire un schéma d'essai qui ne contient que les opérations déterministes et sans effet externe. Exclure au minimum les endpoints qui peuvent déclencher une dépense ou une requête réseau non souhaitée : `POST /v1/tasks`, `POST /v1/claims/assess-support` et `POST /v1/evidence/fetch`. Les endpoints mutateurs doivent être testés seulement si leurs effets sont isolés et réinitialisés entre les runs. Conserver les rapports localement ; ne pas utiliser de service cloud ou de stockage public.
+
+Exemple CLI de base, à adapter à une instance locale de test et à une spécification filtrée :
+
+```bash
+st run http://127.0.0.1:8000/openapi.json --report junit --report-dir .artifacts/schemathesis
+```
+
+Avant de mettre le contrôle en CI, définir un budget d'exemples/durée et une liste explicite d'opérations autorisées ; les tests génératifs peuvent révéler des comportements coûteux ou mutateurs si le périmètre n'est pas limité.
+
+### 13.4 Installation et tests réellement effectués pendant ce cycle
+
+- Lecture du catalogue `main` et comparaison anti-doublon : effectuées ; Schemathesis n'était pas présent.
+- Vérification du dépôt original, du README, du tag/release `v4.33.4`, du commit cible `c570c690cdbfc70e9d79f04fac1025ecfb23711f`, du manifeste `pyproject.toml`, du fichier `LICENSE`, de `SECURITY.md` et du changelog : effectuée.
+- Contrôle de compatibilité : Python >=3.11 correspond à AI ORCHESTRA 3.11/3.12 ; la CLI peut fonctionner localement sans GPU ni service cloud.
+- Tentative réelle d'installation isolée avec un venv temporaire et `pip install schemathesis==4.33.4` : échec avant téléchargement, DNS indisponible (`Temporary failure in name resolution`, accès à `pypi.org` impossible). Aucun paquet Schemathesis n'a été installé ; aucun import, `st --version` ou test API n'a réussi. Le venv temporaire a été créé mais n'a pas reçu le paquet.
+- Aucun appel réseau n'a été fait depuis Schemathesis vers une API applicative ; aucun endpoint fournisseur n'a été sollicité.
+- Aucun code de production, dépendance, lockfile ou workflow Ascameleon modifié pendant ce cycle. Aucun secret lu ou utilisé, aucune API payante appelée, aucune dépense.
+
+### 13.5 État du catalogue et priorités suivantes
+
+- **27 entrées documentées** : 26 entrées précédentes + Schemathesis. L'installation non réalisée est explicitement séparée de la qualification du dépôt.
+- Priorités :
+  1. Cycle 2 : tester Schemathesis dans un environnement local jetable sur un schéma filtré d'AI ORCHESTRA, sans endpoint fournisseur ni accès externe ; ne l'ajouter aux workflows qu'après validation et revue des opérations couvertes.
+  2. Cycle 2 : TorcScan PR #5 reste bloquée sur la vérification Samsung/ELM327 physique ; les outils d'automatisation ne remplacent pas ce test matériel.
+  3. Cycle 1 : produire un nouveau diagnostic à partir des derniers commits et workflows, car aucun rapport Cycle 1 récent n'a été trouvé dans les issues consultées.
+  4. Cycle 3 : continuer la recherche seulement sur les besoins non couverts ; ne pas ajouter Hypothesis séparément, puisqu'il est déjà une dépendance centrale de Schemathesis.
+
