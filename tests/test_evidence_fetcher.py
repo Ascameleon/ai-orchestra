@@ -233,7 +233,6 @@ def test_mismatched_ignored_end_tag_does_not_expose_hidden_text(monkeypatch, bod
     assert "secret" not in result.content
 
 
-
 def test_closing_ignored_ancestor_does_not_expose_nested_ignored_text(monkeypatch):
     sock = FakeSocket()
     body = b"<html><svg><template>hidden</svg>template-secret</template><p>Visible</p></html>"
