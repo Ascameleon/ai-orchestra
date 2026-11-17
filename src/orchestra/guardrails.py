@@ -1,7 +1,9 @@
-"""Provider-call budgets and metadata-only audit trail.
+"""Provider-attempt counters and metadata-only audit trail.
 
-The in-memory budget is process-local. The optional SQLite daily budget persists across
-restarts on one host; neither replaces provider billing quotas or multi-host rate limiting.
+These limits count requests; they do not estimate currency spend, token charges, or
+provider-side billing. The in-memory counter is process-local. The optional SQLite
+UTC-day counter persists across restarts on one host; neither backend replaces provider
+billing quotas or multi-host rate limiting.
 """
 from collections import deque
 from collections.abc import Callable
@@ -12,7 +14,7 @@ from time import time
 
 
 class BudgetExceeded(RuntimeError):
-    """Raised when the configured provider-call budget is exhausted."""
+    """Raised when the configured provider-attempt count limit is exhausted."""
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,7 @@ class AuditEvent:
 
 
 class CostGuard:
-    """Bound the number of provider calls made by this process."""
+    """Legacy class name: count provider calls in this process; do not treat as a spend cap."""
 
     def __init__(self, max_requests: int):
         if type(max_requests) is not int or max_requests < 1:
@@ -55,7 +57,9 @@ class CostGuard:
 
 
 class SQLiteDailyCostGuard:
-    """Persist an atomic UTC-day provider-call budget across restarts on one host.
+    """Persist an atomic UTC-day provider-attempt count across restarts on one host.
+
+    This is not a monetary spend meter.
 
     Multiple processes using the same local SQLite file share the same daily limit.
     Do not place the database on a network filesystem or treat it as a multi-host quota.
@@ -159,7 +163,9 @@ class SQLiteDailyCostGuard:
 
 
 class RedisDailyCostGuard:
-    """Enforce an atomic UTC-day budget using a shared Redis instance.
+    """Enforce an atomic UTC-day provider-attempt count using shared Redis.
+
+    This is not a monetary spend meter.
 
     This supports multiple application hosts that share the same Redis endpoint.
     Redis availability is required for readiness and reservations; failures are fail-closed.
