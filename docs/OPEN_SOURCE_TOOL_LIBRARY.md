@@ -1153,3 +1153,81 @@ Preuves officielles :
 6. Le catalogue contient maintenant **26 entrées admises/documentées** ; KTX-Software reste une piste différée, non comptée séparément.
 
 **Résultat du cycle 16 :** 1 nouvel outil qualifié MAYBE (Basis Universal v2.50) ; 1 candidat précédemment différé réévalué (KTX-Software v4.4.2, conservé en MAYBE/différé avec exception de licence documentée) ; 0 installation ; 0 build ; 0 encodage/smoke test ; aucun changement applicatif ; catalogue mis à jour sur `main` ; coût 0 €.
+
+
+---
+
+## 23. Cycle 17 — parsing HTML5 local et extraction sûre de texte (2026-11-17, 15:45 Africa/Algiers)
+
+### 23.1 Diagnostics Cycle 1 et état actuel des dépôts avant recherche
+
+- Catalogue canonique lu sur `main` avant toute recherche : blob `111e677dd0bfdce2132dc8e4f4412baa16a590e8`, 1 156 lignes. Recherche anti-doublon dans les entrées et URL GitHub : aucune entrée `selectolax`, `rushter/selectolax`, `html5lib` ou `html5lib/html5lib-python`. Les outils existants de parsing ne couvrent pas ce besoin : `EvidenceFetcher` utilise actuellement `html.parser.HTMLParser` de la bibliothèque standard Python.
+- Recherche des issues ouvertes de l'organisation `Ascameleon` : aucune issue ouverte retournée. Un défaut récent est toutefois documenté dans AI ORCHESTRA PR #61 : l'extracteur de texte visible pouvait exposer du contenu SVG/template avec des fermetures de tags ignorés mal assorties. La branche de correction est `fix/evidence-html-ignore-stack-20261117-1502`, head `68f346f77f7fe74ce3519c06d3691a21653f9fbd`, base `main` à `0105d84251234c7d0253eacafe80a458f5ad87d4`, quatre commits et deux fichiers. PR #61 est ouverte, non fusionnée, non brouillon et mergeable selon GitHub. Diff relu : remplacement du compteur non typé par une pile de noms de tags, avec deux tests de régression SVG/template. Le correctif reste sans dépendance externe.
+- CI exacte du head PR #61 consultée : Python CI run `44099694012` — Python 3.11 et 3.12 terminés avec succès ; Continuous graduated engineering run `44099693747` — étapes Static quality, Automated tests, Reproducible package et Dependency security audit réussies ; les étapes de suivi/résolution de blocage ont été ignorées. Ces résultats concernent le head PR #61, pas une fusion sur `main`.
+- Heads `main` revérifiés le 2026-11-17 :
+  - AI ORCHESTRA `0105d84251234c7d0253eacafe80a458f5ad87d4`.
+  - Torcscandz `1c98135210eecb314ac67e526000d37ca3f99637`.
+  - BLUE ALERTS `e1b629197ee93435d1c8616927bb452ccfc2854d`.
+  - Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`.
+  - Tripradar/TripBoost `643308afd9ce947cbfa4946e977a4c61868e3b59`.
+  - CallerID `2c421c2efa038f80011a21b4874bb2105608ae04`.
+  - NIA Studio AI `2bb0e3ba8330350721e31c0bee4c3999eaab4552`.
+  - Ruflo `056a11ece4ca3bd234aafd6221156d24b80a9544`.
+  - Playwright-Samsung `842479e849ac6115500939702358b3d66a764e72`.
+- PR opérationnelles revérifiées : Torcscandz #5 ouverte/draft, 47 commits et 7 fichiers, head `a227e6940241424b2eb2fe4cbfe2dfa9df1d985b`, test Samsung + ELM327 encore requis ; BLUE ALERTS #51 ouverte/draft, head `885c7d30fc89b8062aea159e1cb6031d2938c34c`, smoke test Qwen/Blender local requis ; BLUE ALERTS #52 et #53 ouvertes/draft et non mergeables, heads respectifs `56411ac00d7aa455f7ca543cec20e4932024075b` et `a05f48f4e0a9e10422284e91a80f18f2dd5d186d`, validation visuelle exacte-head nécessaire ; TripBoost #23 est fermée et fusionnée. Aucun de ces travaux n'a été modifié dans ce cycle.
+- Besoin retenu : disposer d'un parseur HTML5 à DOM pour comparer à l'avenir des documents malformés complexes et les éléments `template`, si l'extracteur d'évidence évolue vers des sélecteurs DOM ou des règles de visibilité plus riches. La correction actuelle par pile dans la bibliothèque standard est déjà ciblée, légère et testée ; une nouvelle dépendance n'est donc pas justifiée pour résoudre PR #61.
+
+### 23.2 Nouvel outil — selectolax 1.0.2 / Lexbor (MAYBE, non intégré)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **selectolax** — binding Python/Cython d'un parseur HTML5 rapide, DOM et sélecteurs CSS ; backend Lexbor. |
+| Dépôt GitHub exact | https://github.com/rushter/selectolax |
+| Source et licences | Source publique. `LICENSE` du tag v1.0.2 vérifiée : **MIT** pour selectolax. Le README attribue **Apache-2.0** au moteur Lexbor ; fichier LICENSE du dépôt Lexbor vérifié. Le dépôt selectolax contient le sous-module `lexbor` ; cloner avec les sous-modules et conserver les deux notices. Le backend Modest a été retiré en v1.0.0 : ne pas utiliser d'anciens imports `selectolax.parser`, préférer `from selectolax.lexbor import LexborHTMLParser`. |
+| Version épinglée | Release/tag stable **v1.0.2**, commit du tag `05e1f6c7a0b96d5a933563796c2139f83749b9b6`, bump de version du 2026-10-22. HEAD amont observé : `1a774549af77c70003b85eeb6ed624c76a96d078`, commit du 2026-11-10 (« Fix template content cycle in node moves »). Épingler le commit de release pour un essai reproductible ; ne pas suivre `master`. |
+| Activité / maintenance | Le dépôt a reçu des commits jusqu'au 2026-11-10. Les issues ouvertes consultées sont principalement une demande de recherche regex dans `text_contains` (#92) et une suggestion de sélection (#30) ; aucun défaut critique de sécurité confirmé n'a été identifié dans les issues consultées. Le changelog v1.0.2 corrige les opérations de déplacement de nœuds ; v1.0.1 a ajouté `template_fragments()` et des corrections de fragments. |
+| Fonctions utiles | Parsing HTML5 via Lexbor, DOM, sélecteurs CSS, extraction de texte, gestion des fragments et accès explicite au contenu de `template`. Le README documente un benchmark de parsing où Lexbor est plus rapide que BeautifulSoup/html.parser sur son corpus ; ce benchmark amont n'est pas une mesure sur les documents AI ORCHESTRA. |
+| Installation reproductible depuis GitHub | `git clone https://github.com/rushter/selectolax.git`; `cd selectolax`; `git checkout --detach 05e1f6c7a0b96d5a933563796c2139f83749b9b6`; `git submodule update --init --recursive`; puis `python -m pip install .`. Le build isolé installe les exigences de build du `pyproject.toml` : wheel, Cython et setuptools >=62.4. Pour une installation binaire depuis PyPI, `python -m pip install selectolax==1.0.2`, mais le chemin GitHub épinglé reste la référence de provenance. Smoke test minimal après installation : `python -c "from selectolax.lexbor import LexborHTMLParser; p=LexborHTMLParser('<p>Visible</p>'); assert p.css_first('p').text() == 'Visible'; print('selectolax import/parser OK')"`. |
+| Dépendances / coûts | Le `pyproject.toml` v1.0.2 indique Python >=3.9 et <3.16, aucune dépendance runtime Python ; Cython, setuptools >=62.4 et wheel sont des dépendances de build. Le sous-module Lexbor est inclus dans le dépôt source. Logiciel gratuit/local, sans API, crédits, abonnement, cloud ou clé. L'installation depuis les sources demande téléchargement initial, compilateur C/C++ et temps CPU ; les wheels évitent la compilation sur les plateformes CPython couvertes. |
+| Matériel / compatibilité | Parseur natif CPU, aucun GPU requis ; mémoire proportionnelle au volume et à la structure HTML, sans minimum chiffré fiable publié pour ce cas. Compatible avec Python 3.11/3.12 du projet AI ORCHESTRA et Python 3.13.5 de l'environnement contrôlé. Pas de wheel Android/Samsung qualifié : ne pas le présenter comme une dépendance mobile. |
+| Sécurité / limites | C'est un parseur, pas un sanitizer HTML : ne pas rendre directement du HTML récupéré. Conserver les limites existantes de taille (EvidenceFetcher max 256 KiB) et de temps, éviter les mutations DOM inutiles, et traiter les données comme non fiables. Le backend C réduit la charge CPU mais augmente l'importance de garder le parseur et ses sous-modules à jour. Les règles d'extraction doivent encore explicitement ignorer `script`, `style`, `noscript`, `svg`, `template` et autres contenus non visibles ; parser HTML5 ne suffit pas à définir la visibilité. |
+| Projet cible / bénéfice | **AI ORCHESTRA** : éventuelle évolution de `EvidenceFetcher` vers un DOM HTML5 pour sélecteurs et fragments malformés. Potentiellement réutilisable pour d'autres outils Python de collecte documentaire, mais aucune demande actuelle ne justifie l'intégration. |
+| Verdict | **MAYBE — candidat de comparaison uniquement.** La PR #61 corrige déjà le défaut précis avec la bibliothèque standard, deux tests et aucune nouvelle dépendance. Ne pas remplacer la pile actuelle par selectolax avant un benchmark de fixtures malformées, une comparaison exacte de contenu visible, un test des éléments `template`/SVG et une revue de sécurité. |
+
+Preuves officielles :
+- Dépôt / README : https://github.com/rushter/selectolax
+- Licence MIT du tag : https://github.com/rushter/selectolax/blob/v1.0.2/LICENSE
+- `pyproject.toml` v1.0.2 : https://github.com/rushter/selectolax/blob/v1.0.2/pyproject.toml
+- Changelog : https://github.com/rushter/selectolax/blob/v1.0.2/CHANGES.md
+- Release / tag : https://github.com/rushter/selectolax/releases/tag/v1.0.2
+- Commit de version : https://github.com/rushter/selectolax/commit/05e1f6c7a0b96d5a933563796c2139f83749b9b6
+- Dernier commit amont observé : https://github.com/rushter/selectolax/commit/1a774549af77c70003b85eeb6ed624c76a96d078
+- Licence Apache-2.0 Lexbor : https://github.com/lexbor/lexbor/blob/master/LICENSE
+- PyPI 1.0.2 et métadonnées : https://pypi.org/project/selectolax/
+- Issues ouvertes consultées : https://github.com/rushter/selectolax/issues/92 et https://github.com/rushter/selectolax/issues/30
+
+### 23.3 Candidat examiné mais non retenu — html5lib (FAIL pour le besoin courant)
+
+- Dépôt : https://github.com/html5lib/html5lib-python ; licence MIT vérifiée dans `LICENSE`.
+- Le code source reçoit encore des commits, dont le dernier observé `fd4f032bc090d44fb11a84b352dad7cbee0a4745` le 2026-11-17 ; il ne faut donc pas le qualifier d'abandonné.
+- La dernière release stable reste 1.1 du 2020-06-23. Plusieurs problèmes ouverts touchent le packaging Python 3.14 (#588, #593), les templates (#595) et un rapport de sécurité/XSS à investiguer (#613, non confirmé par ce seul signalement). L'issue #577 demande une nouvelle release.
+- Le parser pure Python est conforme à la spécification HTML WHATWG, mais le retard de release et les problèmes ouverts rendent son adoption inutilement risquée pour un extracteur de preuves sensible. **FAIL pour l'intégration de ce cycle**, sans jugement général sur le projet.
+- Preuves : https://github.com/html5lib/html5lib-python ; https://github.com/html5lib/html5lib-python/blob/master/LICENSE ; https://github.com/html5lib/html5lib-python/issues/588 ; https://github.com/html5lib/html5lib-python/issues/595 ; https://github.com/html5lib/html5lib-python/issues/613 ; https://github.com/html5lib/html5lib-python/issues/577.
+
+### 23.4 Installation et tests réellement effectués
+
+- Environnement Python contrôlé : Python 3.13.5 ; `importlib.util.find_spec("selectolax")` retourne `None` avant tentative.
+- Tentative isolée réelle : `python -m pip install --disable-pip-version-check --no-cache-dir --retries 0 --timeout 5 --target /tmp/ascameleon-selectolax-1.0.2 "selectolax==1.0.2"`. Échec : l'index configuré n'a retourné aucune distribution (« No matching distribution found ») ; le répertoire cible n'a pas été créé. Aucun paquet ni wheel téléchargé, aucun import et aucun smoke test réussi.
+- Tentative GitHub réelle : `git ls-remote https://github.com/rushter/selectolax.git refs/tags/v1.0.2`. Échec avant transfert : DNS `Could not resolve host: github.com`. Aucun clone ni sous-module récupéré.
+- Aucun code AI ORCHESTRA, lockfile, dépendance, workflow ou PR modifié par cette qualification. La PR #61 reste ouverte et non fusionnée ; ses workflows exact-head sont réussis, mais ce cycle n'a pas modifié ni validé de nouveau son code.
+- Aucun secret, API payante, appel IA, service cloud ou dépense ; coût **0 €**.
+
+### 23.5 Décisions et suites
+
+1. Conserver selectolax 1.0.2 en **MAYBE**, sans dépendance de production. Lorsque GitHub/PyPI est accessible, cloner le tag avec sous-module, vérifier le SHA, installer dans un venv isolé, exécuter le smoke test d'import puis comparer les deux fixtures exactes de PR #61 et un corpus HTML borné.
+2. Ne pas remplacer `HTMLParser` dans `EvidenceFetcher` : la pile de tags de PR #61 reste le correctif ciblé, léger et sans dépendance. Attendre une demande fonctionnelle de DOM/sélecteurs ou une preuve de défaut supplémentaire avant toute intégration.
+3. Ne pas adopter html5lib 1.1 dans le projet courant tant qu'une release stable récente et les problèmes de packaging/template/sécurité n'ont pas été clarifiés.
+4. Maintenir les validations physiques Torcscandz #5 et les validations visuelles/MCP BLUE ALERTS #51/#52/#53 comme blocages indépendants de cette bibliothèque.
+5. Le catalogue contient maintenant **27 entrées admises/documentées** ; html5lib est consigné comme candidat non retenu et n'est pas compté.
+
+**Résultat du cycle 17 :** 1 nouvel outil qualifié MAYBE (selectolax v1.0.2) ; 1 candidat non retenu (html5lib 1.1, FAIL pour le besoin courant) ; 0 installation ; 0 import/smoke test réussi ; aucune modification applicative ; catalogue actualisé sur `main` ; coût 0 €.
