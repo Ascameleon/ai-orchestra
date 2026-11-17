@@ -141,3 +141,35 @@ Télécharger une voix seulement après lecture de sa MODEL_CARD et de la docume
 - L'environnement temporaire de ce cycle ne dispose pas de GPU NVIDIA détecté et ne remplace pas un poste desktop ni le Samsung réel.
 
 **Règle pour les prochains cycles :** consulter ce catalogue avant d'ajouter une dépendance ; mettre à jour les commits/licences au moment de l'intégration ; conserver un test de non-régression ; ne jamais confondre interface open source, poids open-weight et inférence sans coût.
+
+
+## 8. Nouveaux candidats examinés — cycle du 2026-11-17 (01:46, Africa/Algiers)
+
+Comparaison effectuée avec les 11 entrées déjà présentes : les cinq dépôts ci-dessous n'étaient pas répertoriés. Ils complètent les outils existants sans les remplacer. Les SHA sont les derniers commits renvoyés par GitHub lors de cette vérification ; ils ne constituent pas une installation.
+
+| Outil | Dépôt / licence | Commit / version vérifiés | Fonction et conditions réelles | Projet cible / verdict |
+|---|---|---|---|---|
+| Maestro CLI | https://github.com/mobile-dev-inc/Maestro — Apache-2.0 (fichier LICENSE vérifié) | Commit `0ccf5a9c5b1c48d4cb6211d9060d537e04745107` (2026-11-13) ; release CLI `cli-2.12.1` publiée le 2026-11-02 | Tests UI/E2E Android, iOS et web par flux YAML ; CLI locale, Java 17+, émulateur ou appareil Android physique et hôte avec ADB autorisé. La release expose `maestro.zip` et `checksums_sha256.txt` : vérifier le SHA-256 avant exécution. Le script d'installation distant `curl | bash` n'a pas été exécuté. Maestro Studio est gratuit mais propriétaire/non open source ; Maestro Cloud est un service payant distinct. | Torcscandz / CallerID : **MAYBE — alternative légère à Appium à comparer sur un runner et un Samsung autorisé**. Ne remplace pas Appium sans benchmark. |
+| fastlane | https://github.com/fastlane/fastlane — MIT (LICENSE vérifiée) | Commit `600714a2db5383e9e10fbfee271ba6d887c35c83` (2026-11-16) ; release `2.242.0` publiée le 2026-11-16 | Automatisation des builds, captures, métadonnées et releases Android/iOS. Installation recommandée via Bundler/Gemfile, Ruby >= 3.2 pour la version 2.242.0. Les builds locaux ne requièrent pas de service fastlane payant ; la publication Play Store nécessite compte, keystore et identifiants de service appropriés. Ne jamais stocker ces secrets dans le dépôt. Runner CI/PC requis ; pas une installation autonome sur Samsung. | Torcscandz / CallerID : **MAYBE — utile pour fiabiliser les builds et préparer les releases, publication bloquée sans secrets autorisés**. |
+| Khronos glTF Validator | https://github.com/KhronosGroup/glTF-Validator — Apache-2.0 (LICENSE vérifiée) | Commit `602c54043ba66856b2e68c40fdf2bced975cdb8a` (2026-10-06) ; package npm observé `gltf-validator@2.0.0-dev.3.10`. Aucun endpoint GitHub `releases/latest` disponible lors de la vérification. | Valide la conformité glTF 2.0/GLB et produit un rapport JSON ; contrôle références, buffers, accessors, animations, images et extensions. API Node précompilée : `npm install --save-dev gltf-validator@2.0.0-dev.3.10`, puis `validateBytes(new Uint8Array(bytes))`. Aucun GPU nécessaire. Attention : reconstruire le CLI Dart depuis la source a une contrainte SDK `>=2.11.99 <3.0.0` dans `pubspec.yaml` ; préférer le package Node précompilé ou vérifier la toolchain Dart 2.x avant compilation. | Gameforge-3D / BLUE ALERTS : **MAYBE — complément de glTF Transform (validation de conformité, pas optimisation)** ; faire un essai sur une copie d'asset avant ajout CI. |
+| OpenTelemetry Python API/SDK | https://github.com/open-telemetry/opentelemetry-python — Apache-2.0 (LICENSE vérifiée) | Commit `b4dff8c663110a866a5f263016679da25bd02f33` (2026-11-15) ; release `v1.45.2` publiée le 2026-10-29 | Traces et métriques déclarées stables dans le README ; signal logs encore en développement. Python >=3.10. Installation ciblée : `pip install opentelemetry-api==1.45.2 opentelemetry-sdk==1.45.2`. Aucun cloud requis si export local/console ; un exporter SaaS peut transmettre des données et générer des coûts. Instrumenter les agents, appels d'outils, latences et budgets sans enregistrer prompts, clés, données personnelles ou contenu sensible. | AI ORCHESTRA : **MAYBE — forte valeur pour observabilité, à intégrer seulement avec politique de redaction et test local**. Le dépôt contrib d'instrumentation reste séparé et ses packages sont annoncés beta ; ne pas le confondre avec le SDK de base. |
+| MoviePy | https://github.com/Zulko/moviepy — MIT (LICENCE.txt vérifiée) | Commit `211e4b15f6ce4f34a6a9efbfff40590e43a68f77` (2026-08-26) ; `pyproject.toml` annonce `2.2.0` | Montage programmatique Python : découpe, concaténation, titres, compositing, effets, audio et export. Python >=3.9 ; dépendances NumPy, Pillow, OpenCV headless, imageio/imageio-ffmpeg et FFmpeg. Installation candidate : `pip install moviepy==2.2.0`. Fonctionne CPU mais les frames en tableaux NumPy peuvent consommer beaucoup de RAM et être plus lentes qu'un appel FFmpeg direct. La licence/configuration du binaire FFmpeg reste distincte. Le README signale que les mainteneurs recherchent de l'aide : surveiller la maintenance. | NIA Studio AI / production PixiPop : **MAYBE — montage/assemblage automatisé, pas génération IA ; benchmark mémoire/temps avant adoption**. |
+
+### 8.1 Installation et tests — statut exact de ce cycle
+
+- Lecture du catalogue canonique sur `main` avant recherche : effectuée ; aucun doublon exact parmi ces cinq dépôts.
+- Métadonnées GitHub, README, fichiers de licence et derniers commits consultés pour les cinq candidats.
+- Releases vérifiées via GitHub pour Maestro, fastlane et OpenTelemetry ; aucun dernier release GitHub disponible pour glTF Validator.
+- Aucun clone, binaire, paquet Python/Ruby/npm ou modèle n'a été installé dans un environnement de projet pendant ce cycle.
+- Aucun smoke test d'exécution n'a été effectué. Les commandes ci-dessus sont des procédures préparées, pas des installations ni des tests réussis.
+- Aucun code de production, workflow, dépendance ou sous-module Ascameleon n'a été modifié.
+- Aucun coût, appel API payant ou secret utilisé.
+
+### 8.2 Ordre de validation proposé aux cycles de développement
+
+1. Gameforge-3D : exécuter glTF Validator sur une copie d'un GLB existant et conserver le rapport JSON ; comparer avec glTF Transform sans remplacer l'asset source.
+2. Torcscandz / CallerID : comparer Maestro et Appium sur les mêmes scénarios UI, d'abord émulateur CI puis appareil Samsung autorisé.
+3. AI ORCHESTRA : ajouter une instrumentation OTel minimale derrière configuration désactivable ; vérifier redaction et absence de sortie réseau non voulue.
+4. NIA Studio AI : évaluer MoviePy sur un clip court, mesurer RAM, durée et synchronisation audio avant tout branchement.
+
+Le catalogue compte désormais **16 entrées documentées** (11 précédentes + 5 candidats examinés). Les nouveaux statuts restent MAYBE jusqu'aux tests d'intégration.
