@@ -1231,3 +1231,93 @@ Preuves officielles :
 5. Le catalogue contient maintenant **27 entrées admises/documentées** ; html5lib est consigné comme candidat non retenu et n'est pas compté.
 
 **Résultat du cycle 17 :** 1 nouvel outil qualifié MAYBE (selectolax v1.0.2) ; 1 candidat non retenu (html5lib 1.1, FAIL pour le besoin courant) ; 0 installation ; 0 import/smoke test réussi ; aucune modification applicative ; catalogue actualisé sur `main` ; coût 0 €.
+
+
+---
+
+## 24. Cycle 18 — couverture de tests et fuzzing ciblé du parseur HTML (2026-11-17, 16:44 Africa/Algiers)
+
+### 24.1 Diagnostics Cycle 1 et état des dépôts avant recherche
+
+- Catalogue canonique lu avant toute recherche : blob `3c25dc77dc5c6271d7d2f2583a401d632ecffd8f`, dernière section 23, 27 entrées admises/documentées. Recherche anti-doublon : `pytest-cov` et `google/atheris` absents ; Hypothesis est déjà présent et n'est pas dupliqué.
+- Recherche GitHub `org:Ascameleon "Cycle 1"` et recherche de fichiers « Cycle 1 diagnostic » dans AI ORCHESTRA : aucun diagnostic Cycle 1 formel récent retrouvé. Ne pas assimiler les PR du Cycle 2 à un rapport Cycle 1.
+- AI ORCHESTRA main vérifié : `d1b227e58394601f11a5b4180928954fe76154a7`, commit signé du 2026-11-17 15:01:51 UTC, fusion de PR #61. Le correctif précédent protège les balises ignorées avec une pile, sans dépendance externe.
+- PR AI ORCHESTRA #62 revérifiée : ouverte, brouillon, mergeable, head `c30fc1f244815533251debddc7aa5ff8a629fcf5`, base `d1b227e58394601f11a5b4180928954fe76154a7`, 4 commits, 2 fichiers. Défaut confirmé : fermer un ancêtre ignoré supprimait aussi les descendants encore ouverts ; le correctif retire uniquement la balise correspondante et ajoute un test end-to-end. Workflows du head exact : Python CI run `44109914235` (run #1168) et Continuous graduated engineering run `44109914604` (run #1138), tous deux terminés avec conclusion success. PR #62 reste en brouillon ; aucune fusion ni modification de code n'a été effectuée dans ce cycle.
+- Heads main des neuf dépôts revérifiés :
+  - AI ORCHESTRA `d1b227e58394601f11a5b4180928954fe76154a7`.
+  - Torcscandz `1c98135210eecb314ac67e526000d37ca3f99637` (upgrade actions Node 24).
+  - BLUE ALERTS `e1b629197ee93435d1c8616927bb452ccfc2854d` (Playwright 1.65.1 épinglé).
+  - Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f` (actions Node 24).
+  - Tripradar/TripBoost `643308afd9ce947cbfa4946e977a4c61868e3b59` (PR #23 fusionnée).
+  - CallerID `2c421c2efa038f80011a21b4874bb2105608ae04` (vérification HTTPS OTP).
+  - NIA Studio AI `2bb0e3ba8330350721e31c0bee4c3999eaab4552` (préservation des permissions requirements).
+  - Ruflo `056a11ece4ca3bd234aafd6221156d24b80a9544`.
+  - Playwright-Samsung `842479e849ac6115500939702358b3d66a764e72`.
+- PR opérationnelles revérifiées : Torcscandz #5 ouverte/brouillon, head `a227e6940241424b2eb2fe4cbfe2dfa9df1d985b`, 47 commits/7 fichiers, test Samsung + ELM327 toujours requis ; BLUE ALERTS #51 ouverte/brouillon, head `885c7d30fc89b8062aea159e1cb6031d2938c34c`, smoke test Qwen/Blender local requis ; #52 ouverte/brouillon/non mergeable, head `56411ac00d7aa455f7ca543cec20e4932024075b` ; #53 ouverte/brouillon/non mergeable, head `a05f48f4e0a9e10422284e91a80f18f2dd5d186d`. Les validations visuelles exact-head et physiques restent des blocages indépendants.
+- Besoin retenu : améliorer la mesure de couverture des tests Python et étudier un fuzzing local borné du parseur HTML de EvidenceFetcher. Les tests déterministes actuels couvrent les deux régressions connues, mais une couverture mesurée et un fuzzing de la seule fonction de parsing pourraient révéler d'autres combinaisons de balises malformées. Aucun appel réseau ne doit être inclus dans le fuzz target.
+
+### 24.2 Nouvel outil — pytest-cov 7.1.0 (PASS comme candidat de QA, non intégré)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **pytest-cov** — plugin de couverture de tests pour pytest, rapports ligne/branche et contextes de tests. |
+| Dépôt GitHub exact | https://github.com/pytest-dev/pytest-cov |
+| Source et licence | Source complète publique ; fichier LICENSE du dépôt : **MIT**. Conserver le copyright et la licence MIT lors d'une redistribution. |
+| Version épinglée | Tag `v7.1.0`, commit exact `66c8a526b1246b5eb8fb1bc218878131bc628622`. Objet de tag annoté `cbda4c1d219e34cb0b380e13b0a62d44a86021f3`, tagger daté du 2026-03-21 19:57:54 UTC. Dernier commit principal observé `a8cb1260170754f2aff9022cfd252c488098e813`, daté du 2026-10-18 21:45:41 UTC. Le tag GitHub existe ; aucune entrée GitHub Release n'a été trouvée pour cette version. PyPI indique la publication de 7.1.0 le 2026-03-21. |
+| Fonctions utiles | Plugin pytest qui produit les couvertures ligne/branche, rapports terminal/XML/HTML et contextes par test (`--cov-context=test`). Permet de voir si les branches de sécurité de EvidenceFetcher et d'autres modules sont réellement exercées. |
+| Installation reproductible depuis GitHub | Environnement virtuel isolé : `python -m venv .venv-coverage`; activation ; `python -m pip install "git+https://github.com/pytest-dev/pytest-cov.git@66c8a526b1246b5eb8fb1bc218878131bc628622"`. Commande de contrôle : `python -m pytest --cov=orchestra --cov-branch --cov-report=term-missing --cov-report=xml`. Ne pas fixer de seuil global avant d'avoir mesuré le baseline ; ne pas écrire de rapport HTML pendant le premier essai. |
+| Dépendances / coûts | Python >=3.10 ; dépendances déclarées du tag : `coverage[toml]>=7.10.6`, `pluggy>=1.2`, `pytest>=7`. Le pyproject AI ORCHESTRA exige Python >=3.11 et pytest >=9.0.3 dans l'extra dev : compatibilité déclarée. Pas de GPU, API, clé, abonnement, crédit ou service cloud ; calcul CPU local. Les dépendances coverage/pluggy doivent rester verrouillées séparément. |
+| Matériel / plateformes | Hôte Python Linux/macOS/Windows ; charge faible à modérée, proportionnelle aux tests et à l'instrumentation. Pas une application Android/Samsung et pas un outil de couverture des applications natives sans runner/collecteur adapté. |
+| Sécurité / maintenance / limites | Dépôt non archivé, tag stable et commits observés jusqu'au 2026-10-18. La release PyPI consultée ne fournit pas d'attestation de provenance ; le tag GitHub est non signé. Vérifier le SHA de commit avant installation. Une issue ouverte signale un INTERNALERROR lors de la génération HTML avec Jinja dans certains contextes : commencer par terminal/XML, éviter HTML jusqu'à résolution. L'outil mesure l'exécution, pas la qualité sémantique ni la détection de défauts ; un taux élevé ne garantit pas l'absence de bugs. |
+| Projet cible / verdict | **AI ORCHESTRA : PASS comme outil de QA optionnel**, particulièrement utile pour suivre la couverture de EvidenceFetcher et des tests de sécurité. **NIA Studio AI : MAYBE** pour ses tests Python si le même besoin de mesure est confirmé. Aucun ajout à pyproject, lockfile ou workflow pendant ce cycle. |
+
+Preuves officielles :
+- Dépôt / README : https://github.com/pytest-dev/pytest-cov
+- Licence MIT : https://github.com/pytest-dev/pytest-cov/blob/master/LICENSE
+- Manifeste 7.1.0 : https://github.com/pytest-dev/pytest-cov/blob/v7.1.0/pyproject.toml
+- Tag : https://github.com/pytest-dev/pytest-cov/tree/v7.1.0
+- Commit de release : https://github.com/pytest-dev/pytest-cov/commit/66c8a526b1246b5eb8fb1bc218878131bc628622
+- Dernière activité observée : https://github.com/pytest-dev/pytest-cov/commit/a8cb1260170754f2aff9022cfd252c488098e813
+- PyPI 7.1.0 : https://pypi.org/project/pytest-cov/7.1.0/
+
+### 24.3 Nouvel outil — Atheris 3.1.0 (MAYBE, fuzzing isolé uniquement)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Atheris** — moteur de fuzzing Python guidé par la couverture, fondé sur libFuzzer ; peut aussi fuzz-er des extensions natives CPython instrumentées. |
+| Dépôt GitHub exact | https://github.com/google/atheris |
+| Source et licence | Code natif et Python publics ; fichier LICENSE : **Apache-2.0**. Conserver LICENSE et notices. |
+| Version / snapshot | Version PyPI 3.1.0 publiée le 2026-06-17. Commit principal observé `e36da74cf42b5834c4e31d7cabb58d796695d29f`, daté du 2026-06-17 17:29:03 UTC. Ce commit met à jour le pipeline de build et retire explicitement CPython 3.11 de sa matrice de wheels ; la release PyPI 3.1.0 consultée fournit des wheels Linux x86_64 CPython 3.12, 3.13 et 3.14 (environ 36,8–36,9 MB chacune), pas de wheel CPython 3.11 et pas de sdist 3.1.0. |
+| Fonctions utiles | Fuzzing à mutations guidées par couverture, corpus d'entrées, détection d'exceptions Python non interceptées ; compatible avec les cibles Python pures. Les extensions C/C++ nécessitent une instrumentation native cohérente avec la version libFuzzer. |
+| Installation reproductible depuis GitHub | Seulement dans un venv dédié Python 3.12+ : `git clone https://github.com/google/atheris.git`; `cd atheris`; `git checkout --detach e36da74cf42b5834c4e31d7cabb58d796695d29f`; `python -m pip install .`. Le build source exige un Clang récent avec libFuzzer ; préférer le wheel précompilé lorsque la provenance et le SHA sont vérifiés. |
+| Dépendances / coûts | Apache-2.0, moteur local CPU, aucun GPU, API, crédit, abonnement ou cloud requis. Wheel lourd (~37 MB) ; build natif potentiellement long et dépendant de Clang/libFuzzer. |
+| Matériel / plateformes | README : Linux 32/64 bits et macOS, CPython 3.11–3.14 annoncé ; toutefois le pipeline et les artefacts 3.1.0 vérifiés ne construisent/fournissent que 3.12–3.14. Pas de Windows/Samsung Android pris en charge. CPU/RAM dépendent du nombre d'itérations et du corpus ; fixer une durée et une limite de taille d'entrée. |
+| Maintenance / limites | Dépôt public non archivé, 32 issues ouvertes lors de la vérification ; issues récentes #108 (chemin libFuzzer codé en dur), #105 (échec de build 3.0.0), #104 (documentation de couverture) et #114 (support Python 3.15). L'issue #114 est ouverte depuis le 2026-10-10 et confirme la limite actuelle à Python 3.14. Pas d'attestation PyPI de provenance observée pour les wheels 3.1.0. Le README indique que le fuzzing mutationnel peut manquer les structures HTML complexes sans mutateur adapté. |
+| Projet cible / verdict | **AI ORCHESTRA : MAYBE** pour un job de fuzzing séparé en Python 3.12, ciblant uniquement `_VisibleTextParser` avec des seeds HTML malformés et une limite de taille <=256 KiB. Ne pas l'ajouter à la matrice Python 3.11/3.12 commune, ne jamais fuzz-er `EvidenceFetcher.fetch_many` (réseau), et ne pas rendre le fuzzing bloquant avant un corpus reproductible. Hypothesis déjà catalogué reste complémentaire et non remplacé. |
+
+Preuves officielles :
+- Dépôt / README : https://github.com/google/atheris
+- Licence Apache-2.0 : https://github.com/google/atheris/blob/master/LICENSE
+- Commit de pipeline et snapshot : https://github.com/google/atheris/commit/e36da74cf42b5834c4e31d7cabb58d796695d29f
+- Issue Python 3.15 / limite 3.14 : https://github.com/google/atheris/issues/114
+- Issue build : https://github.com/google/atheris/issues/105
+- Issue chemin libFuzzer : https://github.com/google/atheris/issues/108
+- PyPI 3.1.0 et wheel hashes : https://pypi.org/project/atheris/3.1.0/
+
+### 24.4 Installation et tests réellement effectués
+
+- Environnement local observé : Linux x86_64, Python 3.13.5, pytest 9.0.2, coverage 7.13.3, Clang présent dans `/usr/local/swift/usr/bin/clang`, mémoire disponible au contrôle ~4,7 GiB. Aucun GPU requis.
+- `pytest-cov 7.0.0` était déjà préinstallé dans l'environnement ; il n'a pas été installé par ce cycle. Smoke test isolé exécuté dans un répertoire temporaire : un test pytest utilisant `--cov=sample --cov-report=term-missing` a réussi (1 passed) et a mesuré 100 % de couverture sur la petite fixture de deux instructions. Ce test prouve uniquement le fonctionnement de la version préinstallée 7.0.0, pas de la version candidate 7.1.0 ni de AI ORCHESTRA.
+- Tentative réelle de lecture du tag GitHub 7.1.0 avec `git ls-remote https://github.com/pytest-dev/pytest-cov.git refs/tags/v7.1.0` : échec avant transfert, DNS `Could not resolve host: github.com`. La version 7.1.0 n'a donc pas été installée ni importée ; aucun smoke test exact-version n'est revendiqué.
+- Atheris n'est pas installé ; aucun clone, build, import ou fuzz run effectué. La contrainte de wheel CPython 3.11 et le build natif justifient de le garder en MAYBE.
+- Aucun fichier AI ORCHESTRA, autre dépôt Ascameleon, lockfile, dépendance, workflow, PR ou code de production modifié. Aucun secret, fournisseur, API payante, service cloud ou dépense ; coût **0 €**.
+
+### 24.5 Décisions et suites
+
+1. Conserver pytest-cov 7.1.0 en **PASS comme candidat de QA**, sans l'ajouter au runtime. Lorsque GitHub est accessible, installer le commit épinglé dans un venv séparé, vérifier la version et exécuter la couverture de la suite AI ORCHESTRA sur Python 3.11 et 3.12. Commencer par terminal/XML, établir un baseline et ne pas fixer de seuil arbitraire.
+2. Garder Atheris 3.1.0 en **MAYBE** ; si le besoin de fuzzing est confirmé, créer un job expérimental Python 3.12 isolé, un wrapper sans réseau, un corpus de seeds SVG/template/malformed-tags et une durée bornée. Ne pas ajouter de dépendance de production ni modifier la matrice actuelle.
+3. Ne pas remplacer Hypothesis : il est déjà présent au catalogue et les deux outils ont des approches complémentaires.
+4. PR AI ORCHESTRA #62 reste ouverte et en brouillon malgré les deux workflows exact-head réussis ; aucun changement ou merge n'a été demandé par ce cycle.
+5. Le catalogue contient maintenant **29 entrées admises/documentées** ; deux nouveaux candidats sont ajoutés : pytest-cov (PASS comme candidat QA, non installé) et Atheris (MAYBE, non installé). Aucun résultat de fuzzing ou couverture de AI ORCHESTRA n'est revendiqué.
+
+**Résultat du cycle 18 :** 2 outils nouveaux qualifiés (pytest-cov 7.1.0 PASS candidat ; Atheris 3.1.0 MAYBE) ; 0 installation de nouvelle version ; 1 smoke test réussi sur pytest-cov 7.0.0 déjà préinstallé ; 0 fuzz run ; aucun changement applicatif ; catalogue mis à jour uniquement sur `main` ; coût 0 €.
