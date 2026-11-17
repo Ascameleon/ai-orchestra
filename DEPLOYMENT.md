@@ -55,13 +55,13 @@ docker compose --env-file .env.production -f compose.production.yml restart orch
 docker compose --env-file .env.production -f compose.production.yml down
 ```
 
-The named `orchestra-data` volume stores bounded audit metadata, provider outcome aggregates, and the persistent daily request budget when SQLite is selected. The production profile reserves up to `ORCHESTRA_MAX_REQUESTS` provider attempts per UTC day; the counter survives restarts and uses SQLite transactions to serialize callers sharing this local file. When `ORCHESTRA_REDIS_URL` is set, Redis is used instead and atomically shares the daily cap across hosts. Back up the volume according to your retention policy. It does not contain prompts or completions.
+The named `orchestra-data` volume stores bounded audit metadata, provider outcome aggregates, and the persistent daily provider-attempt counter when SQLite is selected. The production profile allows up to `ORCHESTRA_MAX_REQUESTS` provider attempts per UTC day; the counter survives restarts and uses SQLite transactions to serialize callers sharing this local file. When `ORCHESTRA_REDIS_URL` is set, Redis is used instead and atomically shares the daily count cap across hosts. **This limit counts requests only: it is not a monetary budget, does not calculate token/model charges, and cannot guarantee a €/$ spend ceiling.** Set provider-side quotas and billing alerts separately. Back up the volume according to your retention policy. It does not contain prompts or completions.
 
 ## 5. Before public production traffic
 
 - Terminate TLS at a maintained reverse proxy or managed ingress and configure authentication/rate limits there as appropriate.
 - Keep API credentials in the host's secret manager or protected environment file; rotate them after suspected exposure.
 - Add external monitoring, backups, log retention, and an alerting path.
-- With `ORCHESTRA_BUDGET_DB` configured, the daily budget survives restarts and is atomic for processes sharing the same local SQLite file on one host. Set `ORCHESTRA_REDIS_URL` to use the optional Redis-backed shared daily quota across hosts. Neither backend replaces provider billing limits. Circuit breakers remain process-local.
+- With `ORCHESTRA_BUDGET_DB` configured, the daily request-count limit survives restarts and is atomic for processes sharing the same local SQLite file on one host. Set `ORCHESTRA_REDIS_URL` to use the optional Redis-backed shared request-count quota across hosts. Neither backend is a spend meter or replaces provider billing quotas/alerts. Circuit breakers remain process-local.
 - Run the test suite and dependency audit on the exact commit being deployed.
 - Run a controlled live smoke test with an explicitly budgeted provider key before accepting traffic.
