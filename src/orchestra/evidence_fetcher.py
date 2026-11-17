@@ -258,6 +258,7 @@ class EvidenceFetcher:
             if content_type == "text/html":
                 parser = _VisibleTextParser()
                 parser.feed(text)
+                parser.close()
                 text = " ".join(parser.parts)
             text = " ".join(text.split())[: self.max_text_chars]
             if not text:
