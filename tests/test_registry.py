@@ -22,6 +22,15 @@ def test_registry_normalizes_names_and_selects_explicit_provider():
     assert registry.names() == ("stub",)
 
 
+def test_registry_matches_adapter_identity_case_insensitively():
+    provider = StubProvider(" GEMINI ")
+    registry = ProviderRegistry()
+
+    registry.register(" Gemini ", provider)
+
+    assert registry.get("gemini") is provider
+
+
 def test_registry_rejects_missing_and_duplicate_providers():
     registry = ProviderRegistry()
     registry.register("stub", StubProvider())
