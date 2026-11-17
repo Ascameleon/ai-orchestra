@@ -628,3 +628,74 @@ Preuves amont consultées :
 - **0 nouvel outil admis** ; 1 candidat déjà différé (GStreamer) requalifié avec release, HEAD, licence, statut Android et preuves actualisés.
 - **0 installation GStreamer** ; **0 smoke test GStreamer** ; aucun coût.
 - Priorités : (1) actualiser le diagnostic Cycle 1 sur les derniers commits/runs ; (2) conserver TorcScan #5 en brouillon jusqu'au test matériel et synchroniser sa branche avec main avant toute fusion ; (3) ne réévaluer GStreamer que si NIA Studio AI ajoute une exigence réelle de capture/streaming temps réel.
+
+
+## 16. Cycle 10 — contrôle sécurité Go et état actuel des dépôts (2026-11-17, 09:10 Africa/Algiers)
+
+### 16.1 Diagnostics Cycle 1 et dépôts relus avant recherche
+
+- Lecture du catalogue canonique `main` avant toute nouvelle recherche : blob `9d7fbea9cb256850c05983c0226b81d56efc1b5b`, 631 lignes. Vérification anti-doublon : `govulncheck`, `detekt` et `Trivy` ne figuraient pas parmi les entrées qualifiées.
+- Recherche GitHub `org:Ascameleon is:open is:issue` et `org:Ascameleon cycle 1` : aucun rapport Cycle 1 ni issue ouverte exploitable retrouvé. Le dernier diagnostic Cycle 1 explicitement documenté reste celui du 2026-11-16 à 22:53 UTC ; il est ancien et n'est pas présenté comme un audit frais.
+- Heads `main` vérifiés par recherche des derniers commits :
+  - AI ORCHESTRA : `c988760145979138e555cc2506b17727e697de24` (2026-11-17 08:05 UTC).
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637` (2026-11-16 19:18 UTC).
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d` (2026-11-17 04:57 UTC).
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f` (2026-11-16 19:10 UTC).
+  - Tripradar (produit TripBoost) : `7b36e7fbfc9afeafc9bfee32cec1f43640cea67b` (2026-11-17 01:58 UTC).
+  - CallerID : `2c421c2efa038f80011a21b4874bb2105608ae04` (2026-11-16 20:27 UTC).
+  - NIA Studio AI : `c957672e70d4df34a9ced1912c3e4839d4face6c` (2026-11-17 06:08 UTC).
+- PR ouvertes importantes revérifiées :
+  - Tripradar #22, non-draft, head `7f89a4a2334ba62ca7fc2c35fc68e4baf5fefc85`, workflow `44045155589` terminé avec succès. La PR annule le fan-out Amadeus quand le client HTTP se déconnecte, avec fetch stubs uniquement ; aucune connexion fournisseur réelle ni clé utilisée.
+  - Torcscandz #5, draft, head `a227e6940241424b2eb2fe4cbfe2dfa9df1d985b`. Les deux workflows `44042628636` et `44042628651` sont réussis, mais la branche est divergente : 47 commits en avance et 2 en retard sur `main`. Le test Samsung + adaptateur ELM327/ECU reste nécessaire ; aucun merge.
+  - BLUE ALERTS #52 et #53 restent en draft et `mergeable=false`. #52 est divergente de 28 commits en avance et 40 en retard sur `main`. #51 reste en draft. PR #65 est déjà fusionnée : Playwright 1.65.1 est désormais épinglé sur `main`.
+- Le besoin outillage le plus concret non couvert est un contrôle de vulnérabilités atteignables dans le backend Go de CallerID : son workflow reconstruit `callerid/`, utilise Go `1.22.x`, puis lance `go test ./...` et `go vet ./...`. Les outils de test Android et d'observabilité sont déjà documentés ; aucun nouvel outil de mirroring ou GLB n'est ajouté.
+
+### 16.2 Nouvel outil qualifié — govulncheck (MAYBE)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **govulncheck** — analyse de vulnérabilités Go avec analyse statique des chemins d'appel |
+| Dépôt GitHub | https://github.com/golang/vuln — miroir GitHub du projet Go ; source canonique : https://go.googlesource.com/vuln ; module officiel : `golang.org/x/vuln` |
+| Licence | BSD-3-Clause pour le code source (`LICENSE` vérifiée). Les entrées de la base de vulnérabilités sont sous CC-BY 4.0 ; conserver l'attribution si elles sont redistribuées. |
+| Version épinglable | Dernière release stable publiée affichée : `v1.1.4`, tag commit `d1f380186385b4f64e00313f31743df8e4b89a77`. Le `go.mod` du tag déclare `go 1.22.0`. |
+| État upstream | HEAD du miroir observé : `e672cbe8fbc8c76e28fcb6db0efd9ce354e0dac5` (2026-10-11). Le `go.mod` actuel de la branche principale déclare `go 1.26.0` : ne pas installer `@latest` dans le workflow CallerID Go 1.22.x. La release stable v1.1.4 est l'option compatible à tester, mais elle est ancienne par rapport au HEAD actuel. |
+| Fonctions | Analyse des modules, packages et binaires ; relie les vulnérabilités connues aux fonctions effectivement atteignables, ce qui réduit les faux positifs par rapport à une simple liste de versions. Rapports texte/JSON/SARIF selon la version. |
+| Installation épinglée | `go install golang.org/x/vuln/cmd/govulncheck@v1.1.4`, puis depuis le module extrait `cd callerid && govulncheck ./...`. Ne pas utiliser `@latest` tant que la toolchain du projet reste Go 1.22.x. |
+| Dépendances / coûts | Go 1.22+ pour la version taggée ; pas de GPU, cloud, compte, abonnement ou API payante. Le scanner interroge normalement `https://vuln.go.dev` pour actualiser/consulter la base ; la documentation précise que les requêtes transmettent des chemins de modules concernés, pas le code source. Une exécution hors ligne nécessite une base locale préalablement fournie et maintenue à jour. |
+| Matériel / Android | Charge CPU et mémoire modérée, dépend du graphe de dépendances et de la taille du module. À exécuter sur le runner CI ou un hôte de développement ; ce n'est pas un composant embarqué dans l'APK et ne remplace pas les tests Samsung. |
+| Projet cible / verdict | CallerID backend Go : **MAYBE** — compatibilité de la release v1.1.4 avec Go 1.22 vérifiée dans son manifeste, mais ancienneté de la release et divergence entre tag stable et HEAD Go 1.26 imposent un essai isolé avant ajout au workflow. |
+
+Preuves amont :
+- Dépôt miroir et procédure officielle : https://github.com/golang/vuln
+- Release stable v1.1.4 : https://github.com/golang/vuln/releases
+- Commit du tag : https://github.com/golang/vuln/commit/d1f380186385b4f64e00313f31743df8e4b89a77
+- `go.mod` v1.1.4 : https://github.com/golang/vuln/blob/v1.1.4/go.mod
+- Confidentialité des requêtes à la base : https://vuln.go.dev/privacy
+
+### 16.3 Candidats examinés mais non admis
+
+| Candidat | Vérification | Décision |
+|---|---|---|
+| Detekt | Dépôt https://github.com/detekt/detekt, Apache-2.0 vérifiée. La release stable 1.23.8 documente Gradle 6.8.3+ mais sa matrice recommandée cible Gradle 8.12.1, Kotlin 2.0.21 et AGP 8.8.1 ; CallerID est en Gradle 8.9, Kotlin 1.9.24 et AGP 8.7.3. La branche 2.0 consultée est pré-release et cible une toolchain nettement plus récente. | **MAYBE / différé** : ne pas ajouter au build Android avant un essai sur la combinaison exacte ou une mise à niveau volontaire des versions Kotlin/AGP. |
+| Trivy | Dépôt actif et non archivé https://github.com/aquasecurity/trivy ; licence Apache-2.0 vérifiée ; HEAD observé `00b73947fd14332e6648b0b38edbb1ca5380a222` (2026-11-17 07:27 UTC). Le GitHub Security Advisory critique GHSA-69fq-xp46-6x23 documente la compromission de Trivy v0.69.4, des tags `trivy-action` et `setup-trivy`, puis des images Docker v0.69.5/v0.69.6 en mars 2026. | **FAIL pour intégration dans ce cycle** : aucun besoin imposant Trivy et historique de compromission de chaîne d'approvisionnement. Ne pas utiliser d'action tierce par tag mutable ni de conteneur avec socket Docker monté. Réévaluer uniquement après vérification d'une release immuable, de sa signature et de son checksum. |
+
+Preuve de sécurité Trivy : https://github.com/advisories/GHSA-69fq-xp46-6x23
+
+### 16.4 Installation et tests réellement effectués
+
+- Environnement contrôlé : Linux x86_64, Go `1.23.2`, Python `3.13.5`, Node `22.16.0`. Aucun binaire `govulncheck` préinstallé.
+- Tentative réelle d'installation isolée dans un GOPATH/GOBIN temporaire : `go install golang.org/x/vuln/cmd/govulncheck@v1.1.4`.
+- Échec avant téléchargement : résolution DNS de `proxy.golang.org` refusée (`lookup proxy.golang.org ... connection refused`). Aucun module téléchargé, aucun binaire installé, aucun `govulncheck -version`, scan ou test d'import réussi.
+- Aucun paquet ajouté au dépôt CallerID ; aucun workflow, lockfile ou source de production modifié.
+- Detekt et Trivy non installés ; aucun test d'exécution revendiqué.
+- Aucun secret lu, aucun fournisseur appelé, aucun service cloud ou API payante utilisé ; coût : 0 €.
+
+### 16.5 État du catalogue et priorités suivantes
+
+- **29 outils qualifiés ou conditionnels documentés** : 28 précédents + govulncheck (MAYBE). Detekt est différé et Trivy n'est pas admis ; ils ne sont pas comptés comme outils qualifiés.
+- Priorités :
+  1. Refaire le test isolé govulncheck v1.1.4 quand le réseau DNS/Go proxy est disponible ; n'ajouter au workflow CallerID qu'après un résultat sur le module extrait exact et un examen des findings.
+  2. Torcscandz #5 : synchroniser la branche avec `main` dans une opération contrôlée, puis revalider ; garder la PR en draft jusqu'au test Samsung/ELM327 physique.
+  3. Tripradar #22 : conserver les tests injectés et vérifier le workflow exact-head avant toute fusion ; aucune clé Amadeus ne doit être requise pour ces tests.
+  4. BLUE ALERTS #52/#53 : ne pas fusionner tant que les branches restent divergentes et que les critères visuels documentés ne sont pas satisfaits.
+  5. Cycle 1 : générer un diagnostic récent depuis les derniers commits et workflows ; aucun rapport Cycle 1 frais n'a été retrouvé dans les issues consultées pendant ce passage.
