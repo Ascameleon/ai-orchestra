@@ -1004,3 +1004,79 @@ Preuves amont :
 6. Torcscandz #5 : maintenir le brouillon jusqu'à la synchronisation de branche et au test Samsung + ELM327. BLUE ALERTS #51/#52/#53 : garder les critères MCP et captures exact-head ; aucun changement n'est justifié par l'ajout d'Androguard.
 
 **Résultat du cycle 14 :** 1 nouvel outil qualifié MAYBE (Androguard v4.1.4) ; 1 alternative non admise faute de qualification suffisante (MobSF) ; 0 installation ; 0 smoke test réussi ; aucun changement de production ; catalogue mis à jour sur `main` ; coût 0 €.
+
+
+---
+
+## 21. Cycle 15 — inventaire de vulnérabilités multi-écosystèmes avec OSV-Scanner (2026-11-17, 13:40 Africa/Algiers)
+
+### 21.1 Diagnostics Cycle 1 et état des projets relus avant recherche
+
+- Catalogue canonique relu sur `main` avant toute recherche : blob `7be428dcb310902fa50e2372c28dd0c03a7b1e3b`, 132 247 caractères. Comparaison anti-doublon effectuée : aucune entrée OSV-Scanner ou google/osv-scanner existante. Les entrées `govulncheck`, `gosec`, `Trivy` (candidat rejeté dans un cycle antérieur), `uv`, ainsi que les outils de QA déjà répertoriés restent distincts. OSV-Scanner apporte une analyse multi-écosystèmes des manifests/lockfiles et une base OSV locale ; il ne remplace pas govulncheck pour l'analyse de reachability Go.
+- Recherche GitHub des issues ouvertes de l'organisation Ascameleon : **aucune issue ouverte retournée**. Recherche de « Cycle 1 diagnostic audit report » dans AI ORCHESTRA : seul le présent catalogue a été retrouvé ; aucun rapport Cycle 1 autonome plus récent n'est disponible. Le dernier diagnostic formel conservé dans ce catalogue reste daté du 2026-11-16 à 22:53 UTC ; il n'est pas présenté comme un audit frais.
+- Heads `main` les plus récents retournés par la recherche GitHub :
+  - AI ORCHESTRA : `36c29474bd2c2d5262b26cb26f01b35d2455a78d` (mise à jour du catalogue, 2026-11-17 11:57:52 UTC).
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637`.
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d`.
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`.
+  - Tripradar/TripBoost : `c63b52ac27a56ad97393f61d36fb8968ccce0c53`.
+  - CallerID/Callerid : `2c421c2efa038f80011a21b4874bb2105608ae04`.
+  - NIA Studio AI : `2bb0e3ba8330350721e31c0bee4c3999eaab4552`.
+- PR opérationnelles relues :
+  - TripBoost #23 est ouverte, non fusionnée. Son head est `86ac011647dabb42591d54a4b85553d99ca69d24`; le workflow exact-head #209 (run `44080984916`) est terminé avec succès. La description de la PR rapporte 57 tests JavaScript réussis, des tests Python et validations Docker réussis ; aucun appel Amadeus réel n'est revendiqué.
+  - Torcscandz #5 est ouverte et en brouillon ; 7 fichiers modifiés. Elle exige toujours un test physique Samsung + adaptateur OBD2 avant fusion.
+  - BLUE ALERTS #51 est ouverte et en brouillon (4 fichiers) ; le pont Qwen/Blender attend un smoke test sur le poste cible. #52 et #53 restent des travaux artistiques en brouillon, avec validation visuelle exacte-head non acquise.
+- Besoin retenu : disposer d'un scanner local en lecture seule qui couvre les modules Go extraits dans le workflow CallerID et puisse ensuite être réutilisé sur les lockfiles Python/Node/Dart lorsqu'ils seront réellement présents. Le workflow CallerID reconstruit et extrait l'archive source dans `callerid`, utilise Go `1.22.x`, puis exécute `go test ./...` et `go vet ./...`. Le dépôt racine ne contient pas de `callerid/go.mod` avant cette étape d'extraction : ne pas prétendre qu'un scan direct du dépôt courant a déjà été effectué.
+- AI ORCHESTRA possède un `pyproject.toml` avec des plages de versions mais aucun `uv.lock` constaté dans le diagnostic du catalogue ; ne pas supposer que le scanner peut analyser ce fichier seul. NIA Studio AI restaure des `requirements.txt` depuis une archive, mais plusieurs exigences sont des plages non verrouillées ; l'issue OSV-Scanner #3262 signale précisément une limite sur les exigences Python non épinglées. Le premier cas d'usage reste donc le `go.mod` extrait de CallerID.
+
+### 21.2 OSV-Scanner v2.7.1 — analyse de vulnérabilités des dépendances (MAYBE)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **OSV-Scanner** — scanner CLI open source de vulnérabilités de dépendances, manifests, lockfiles, SBOM et images de conteneurs |
+| Dépôt GitHub exact | https://github.com/google/osv-scanner |
+| Source / licence | Code source public ; fichier `LICENSE` du tag v2.7.1 vérifié : **Apache-2.0**. Conserver le fichier de licence et les notices lors de redistribution. |
+| Version stable épinglée | Release GitHub **v2.7.1**, publiée le **2026-11-09**. Commit de release exact et signature GitHub vérifiée : `02f96a40691c2d155fdda799af436e111231e365`. URL : https://github.com/google/osv-scanner/releases/tag/v2.7.1 |
+| Activité amont | HEAD `main` observé : `5979c1de2800bd53c02f6bac7c9db4dc18d73fa3`, commit du **2026-11-17 03:06:34 UTC**. Le dépôt est actif ; la release v2.7.1 reste le tag stable retenu, ne pas suivre `main` ni `latest` dans un pipeline reproductible. |
+| Fonctions utiles | Analyse des dépendances Go, Python, Java, JavaScript, Dart, Rust, PHP, Ruby, C/C++ et d'autres écosystèmes ; lecture de lockfiles/manifests supportés ; détection de vulnérabilités depuis la base OSV ; rapports JSON, table, HTML, SARIF, SPDX et CycloneDX ; mode hors ligne avec base locale ; analyse de licences et recommandations de correction (cette dernière fonction n'est pas autorisée dans le premier essai). |
+| Installation reproductible | Préférer le binaire officiel précompilé de la release v2.7.1 pour Linux x86_64, macOS ou Windows. Exemple Linux amd64 : télécharger `https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64`, enregistrer sous `osv-scanner_linux_amd64`, puis `chmod +x osv-scanner_linux_amd64`. Télécharger aussi `multiple.intoto.jsonl` depuis la même release et vérifier le binaire avec `slsa-verifier verify-artifact ./osv-scanner_linux_amd64 --provenance-path multiple.intoto.jsonl --source-uri github.com/google/osv-scanner --source-tag v2.7.1`. Les binaires de release sont annoncés SLSA Level 3 par la documentation officielle. |
+| Compilation depuis les sources | Le `go.mod` du tag v2.7.1 déclare `go 1.27.3`. L'environnement de ce cycle dispose de Go 1.23.2 : **ne pas compiler depuis les sources ici**. La page d'installation générique indique Go 1.26.2+, mais le manifeste du tag épinglé est la référence conservatrice pour cette version. Le binaire précompilé évite de modifier la toolchain des projets. |
+| Dépendances | Implémentation Go ; le manifeste v2.7.1 inclut notamment `google/osv-scalibr`, bindings OSV, gRPC/protobuf et bibliothèques de parsing. Les binaires officiels évitent d'installer ces dépendances dans les projets. Aucun module à ajouter à CallerID ou AI ORCHESTRA pour utiliser le CLI. |
+| Coûts / réseau / confidentialité | Le code et le scanner sont gratuits ; aucun abonnement, crédit, GPU, clé secrète ou API commerciale n'est nécessaire. Le mode en ligne interroge OSV.dev et transmet les identifiants/version des dépendances ; ne pas l'utiliser pour le premier test si l'on veut éviter toute transmission. Le mode `--offline` consulte une base OSV locale et n'envoie aucun nom de projet/dépendance ; la base doit être téléchargée une première fois depuis les fichiers publics OSV (GCS/HTTPS), puis peut être utilisée sans réseau. Le téléchargement initial est gratuit mais consomme réseau et disque. |
+| Base hors ligne | La documentation officielle décrit `OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY` et la structure `<cache>/osv-scalibr/<ecosystem>/all.zip`. Pour CallerID, ne télécharger que la base Go nécessaire : `https://osv-vulnerabilities.storage.googleapis.com/Go/all.zip`, puis la placer sous `<cache>/osv-scalibr/Go/all.zip`. Vérifier l'intégrité du ZIP et sa date de mise à jour avant chaque campagne. L'option `--offline` ne télécharge ni ne rafraîchit la base pendant le scan. |
+| Commande d'évaluation CallerID — préparée, non exécutée | Après reconstruction et extraction par le workflow CallerID : `./osv-scanner_linux_amd64 scan source --lockfile ./callerid/go.mod --offline --no-call-analysis=go --no-resolve --format=json --output-file osv-callerid.json`. `--no-call-analysis=go` évite le chemin govulncheck qui peut télécharger des modules et remplir le cache Go ; `--no-resolve` évite la résolution transitive via un service externe ; JSON évite les formats de rapport affectés par l'issue #3256. Cette commande ne corrige ni ne modifie les dépendances. |
+| Matériel / compatibilité | Binaire hôte Linux/macOS/Windows, CPU généraliste ; aucun GPU et aucun service cloud requis pour l'analyse hors ligne. RAM/temps/disque varient avec le nombre de lockfiles, paquets et taille de la base locale ; mesurer avant de fixer un budget CI. Pas une application Android/Samsung : exécuter sur runner/ordinateur, après extraction de l'archive source. Compatible avec le module CallerID Go 1.22 en mode lecture de lockfile via binaire ; ne pas activer l'analyse d'appels Go lors du premier essai. |
+| Cibles Ascameleon | Priorité **CallerID** après extraction de `CallerID-v2.3-source-patched.zip` dans le workflow de build ; potentiel ultérieur pour AI ORCHESTRA si un lockfile Python réel est ajouté, NIA Studio AI si ses dépendances sont verrouillées, TorcScan si un `pubspec.lock` est effectivement présent, et TripBoost/BLUE ALERTS/Gameforge-3D si des lockfiles pris en charge sont confirmés. Ne pas prétendre qu'un scan de ces dépôts a déjà été effectué. |
+| Issues / limites amont à prendre en compte | #3273 : l'analyse d'appels Go peut télécharger des modules et écrire dans les caches Go ; la désactiver au premier essai. #3262 : exigences `requirements.txt` non épinglées/compoundées susceptibles d'être perdues avant résolution ; ne pas utiliser ce scanner comme preuve exhaustive sur les requirements non verrouillés. #3256 : certains reporters table/vertical/Markdown/CycloneDX peuvent masquer des erreurs d'écriture ; préférer JSON. #3261 : les scans récursifs peuvent ignorer des lockfiles suivis si un motif `.gitignore` les couvre ; passer le chemin explicite `--lockfile`. #3299 concerne la classification HTML de certains OS de conteneurs, non le scan Go source retenu. Le scanner n'est pas une preuve d'absence de vulnérabilité et ne remplace pas govulncheck ni les audits de code. |
+| Sécurité d'utilisation | Utiliser uniquement le binaire signé/provenancé de la release, épingler la version, vérifier SLSA avant exécution, analyser uniquement les sources autorisées. Premier essai strictement en lecture seule : ne pas utiliser `fix`, `--apply`, résolution réseau, analyse d'image ou MCP. Le dépôt documente des protections de traversée de chemins et de taille d'archives, mais tout scanner de fichiers non fiables doit rester isolé. |
+| Verdict | **MAYBE** — bon complément multi-écosystèmes pour un futur contrôle de dépendances, avec mode hors ligne et provenance SLSA ; pas encore installé ni testé ici. Le premier usage raisonnable est un scan Go explicite du répertoire CallerID extrait, en JSON et sans call-analysis. |
+
+Preuves officielles consultées :
+- Dépôt : https://github.com/google/osv-scanner
+- Licence Apache-2.0 du tag : https://github.com/google/osv-scanner/blob/v2.7.1/LICENSE
+- `go.mod` v2.7.1 : https://github.com/google/osv-scanner/blob/v2.7.1/go.mod
+- Release et commit signé : https://github.com/google/osv-scanner/releases/tag/v2.7.1 et https://github.com/google/osv-scanner/commit/02f96a40691c2d155fdda799af436e111231e365
+- Dernier commit amont observé : https://github.com/google/osv-scanner/commit/5979c1de2800bd53c02f6bac7c9db4dc18d73fa3
+- Installation / provenance SLSA : https://google.github.io/osv-scanner/installation/
+- Scan source et call-analysis : https://google.github.io/osv-scanner/usage/scan-source/
+- Mode hors ligne : https://google.github.io/osv-scanner/usage/offline-mode/
+- Lockfiles supportés : https://google.github.io/osv-scanner/supported-languages-and-lockfiles/
+- Issues : https://github.com/google/osv-scanner/issues/3273 ; https://github.com/google/osv-scanner/issues/3262 ; https://github.com/google/osv-scanner/issues/3256 ; https://github.com/google/osv-scanner/issues/3261 ; https://github.com/google/osv-scanner/issues/3299
+
+### 21.3 Installation et tests réellement effectués
+
+- Environnement hôte vérifié : Linux x86_64, Go 1.23.2, Python 3.13.5, Node 22.16.0. `command -v osv-scanner` n'a retourné aucun binaire préinstallé.
+- Tentative de téléchargement du binaire officiel v2.7.1 depuis GitHub avec `curl -I --connect-timeout 8 --max-time 15 -L https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64` : échec DNS `Could not resolve host: github.com`.
+- Aucun binaire téléchargé, aucune installation, aucune vérification SLSA locale, aucun scan de dépendances exécuté. Aucun fichier de production, workflow, lockfile ou dépendance des dépôts Ascameleon modifié.
+- La tentative de compilation depuis les sources n'a pas été lancée : le `go.mod` v2.7.1 requiert Go 1.27.3, supérieur au Go 1.23.2 de l'environnement.
+- Aucun accès OSV.dev ni appel deps.dev n'a été effectué ; aucune clé, API payante, dépense ou abonnement : **0 €**.
+
+### 21.4 Comparaison et décisions
+
+- `govulncheck` reste le candidat Go spécialisé déjà documenté ; OSV-Scanner est retenu comme complément multi-écosystèmes, pas comme remplacement.
+- `Trivy` reste non retenu dans les conditions de sécurité documentées au cycle antérieur ; ne pas le réintroduire par simple commodité.
+- Ne pas installer OSV-Scanner dans l'image runtime ni ajouter une dépendance à CallerID. L'intégration éventuelle doit être une étape CI non bloquante initiale, épinglée sur le binaire v2.7.1, avec provenance SLSA vérifiée, base locale datée, scan explicite du `go.mod` extrait et rapport JSON conservé comme artefact.
+- Si le DNS reste indisponible, fournir le binaire et la base OSV depuis une source pré-téléchargée et vérifiée ; ne pas contourner la vérification de provenance ni utiliser un binaire tiers non officiel.
+- Conserver les PR opérationnelles en l'état : TripBoost #23 attend la revue/fusion ; TorcScan #5 attend le test Samsung/OBD2 ; BLUE ALERTS #51 attend le smoke test MCP local et #52/#53 leurs validations visuelles exact-head.
+
+**Résultat du cycle 15 :** 1 nouvel outil qualifié MAYBE (OSV-Scanner v2.7.1) ; 0 installation ; 0 import/smoke test réussi ; 0 scan de projet ; aucun changement applicatif ; catalogue actualisé sur `main` ; coût 0 €.
