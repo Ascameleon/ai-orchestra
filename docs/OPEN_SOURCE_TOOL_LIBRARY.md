@@ -699,3 +699,86 @@ Preuve de sécurité Trivy : https://github.com/advisories/GHSA-69fq-xp46-6x23
   3. Tripradar #22 : conserver les tests injectés et vérifier le workflow exact-head avant toute fusion ; aucune clé Amadeus ne doit être requise pour ces tests.
   4. BLUE ALERTS #52/#53 : ne pas fusionner tant que les branches restent divergentes et que les critères visuels documentés ne sont pas satisfaits.
   5. Cycle 1 : générer un diagnostic récent depuis les derniers commits et workflows ; aucun rapport Cycle 1 frais n'a été retrouvé dans les issues consultées pendant ce passage.
+
+
+## 17. Cycle 11 — qualification des tests d'intégration Redis et de l'analyse de sécurité Go (2026-11-17, 09:41 Africa/Algiers)
+
+### 17.1 État et besoins vérifiés avant recherche
+
+- Catalogue canonique relu sur `main` avant recherche : blob `d4a7193f64f2a1d69c67444a4f1050e058f41781`. Contrôle anti-doublon : ni `testcontainers/testcontainers-python` ni `securego/gosec` ne figuraient dans les entrées antérieures.
+- Recherche des issues ouvertes `org:Ascameleon is:open` et `repo:Ascameleon/ai-orchestra is:open` : aucun rapport Cycle 1 récent exploitable retrouvé. Le dernier diagnostic Cycle 1 explicitement documenté dans le catalogue reste celui du 2026-11-16 à 22:53 UTC ; il est ancien et n'est pas présenté comme un audit actuel.
+- Heads `main` relus par recherche de commits récents :
+  - AI ORCHESTRA : `062b0f0c5475517cd89632a8d8eb437424ce6a28` (2026-11-17 08:23:18 UTC).
+  - Torcscandz : `1c98135210eecb314ac67e526000d37ca3f99637` (2026-11-16 19:18:35 UTC).
+  - BLUE ALERTS : `e1b629197ee93435d1c8616927bb452ccfc2854d` (2026-11-17 04:57:38 UTC).
+  - Gameforge-3D : `83ff2cd33c6380a63843a39ee3bed882e9a3c11f` (2026-11-16 19:10:37 UTC).
+  - Tripradar / produit TripBoost : `7b36e7fbfc9afeafc9bfee32cec1f43640cea67b` (2026-11-17 01:58:14 UTC).
+  - CallerID : `2c421c2efa038f80011a21b4874bb2105608ae04` (2026-11-16 20:27:25 UTC).
+  - NIA Studio AI : `c957672e70d4df34a9ced1912c3e4839d4face6c` (2026-11-17 06:08:29 UTC).
+- AI ORCHESTRA : `src/orchestra/guardrails.py` implémente `RedisDailyCostGuard` avec un script Lua `EVAL` atomique (GET/INCR/TTL/EXPIRE). `tests/test_guardrails.py` vérifie aujourd'hui ce chemin avec un `FakeRedis` maison qui simule le script ; il ne lance pas un serveur Redis réel. C'est un besoin concret de test d'intégration, mais le backend Redis reste optionnel et n'est pas nécessaire au mode SQLite local.
+- CallerID : le workflow de backend utilise Go `1.22.x` et exécute déjà `go test ./...` et `go vet ./...`. `govulncheck` est déjà au catalogue en MAYBE ; son installation précédente a échoué avant téléchargement à cause du DNS Go Proxy.
+- Torcscandz PR #5 est toujours ouverte et son descriptif exige un essai Samsung + adaptateur OBD2 physique ; Tripradar PR #22 est ouverte et sa validation utilise des fetch stubs. Aucun outil de mirroring ou de génération GLB supplémentaire n'est ajouté : scrcpy, Appium, Maestro, Patrol, glTF Transform, glTF Validator et meshoptimizer couvrent déjà ces domaines.
+
+### 17.2 Candidat — Testcontainers Python (MAYBE / différé, non installé)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Testcontainers Python** — tests d'intégration avec services jetables en conteneurs |
+| Dépôt GitHub | https://github.com/testcontainers/testcontainers-python |
+| Licence exacte | Apache-2.0 ; `LICENSE.txt` vérifiée dans le tag `testcontainers-v4.15.0` (blob observé `141e73f8f5fa18ec834d6e827fc7549acc0190e2`). |
+| Version / snapshot | Release `4.15.0`, publiée le 2026-07-24 ; commit exact du tag `04267b35bdcf79ee9d2efbfdd61b2512dab0bdac`. Un commit récent observé dans l'historique consulté : `6146aa1170f415fcc825ed9bddc4eacbeb937a12` (2026-10-07). Le dépôt n'est pas archivé. |
+| Compatibilité Python | `pyproject.toml` du tag : version 4.15.0, `requires-python >=3.10` ; compatible avec Python 3.11/3.12 d'AI ORCHESTRA. |
+| Fonctions | Lance des services temporaires pour tests fonctionnels/intégration ; modules PostgreSQL et Redis, ou conteneur générique. Pour AI ORCHESTRA, permettrait de vérifier le vrai script Lua de `RedisDailyCostGuard`, la réservation concurrente et la readiness contre un serveur Redis réel au lieu d'un faux client. |
+| Dépendances | Base : Docker SDK Python, urllib3, wrapt, typing-extensions, python-dotenv. L'extra `redis` du tag exige `redis>=7`, alors que le projet AI ORCHESTRA déclare `redis>=5,<7` : **ne pas installer l'extra `[redis]` dans l'environnement du projet**. Si réévalué, isoler le paquet et utiliser le client Redis déjà compatible avec le projet, après vérification de l'API du module choisi. |
+| Coûts / réseau | Pas d'abonnement ni d'API payante ; nécessite un daemon Docker et le téléchargement d'images OCI. Les téléchargements consomment réseau, stockage et temps CI ; aucun coût cloud intrinsèque si exécuté sur un runner local/CI déjà disponible. |
+| Sécurité / maintenance | Accès au socket Docker équivaut à un contrôle élevé du daemon ; exécuter seulement sur un runner isolé, sans monter le socket dans l'application, avec images officielles épinglées par digest. Plusieurs issues ouvertes sur la release 4.15.0 signalent des risques de nettoyage et de readiness : #1140 (Ryuk tué avant son délai de réaper, conteneurs de session laissés actifs), #1143 (prédicat HTTP ignoré pour certains statuts acceptés), #1138 et #1137 (comportement des stratégies d'attente). La release 4.15.0 date de juillet 2026 et ces défauts imposent de différer l'adoption. |
+| Matériel / Android | CPU/RAM/disque selon les images lancées ; Docker Engine/Desktop et accès réseau aux registres requis. Pas de GPU. Outil hôte/CI, **pas Android/Samsung**. L'environnement de ce cycle n'a ni binaire Docker ni socket `/var/run/docker.sock`. |
+| Installation préparée | Dans un environnement de test séparé uniquement : `python -m pip install "testcontainers==4.15.0"`. Ne pas ajouter au `pyproject.toml` d'AI ORCHESTRA avant correction/validation du nettoyage Ryuk et un smoke test avec Redis épinglé par digest. |
+| Projet cible / verdict | AI ORCHESTRA : **MAYBE / DIFFÉRÉ**. Utilité réelle pour valider le chemin Redis, mais risques connus de fuite de conteneurs, contrainte Docker élevée et conflit de version de l'extra Redis. Aucun déploiement ou ajout de dépendance autorisé à ce stade. |
+
+Preuves amont :
+- README et exemple PostgreSQL : https://github.com/testcontainers/testcontainers-python
+- Licence et manifeste de la release : https://github.com/testcontainers/testcontainers-python/tree/testcontainers-v4.15.0
+- Release 4.15.0 : https://github.com/testcontainers/testcontainers-python/releases/tag/testcontainers-v4.15.0
+- Issue nettoyage Ryuk #1140 : https://github.com/testcontainers/testcontainers-python/issues/1140
+- Issue prédicat HTTP #1143 : https://github.com/testcontainers/testcontainers-python/issues/1143
+- Package metadata / Python / Apache-2.0 : https://pypi.org/project/testcontainers/4.15.0/
+
+### 17.3 Candidat — gosec (MAYBE / incompatible avec la toolchain actuelle)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **gosec** — analyse statique de sécurité Go (AST, SSA et flux de données) |
+| Dépôt GitHub | https://github.com/securego/gosec |
+| Licence exacte | Apache-2.0, déclarée dans le README du dépôt et dans les en-têtes de code vérifiés. |
+| Version / snapshot | Release `v2.30.0`, tag commit `5eb1d104ef85ff2c905c877eb600e8c1dee33a22`, publiée le 2026-10-23 selon la version publiée référencée par pkg.go.dev. |
+| Fonctions | Règles de sécurité sur le code Go : secrets codés en dur, injections, commandes, traversée de chemins, SSRF, TLS/crypto et autres erreurs de sécurité. Analyse locale ; sortie texte, JSON ou SARIF. Complémentaire de `go vet` et de `govulncheck`, qui analyse plutôt les vulnérabilités connues des dépendances et leur atteignabilité. |
+| Compatibilité | Le README de la release indique Go >=1.25 ; le `go.mod` du tag déclare `go 1.26.0`. CallerID est encore sur Go 1.22.x ; l'environnement de ce cycle est Go 1.23.2. L'installation `go install` de cette version n'est donc pas compatible avec la toolchain disponible ni avec la matrice CI actuelle. |
+| Dépendances / coûts | Le `go.mod` du tag contient notamment des SDK Anthropic, OpenAI et Google GenAI en dépendances directes, en plus de nombreuses dépendances d'analyse. Le scan statique standard ne nécessite pas de clé ni d'appel fournisseur ; ne jamais activer de fonction de correction assistée distante sans audit distinct. Compilation et analyse locales, sans GPU ni abonnement. |
+| Matériel / Android | Binaire destiné à l'hôte Linux/Windows/macOS ou runner CI ; CPU/RAM selon taille du module. Ce n'est pas un outil embarqué dans l'APK et ne valide pas un appareil Samsung. |
+| Installation préparée | Commande documentée mais non exécutée : `go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0`. Ne pas remplacer la toolchain Go de CallerID pour ce seul outil. Une éventuelle utilisation d'un binaire précompilé devra être épinglée par checksum/signature et testée séparément avec le module Go 1.22 réel. |
+| Projet cible / verdict | CallerID backend Go : **MAYBE / DIFFÉRÉ**. Les règles sont pertinentes pour les endpoints OTP, les entrées HTTP et le traitement des données, mais la version actuelle exige Go 1.25/1.26 ; aucune intégration au workflow Go 1.22 n'est autorisée. |
+
+Preuves amont :
+- Dépôt et règles : https://github.com/securego/gosec
+- Release v2.30.0 : https://github.com/securego/gosec/releases/tag/v2.30.0
+- Commit du tag : https://github.com/securego/gosec/commit/5eb1d104ef85ff2c905c877eb600e8c1dee33a22
+- README (Go >=1.25) : https://github.com/securego/gosec/blob/v2.30.0/README.md
+- go.mod (Go 1.26.0) : https://github.com/securego/gosec/blob/v2.30.0/go.mod
+
+### 17.4 Installation et tests réellement effectués
+
+- Environnement contrôlé : Linux x86_64, Python 3.13.5, pip 25.1.1, Go 1.23.2. Aucun binaire Docker, aucun socket Docker `/var/run/docker.sock`, aucun module Python `testcontainers`, aucun binaire `gosec`.
+- Testcontainers : **aucune installation, aucun import et aucun smoke test**. Motif : absence de Docker et issues amont ouvertes sur le nettoyage Ryuk/readiness de la version 4.15.0. L'absence du daemon est un blocage matériel/runtime confirmé.
+- gosec : **aucune installation ni scan**. Motif : la version v2.30.0 exige Go >=1.25 et son `go.mod` déclare 1.26.0 ; l'environnement est Go 1.23.2 et CallerID CI Go 1.22.x.
+- Aucun outil ajouté à une application, aucun fichier de production, workflow, lockfile ou dépendance Ascameleon modifié. Aucun test de projet revendiqué pour ces deux candidats.
+- Aucun secret lu, aucun fournisseur appelé, aucun service cloud ni API payante utilisé ; coût : 0 €.
+
+### 17.5 Décisions et priorités suivantes
+
+1. AI ORCHESTRA : garder le test Redis simulé existant ; préférer, si un test réel devient nécessaire, un service Redis épinglé dans GitHub Actions ou Docker Compose sur un runner isolé, plutôt que d'adopter Testcontainers 4.15.0 tant que l'issue de nettoyage Ryuk #1140 n'est pas résolue et re-testée.
+2. CallerID : conserver `go test`, `go vet` et le candidat `govulncheck` déjà documenté ; réévaluer gosec lorsqu'une version officiellement compatible avec Go 1.22.x est disponible, ou après une mise à niveau Go décidée et testée séparément.
+3. Torcscandz #5 : ne pas confondre les validations APK CI avec la connexion Samsung/ELM327 physique ; conserver le brouillon jusqu'au test matériel.
+4. Cycle 1 : produire un diagnostic récent ; aucun rapport récent n'a été trouvé dans les issues ouvertes consultées.
+
+**Résultat de ce cycle :** 0 nouvel outil admis PASS ; 2 nouveaux candidats examinés et documentés en MAYBE/différé ; 0 installation ; 0 smoke test d'outil réussi ; aucun changement de production ; coût 0 €.
