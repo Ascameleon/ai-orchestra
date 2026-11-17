@@ -860,3 +860,68 @@ Preuves amont :
 6. Cycle 1 : générer un diagnostic actuel à partir des commits/workflows récents ; aucun rapport Cycle 1 récent n'a été retrouvé dans les issues consultées.
 
 **Résultat du cycle 12 :** 1 nouvel outil documenté en MAYBE (jactionlint) ; 2 alternatives comparées/non ajoutées séparément (zizmor et actionlint forks/upstream) ; 0 installation ; 0 smoke test réussi ; aucun changement de production ; catalogue mis à jour uniquement sur `main` ; coût 0 €.
+
+
+---
+
+## 19. Nouvel outil examiné — cycle du 2026-11-17 (11:42, Africa/Algiers)
+
+### 19.1 Trimesh — précontrôle géométrique local GLB/GLTF (MAYBE)
+
+| Champ | Qualification |
+|---|---|
+| Nom / catégorie | **Trimesh** — bibliothèque Python de chargement, export, inspection et analyse de maillages triangulaires et scènes 3D |
+| Dépôt GitHub exact | https://github.com/mikedh/trimesh |
+| Source et licence | Source complète publique ; licence MIT confirmée dans `LICENSE.md` du tag 5.2.1 (blob `d0571124dc68ee63553001f17f043d19250159cc`). Conserver le copyright et le texte MIT lors d'une redistribution. |
+| Version / commit épinglé | Release `5.2.1`, publiée le 2026-11-12 à 17:37 UTC. Le tag `5.2.1` pointe directement sur le commit `7fe4ac4405ba5af02756c2db729da6822510304c`. Dernier commit principal observé : ce même commit, daté 2026-11-12 17:09 UTC ; métadonnées du dépôt actualisées le 2026-11-17. |
+| Fonctions utiles vérifiées | Import/export GLB et glTF, OBJ, STL et PLY ; lecture de scènes avec plusieurs nœuds/instances ; nombre de sommets et faces, dimensions et bounding boxes, composants connectés, orientation, volume et propriété watertight ; génération de maillages procéduraux et round-trip local GLB. |
+| Installation reproductible depuis GitHub | Dans un environnement isolé Python 3.10+ : `python -m venv .venv-trimesh`, activer l'environnement, puis `python -m pip install "numpy>=1.21" "setuptools>=61" wheel`, enfin `python -m pip install --no-deps --no-build-isolation "git+https://github.com/mikedh/trimesh.git@7fe4ac4405ba5af02756c2db729da6822510304c"`. Vérifier ensuite `python -c "import trimesh; print(trimesh.__version__)"`. Ne pas installer l'extra `[all]` : il ajoute de nombreuses dépendances facultatives non nécessaires au contrôle GLB de base. |
+| Dépendances | Dépendance dure du tag : `numpy>=1.21`. Build : `setuptools>=61` et `wheel`. Extras optionnels séparés (par exemple scipy, networkx, shapely, rtree, pillow, lxml, pyglet, manifold3d) ; ne pas les ajouter au projet sans besoin identifié. Le README indique que le cœur peut charger GLB/glTF avec NumPy seul. |
+| Coûts / services propriétaires | MIT, exécution locale gratuite ; aucun compte, abonnement, crédit, GPU cloud ou appel API. L'installation depuis GitHub nécessite le réseau uniquement au téléchargement ; le contrôle d'un fichier GLB local n'en nécessite pas. |
+| Matériel / plateformes | Python 3.10+ sur Linux/macOS/Windows ; CPU et RAM proportionnels à la taille du maillage et de la scène ; aucun GPU requis pour les statistiques de géométrie de base. Pas une application Android/Samsung et pas une dépendance navigateur/Three.js. À utiliser comme outil QA hôte séparé. |
+| Compatibilité projet | **Gameforge-3D** et **BLUE ALERTS** : candidat pour précontrôler les GLB exportés (chargement, dimensions, nombre de primitives/sommets/faces, composants, volumes et round-trip). Peut être lancé dans une étape QA Python séparée sans modifier le runtime JavaScript. Aucun branchement CI ou dépendance applicative ajouté pendant ce cycle. |
+| Limites / sécurité | Ce n'est ni un moteur de rendu ni un validateur complet de fidélité PBR. Des issues amont ouvertes signalent des cas à ne pas utiliser comme critères d'acceptation sans tests dédiés : normalisation de couleurs glTF `COLOR_0` (#2669), normales de sommets sur triangles très fins (#2680) et lissage de normales à travers des plis éloignés (#2682). Ne pas lui confier la validation visuelle des couleurs, textures, normales ou du rendu final ; garder glTF-Validator et les captures Playwright pour ces contrôles. Pour les fichiers non fiables, n'autoriser que des GLB produits localement, limiter les tailles et ne pas activer de résolution d'URI distante. |
+| Verdict / cible | **MAYBE** pour un outil QA local de géométrie uniquement. Utile à Gameforge-3D et BLUE ALERTS ; ne pas l'intégrer au runtime ni l'utiliser seul pour accepter un asset PBR. Installation de la version épinglée 5.2.1 non réalisée à cause du DNS ; le smoke test ci-dessous porte uniquement sur la version 4.11.1 déjà présente dans l'environnement. |
+
+Preuves amont :
+- Dépôt / README : https://github.com/mikedh/trimesh
+- Release 5.2.1 : https://github.com/mikedh/trimesh/releases/tag/5.2.1
+- Référence exacte du tag : https://github.com/mikedh/trimesh/tree/5.2.1
+- Commit du tag : https://github.com/mikedh/trimesh/commit/7fe4ac4405ba5af02756c2db729da6822510304c
+- Manifeste de dépendances et Python minimum : https://github.com/mikedh/trimesh/blob/5.2.1/pyproject.toml
+- Licence MIT : https://github.com/mikedh/trimesh/blob/5.2.1/LICENSE.md
+- Issue couleurs normalisées : https://github.com/mikedh/trimesh/issues/2669
+- Issue normales de sommets : https://github.com/mikedh/trimesh/issues/2680
+- Issue lissage : https://github.com/mikedh/trimesh/issues/2682
+
+### 19.2 Installation et smoke test réellement effectués
+
+- Environnement hôte contrôlé : Python 3.13.5, NumPy 2.3.5, Git 2.47.3.
+- Une version **déjà présente dans l'image d'exécution**, `trimesh 4.11.1`, a été importée ; elle n'a pas été installée pendant ce cycle.
+- Smoke test local réussi sur cette version préinstallée : création d'une boîte 1×2×3, export GLB (960 octets), rechargement, vérification de 8 sommets, 12 faces, dimensions [1, 2, 3] et maillage watertight. Résultat : PASS pour le round-trip élémentaire de la version 4.11.1 uniquement.
+- Tentative d'installation du commit exact 5.2.1 avec `pip install --no-deps --target /tmp/asc-trimesh git+https://github.com/mikedh/trimesh.git@7fe4ac4405ba5af02756c2db729da6822510304c` : échec avant téléchargement, DNS de `github.com` non résolu. Aucun code source téléchargé, aucune version 5.2.1 installée, aucun import ou test de cette version revendiqué.
+- Aucun fichier de production, workflow, lockfile ou dépendance de Gameforge-3D / BLUE ALERTS modifié. Aucun asset du dépôt n'a été modifié ou accepté sur la base de ce smoke test.
+
+### 19.3 Alternative examinée mais non retenue — gltfjsx (FAIL pour les dépôts actuels)
+
+| Champ | Résultat |
+|---|---|
+| Dépôt | https://github.com/pmndrs/gltfjsx |
+| Licence | MIT confirmée dans `LICENSE` |
+| Dernier commit source observé | `f4fbfa2a19ffa7c05b1a93745da7b4a7abd497f4`, 2024-11-04 16:51 UTC |
+| Release | Aucune release GitHub publiée détectée pendant ce contrôle |
+| Fonction | Convertit les fichiers GLTF en composants JSX destinés à React Three Fiber |
+| Verdict | **FAIL pour l'adoption dans Gameforge-3D et BLUE ALERTS actuels** : ces runtimes utilisent Three.js direct et non React/React Three Fiber ; le générateur JSX n'apporte pas de bénéfice sans migration d'architecture, qui n'est pas autorisée. Le dépôt n'est pas déclaré globalement abandonné ; son adéquation aux stacks actuelles est insuffisante. |
+
+### 19.4 Comparaison avec le catalogue existant et décisions suivantes
+
+- Aucun doublon Trimesh détecté avant recherche. Les entrées existantes `glTF-Validator`, `glTF-Transform` et `meshoptimizer` restent complémentaires : validation du format, transformation/optimisation et inspection géométrique ne sont pas interchangeables.
+- `gltfjsx` n'est pas ajouté comme outil réutilisable ; son rejet d'adéquation est conservé ci-dessus.
+- Si le DNS redevient disponible, installer Trimesh 5.2.1 dans un environnement jetable, vérifier le commit et le numéro de version, puis exécuter le même round-trip GLB et des fixtures géométriques contrôlées. Avant tout ajout CI, définir des seuils de taille/triangles et comparer les résultats au validateur glTF et aux captures browser.
+- Ne pas activer les extras optionnels et ne pas modifier le runtime Three.js. Ne pas utiliser les résultats de Trimesh pour certifier la fidélité des matériaux, couleurs, textures ou normales.
+- Diagnostics Cycle 1 : aucune issue ouverte ou note de diagnostic dédiée n'a été retrouvée dans les recherches GitHub effectuées. Les états courants des branches et PR sont utilisés comme signaux opérationnels, sans les présenter comme un rapport Cycle 1 formel.
+- Projets contrôlés : AI ORCHESTRA `f49ba2a9d409c866642b350ecc32aedbf2b53901`, TorcScan `1c98135210eecb314ac67e526000d37ca3f99637`, BLUE ALERTS `e1b629197ee93435d1c8616927bb452ccfc2854d`, Gameforge-3D `83ff2cd33c6380a63843a39ee3bed882e9a3c11f`, TripBoost `c63b52ac27a56ad97393f61d36fb8968ccce0c53`, CallerID `2c421c2efa038f80011a21b4874bb2105608ae04`, NIA Studio AI `c957672e70d4df34a9ced1912c3e4839d4face6c`, Ruflo `056a11ece4ca3bd234aafd6221156d24b80a9544`, Playwright-Samsung `842479e849ac6115500939702358b3d66a764e72`.
+- PR ouvertes revérifiées : TorcScan #5 ouverte, brouillon, mergeable mais validation Samsung/OBD2 requise ; BLUE ALERTS #51 ouverte et brouillon, test MCP local en attente ; #52 et #53 ouvertes, brouillons et non mergeables, preuves visuelles exact-head encore requises. TripBoost #22 et NIA Studio AI #13 sont déjà fusionnées.
+- Statuts combinés des sept commits principaux consultés : aucun statut n'a été renvoyé par l'endpoint de statuts pour ces SHA ; cela ne vaut pas preuve d'échec ni de réussite des workflows. Ne pas annoncer ces commits comme CI verts sur cette seule base.
+
+**Résultat du cycle du 2026-11-17 :** 1 nouvel outil qualifié MAYBE (Trimesh 5.2.1) ; 1 alternative non retenue pour incompatibilité de stack (gltfjsx) ; 0 installation de la version candidate ; 1 smoke test réussi sur la version préinstallée 4.11.1 ; aucun changement applicatif ; catalogue actualisé sur `main` ; coût 0 €.
