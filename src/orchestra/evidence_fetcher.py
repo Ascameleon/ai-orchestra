@@ -55,8 +55,8 @@ class _VisibleTextParser(HTMLParser):
         if normalized_tag not in _IGNORED_TAGS:
             return
         # Only a matching ignored end tag may leave the hidden region. A
-        # malformed </style> inside <script>, for example, must not expose
-        # the remaining script contents as evidence text.
+        # malformed </template> inside <svg>, for example, must not expose
+        # the remaining SVG contents as evidence text.
         for index in range(len(self._ignored_stack) - 1, -1, -1):
             if self._ignored_stack[index] == normalized_tag:
                 del self._ignored_stack[index:]
