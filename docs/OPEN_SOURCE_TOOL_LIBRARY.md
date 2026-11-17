@@ -1374,6 +1374,7 @@ Preuves officielles :
 - Tentative réseau réelle `curl -I -L https://github.com/betterleaks/betterleaks/releases/latest` : échec DNS `Could not resolve host: github.com`. Les téléchargements GitHub étaient donc indisponibles depuis l'environnement.
 - JADX : aucun ZIP téléchargé, aucun import/build, aucun APK décompilé, aucun smoke test CLI/GUI.
 - Betterleaks : aucun binaire téléchargé ou exécuté ; aucun scan de dépôt ; aucune validation HTTP de secret.
+- Aucun workflow run ni status check n'a été retourné pour le commit documentaire `73a15428d75f268f0a94f76cc50bea2ed8624de8` ; aucune validation CI de ce commit n'est donc revendiquée.
 - Aucun APK, source applicative, dépendance, workflow, lockfile ou code de production Ascameleon modifié. Aucun secret utilisé ; aucun appel API payant ; coût **0 €**.
 
 ### 25.5 Décisions et suites
