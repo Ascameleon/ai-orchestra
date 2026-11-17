@@ -169,3 +169,34 @@ jobs:
           else
             gh issue create --repo "$GH_REPO" --title "$title" --body "$body"
           fi
+
+  resolve-recovered-blocker:
+    name: "Stage 6 — Resolve recovered blocker"
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      needs.stage-1-lint.result == 'success' &&
+      needs.stage-2-tests.result == 'success' &&
+      needs.stage-3-build.result == 'success' &&
+      needs.stage-4-security.result == 'success'
+    needs: [stage-1-lint, stage-2-tests, stage-3-build, stage-4-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close a stale quality blocker only after every gate passes on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="[Automation] Quality gate failure"
+          existing="$(gh issue list --repo "$GH_REPO" --state open --search "$title in:title" --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            echo "No open quality blocker to resolve."
+            exit 0
+          fi
+          gh issue comment "$existing" --repo "$GH_REPO" --body "$(printf 'All four engineering gates passed on main.\n\n- Commit: %s\n- Run: %s\n\nClosing this recovered quality-gate blocker. Any future failure will open a new issue.' "$SHA" "$RUN_URL")"
+          gh issue close "$existing" --repo "$GH_REPO" --reason completed
